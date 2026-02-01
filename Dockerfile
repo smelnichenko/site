@@ -1,6 +1,10 @@
 # Build stage
 FROM node:20-alpine AS builder
 
+# Build arguments for version info
+ARG GIT_HASH=unknown
+ARG BUILD_TIME
+
 WORKDIR /app
 
 # Copy package files
@@ -12,7 +16,9 @@ RUN npm ci
 # Copy source files
 COPY . .
 
-# Build the application
+# Build with version info passed as env vars
+ENV VITE_GIT_HASH=${GIT_HASH}
+ENV VITE_BUILD_TIME=${BUILD_TIME}
 RUN npm run build
 
 # Production stage

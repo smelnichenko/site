@@ -2,8 +2,11 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { execSync } from 'child_process'
 
-// Get git hash at build time
+// Get git hash at build time (from env var or git)
 function getGitHash(): string {
+  if (process.env.VITE_GIT_HASH && process.env.VITE_GIT_HASH !== 'unknown') {
+    return process.env.VITE_GIT_HASH
+  }
   try {
     return execSync('git rev-parse --short HEAD').toString().trim()
   } catch {
@@ -11,9 +14,9 @@ function getGitHash(): string {
   }
 }
 
-// Get build timestamp
+// Get build timestamp (from env var or current time)
 function getBuildTime(): string {
-  return new Date().toISOString()
+  return process.env.VITE_BUILD_TIME || new Date().toISOString()
 }
 
 export default defineConfig({
