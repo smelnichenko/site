@@ -26,23 +26,23 @@ function formatTimeAgo(dateString: string): string {
 }
 
 function RssDashboard() {
-  const [feeds, setFeeds] = useState<string[]>([]);
+  const [feeds, setFeeds] = useState<string[] | null>(null);
   const [configs, setConfigs] = useState<Map<string, RssFeedConfig>>(new Map());
   const [latestResults, setLatestResults] = useState<Map<string, RssFeedResult | null>>(new Map());
   const [chartData, setChartData] = useState<Map<string, ChartDataByCollection>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
     async function loadData() {
       try {
-        setLoading(true);
-        setError(null);
-
-        const feedNames = await fetchRssFeeds();
+        const feedNames = await fetchRssFeeds(controller.signal);
+        if (cancelled) return;
         setFeeds(feedNames);
 
-        const configList = await fetchRssConfig();
+        const configList = await fetchRssConfig(controller.signal);
+        if (cancelled) return;
         const configMap = new Map<string, RssFeedConfig>();
         if (configList) {
           for (const config of configList) {
@@ -55,33 +55,34 @@ function RssDashboard() {
         const charts = new Map<string, ChartDataByCollection>();
 
         for (const name of feedNames) {
-          const result = await fetchRssLatestResult(name);
+          if (cancelled) return;
+          const result = await fetchRssLatestResult(name, controller.signal);
           results.set(name, result);
 
-          const data = await fetchRssChartData(name);
+          if (cancelled) return;
+          const data = await fetchRssChartData(name, 100, controller.signal);
           charts.set(name, data);
         }
 
+        if (cancelled) return;
         setLatestResults(results);
         setChartData(charts);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-      } finally {
-        setLoading(false);
+      } catch {
+        // Ignore errors from aborted requests
       }
     }
 
     loadData();
     const interval = setInterval(loadData, 60000);
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearInterval(interval);
+    };
   }, []);
 
-  if (loading && feeds.length === 0) {
+  if (feeds === null) {
     return <div className="loading">Loading RSS feeds...</div>;
-  }
-
-  if (error) {
-    return <div className="error">{error}</div>;
   }
 
   if (feeds.length === 0) {

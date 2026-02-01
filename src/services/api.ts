@@ -43,14 +43,14 @@ export interface PageStats {
 
 const API_BASE = '/api';
 
-export async function fetchPages(): Promise<string[]> {
-  const response = await fetch(`${API_BASE}/monitor/pages`);
+export async function fetchPages(signal?: AbortSignal): Promise<string[]> {
+  const response = await fetch(`${API_BASE}/monitor/pages`, { signal });
   if (!response.ok) throw new Error('Failed to fetch pages');
   return response.json();
 }
 
-export async function fetchPageConfig(): Promise<PageConfig[]> {
-  const response = await fetch(`${API_BASE}/monitor/config`);
+export async function fetchPageConfig(signal?: AbortSignal): Promise<PageConfig[]> {
+  const response = await fetch(`${API_BASE}/monitor/config`, { signal });
   if (!response.ok) throw new Error('Failed to fetch config');
   return response.json();
 }
@@ -58,25 +58,26 @@ export async function fetchPageConfig(): Promise<PageConfig[]> {
 export async function fetchResults(
   pageName?: string,
   page = 0,
-  size = 100
+  size = 100,
+  signal?: AbortSignal
 ): Promise<PagedResponse<MonitorResult>> {
   const endpoint = pageName
     ? `${API_BASE}/monitor/results/${encodeURIComponent(pageName)}`
     : `${API_BASE}/monitor/results`;
-  const response = await fetch(`${endpoint}?page=${page}&size=${size}`);
+  const response = await fetch(`${endpoint}?page=${page}&size=${size}`, { signal });
   if (!response.ok) throw new Error('Failed to fetch results');
   return response.json();
 }
 
-export async function fetchLatestResult(pageName: string): Promise<MonitorResult | null> {
-  const response = await fetch(`${API_BASE}/monitor/results/${encodeURIComponent(pageName)}/latest`);
+export async function fetchLatestResult(pageName: string, signal?: AbortSignal): Promise<MonitorResult | null> {
+  const response = await fetch(`${API_BASE}/monitor/results/${encodeURIComponent(pageName)}/latest`, { signal });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error('Failed to fetch latest result');
   return response.json();
 }
 
-export async function fetchPageStats(pageName: string): Promise<PageStats> {
-  const response = await fetch(`${API_BASE}/monitor/stats/${encodeURIComponent(pageName)}`);
+export async function fetchPageStats(pageName: string, signal?: AbortSignal): Promise<PageStats> {
+  const response = await fetch(`${API_BASE}/monitor/stats/${encodeURIComponent(pageName)}`, { signal });
   if (!response.ok) throw new Error('Failed to fetch stats');
   return response.json();
 }
@@ -138,14 +139,14 @@ export type ChartDataByCollection = Record<string, MetricChartPoint[]>;
 
 // RSS Feed API Functions
 
-export async function fetchRssFeeds(): Promise<string[]> {
-  const response = await fetch(`${API_BASE}/rss/feeds`);
+export async function fetchRssFeeds(signal?: AbortSignal): Promise<string[]> {
+  const response = await fetch(`${API_BASE}/rss/feeds`, { signal });
   if (!response.ok) throw new Error('Failed to fetch RSS feeds');
   return response.json();
 }
 
-export async function fetchRssConfig(): Promise<RssFeedConfig[]> {
-  const response = await fetch(`${API_BASE}/rss/config`);
+export async function fetchRssConfig(signal?: AbortSignal): Promise<RssFeedConfig[]> {
+  const response = await fetch(`${API_BASE}/rss/config`, { signal });
   if (!response.ok) throw new Error('Failed to fetch RSS config');
   return response.json();
 }
@@ -153,17 +154,19 @@ export async function fetchRssConfig(): Promise<RssFeedConfig[]> {
 export async function fetchRssResults(
   feedName: string,
   page = 0,
-  size = 100
+  size = 100,
+  signal?: AbortSignal
 ): Promise<PagedResponse<RssFeedResult>> {
   const response = await fetch(
-    `${API_BASE}/rss/results/${encodeURIComponent(feedName)}?page=${page}&size=${size}`
+    `${API_BASE}/rss/results/${encodeURIComponent(feedName)}?page=${page}&size=${size}`,
+    { signal }
   );
   if (!response.ok) throw new Error('Failed to fetch RSS results');
   return response.json();
 }
 
-export async function fetchRssLatestResult(feedName: string): Promise<RssFeedResult | null> {
-  const response = await fetch(`${API_BASE}/rss/results/${encodeURIComponent(feedName)}/latest`);
+export async function fetchRssLatestResult(feedName: string, signal?: AbortSignal): Promise<RssFeedResult | null> {
+  const response = await fetch(`${API_BASE}/rss/results/${encodeURIComponent(feedName)}/latest`, { signal });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error('Failed to fetch latest RSS result');
   return response.json();
@@ -171,10 +174,12 @@ export async function fetchRssLatestResult(feedName: string): Promise<RssFeedRes
 
 export async function fetchRssChartData(
   feedName: string,
-  limit = 100
+  limit = 100,
+  signal?: AbortSignal
 ): Promise<ChartDataByCollection> {
   const response = await fetch(
-    `${API_BASE}/rss/results/${encodeURIComponent(feedName)}/chart-data?limit=${limit}`
+    `${API_BASE}/rss/results/${encodeURIComponent(feedName)}/chart-data?limit=${limit}`,
+    { signal }
   );
   if (!response.ok) throw new Error('Failed to fetch RSS chart data');
   return response.json();

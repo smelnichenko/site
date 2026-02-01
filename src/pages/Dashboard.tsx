@@ -4,48 +4,48 @@ import PageCard from '../components/PageCard';
 import ValueChart from '../components/ValueChart';
 
 function Dashboard() {
-  const [pages, setPages] = useState<string[]>([]);
+  const [pages, setPages] = useState<string[] | null>(null);
   const [latestResults, setLatestResults] = useState<Map<string, MonitorResult | null>>(new Map());
   const [allResults, setAllResults] = useState<MonitorResult[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
     async function loadData() {
       try {
-        setLoading(true);
-        setError(null);
-
-        const pageNames = await fetchPages();
+        const pageNames = await fetchPages(controller.signal);
+        if (cancelled) return;
         setPages(pageNames);
 
         const results = new Map<string, MonitorResult | null>();
         for (const name of pageNames) {
-          const result = await fetchLatestResult(name);
+          if (cancelled) return;
+          const result = await fetchLatestResult(name, controller.signal);
           results.set(name, result);
         }
+        if (cancelled) return;
         setLatestResults(results);
 
-        const allResultsResponse = await fetchResults(undefined, 0, 200);
+        const allResultsResponse = await fetchResults(undefined, 0, 200, controller.signal);
+        if (cancelled) return;
         setAllResults(allResultsResponse.content);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-      } finally {
-        setLoading(false);
+      } catch {
+        // Ignore errors from aborted requests
       }
     }
 
     loadData();
     const interval = setInterval(loadData, 60000);
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearInterval(interval);
+    };
   }, []);
 
-  if (loading && pages.length === 0) {
+  if (pages === null) {
     return <div className="loading">Loading...</div>;
-  }
-
-  if (error) {
-    return <div className="error">{error}</div>;
   }
 
   const resultsByPage = new Map<string, MonitorResult[]>();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import ReactPaginate from 'react-paginate';
 import {
@@ -28,19 +28,29 @@ function RssFeedDetail() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
+  const controllerRef = useRef<AbortController | null>(null);
 
   const decodedFeedName = feedName ? decodeURIComponent(feedName) : '';
   const totalPages = Math.ceil(totalElements / PAGE_SIZE);
 
   async function loadData(page = 0) {
     if (!decodedFeedName) return;
+
+    // Cancel previous request
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
+    controllerRef.current = new AbortController();
+    const signal = controllerRef.current.signal;
+
     try {
       setError(null);
       const [resultsResponse, chartDataResponse, configList] = await Promise.all([
-        fetchRssResults(decodedFeedName, page, PAGE_SIZE),
-        fetchRssChartData(decodedFeedName),
-        fetchRssConfig(),
+        fetchRssResults(decodedFeedName, page, PAGE_SIZE, signal),
+        fetchRssChartData(decodedFeedName, 100, signal),
+        fetchRssConfig(signal),
       ]);
+      if (signal.aborted) return;
       setResults(resultsResponse.content);
       setTotalElements(resultsResponse.totalElements);
       setChartData(chartDataResponse);
@@ -49,10 +59,12 @@ function RssFeedDetail() {
         const feedConfig = configList.find((c) => c.name === decodedFeedName);
         setConfig(feedConfig || null);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } catch {
+      if (signal.aborted) return;
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
   }
 
@@ -60,6 +72,12 @@ function RssFeedDetail() {
     setLoading(true);
     setCurrentPage(0);
     loadData(0);
+
+    return () => {
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+      }
+    };
   }, [decodedFeedName]);
 
   function handlePageChange({ selected }: { selected: number }) {
@@ -75,6 +93,7 @@ function RssFeedDetail() {
       await triggerRssCheck(decodedFeedName);
       await loadData();
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Check failed');
     } finally {
       setChecking(false);

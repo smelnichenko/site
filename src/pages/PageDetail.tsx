@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import ReactPaginate from 'react-paginate';
 import {
@@ -25,25 +25,37 @@ function PageDetail() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
+  const controllerRef = useRef<AbortController | null>(null);
 
   const decodedPageName = pageName ? decodeURIComponent(pageName) : '';
   const totalPages = Math.ceil(totalElements / PAGE_SIZE);
 
   async function loadData(page = 0) {
     if (!decodedPageName) return;
+
+    // Cancel previous request
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
+    controllerRef.current = new AbortController();
+    const signal = controllerRef.current.signal;
+
     try {
       setError(null);
       const [resultsResponse, statsResponse] = await Promise.all([
-        fetchResults(decodedPageName, page, PAGE_SIZE),
-        fetchPageStats(decodedPageName),
+        fetchResults(decodedPageName, page, PAGE_SIZE, signal),
+        fetchPageStats(decodedPageName, signal),
       ]);
+      if (signal.aborted) return;
       setResults(resultsResponse.content);
       setTotalElements(resultsResponse.totalElements);
       setStats(statsResponse);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } catch {
+      if (signal.aborted) return;
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
   }
 
@@ -51,6 +63,12 @@ function PageDetail() {
     setLoading(true);
     setCurrentPage(0);
     loadData(0);
+
+    return () => {
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+      }
+    };
   }, [decodedPageName]);
 
   function handlePageChange({ selected }: { selected: number }) {
@@ -66,6 +84,7 @@ function PageDetail() {
       await triggerCheck(decodedPageName);
       await loadData();
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Check failed');
     } finally {
       setChecking(false);
