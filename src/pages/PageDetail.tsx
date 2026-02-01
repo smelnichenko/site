@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import ReactPaginate from 'react-paginate';
 import {
   fetchResults,
   fetchPageStats,
@@ -13,6 +14,8 @@ function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleString();
 }
 
+const PAGE_SIZE = 20;
+
 function PageDetail() {
   const { pageName } = useParams<{ pageName: string }>();
   const [results, setResults] = useState<MonitorResult[]>([]);
@@ -20,18 +23,22 @@ function PageDetail() {
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   const decodedPageName = pageName ? decodeURIComponent(pageName) : '';
+  const totalPages = Math.ceil(totalElements / PAGE_SIZE);
 
-  async function loadData() {
+  async function loadData(page = 0) {
     if (!decodedPageName) return;
     try {
       setError(null);
       const [resultsResponse, statsResponse] = await Promise.all([
-        fetchResults(decodedPageName, 0, 100),
+        fetchResults(decodedPageName, page, PAGE_SIZE),
         fetchPageStats(decodedPageName),
       ]);
       setResults(resultsResponse.content);
+      setTotalElements(resultsResponse.totalElements);
       setStats(statsResponse);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -42,8 +49,14 @@ function PageDetail() {
 
   useEffect(() => {
     setLoading(true);
-    loadData();
+    setCurrentPage(0);
+    loadData(0);
   }, [decodedPageName]);
+
+  function handlePageChange({ selected }: { selected: number }) {
+    setCurrentPage(selected);
+    loadData(selected);
+  }
 
   async function handleManualCheck() {
     if (!decodedPageName) return;
@@ -126,7 +139,7 @@ function PageDetail() {
             </tr>
           </thead>
           <tbody>
-            {results.slice(0, 20).map((result) => (
+            {results.map((result) => (
               <tr key={result.id}>
                 <td>{formatDate(result.checkedAt)}</td>
                 <td>
@@ -147,6 +160,25 @@ function PageDetail() {
             ))}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <>
+            <ReactPaginate
+              pageCount={totalPages}
+              pageRangeDisplayed={3}
+              marginPagesDisplayed={1}
+              onPageChange={handlePageChange}
+              forcePage={currentPage}
+              containerClassName="pagination"
+              activeClassName="selected"
+              disabledClassName="disabled"
+              previousLabel="← Prev"
+              nextLabel="Next →"
+            />
+            <div className="pagination-info">
+              Showing {currentPage * PAGE_SIZE + 1}-{Math.min((currentPage + 1) * PAGE_SIZE, totalElements)} of {totalElements}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

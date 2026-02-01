@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import ReactPaginate from 'react-paginate';
 import {
   fetchRssResults,
   fetchRssChartData,
@@ -15,6 +16,8 @@ function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleString();
 }
 
+const PAGE_SIZE = 20;
+
 function RssFeedDetail() {
   const { feedName } = useParams<{ feedName: string }>();
   const [results, setResults] = useState<RssFeedResult[]>([]);
@@ -23,19 +26,23 @@ function RssFeedDetail() {
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   const decodedFeedName = feedName ? decodeURIComponent(feedName) : '';
+  const totalPages = Math.ceil(totalElements / PAGE_SIZE);
 
-  async function loadData() {
+  async function loadData(page = 0) {
     if (!decodedFeedName) return;
     try {
       setError(null);
       const [resultsResponse, chartDataResponse, configList] = await Promise.all([
-        fetchRssResults(decodedFeedName, 0, 100),
+        fetchRssResults(decodedFeedName, page, PAGE_SIZE),
         fetchRssChartData(decodedFeedName),
         fetchRssConfig(),
       ]);
       setResults(resultsResponse.content);
+      setTotalElements(resultsResponse.totalElements);
       setChartData(chartDataResponse);
 
       if (configList) {
@@ -51,8 +58,14 @@ function RssFeedDetail() {
 
   useEffect(() => {
     setLoading(true);
-    loadData();
+    setCurrentPage(0);
+    loadData(0);
   }, [decodedFeedName]);
+
+  function handlePageChange({ selected }: { selected: number }) {
+    setCurrentPage(selected);
+    loadData(selected);
+  }
 
   async function handleManualCheck() {
     if (!decodedFeedName) return;
@@ -156,7 +169,7 @@ function RssFeedDetail() {
             </tr>
           </thead>
           <tbody>
-            {results.slice(0, 20).map((result) => (
+            {results.map((result) => (
               <tr key={result.id}>
                 <td>{formatDate(result.checkedAt)}</td>
                 <td>{result.articleCount ?? '-'}</td>
@@ -182,6 +195,25 @@ function RssFeedDetail() {
             ))}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <>
+            <ReactPaginate
+              pageCount={totalPages}
+              pageRangeDisplayed={3}
+              marginPagesDisplayed={1}
+              onPageChange={handlePageChange}
+              forcePage={currentPage}
+              containerClassName="pagination"
+              activeClassName="selected"
+              disabledClassName="disabled"
+              previousLabel="← Prev"
+              nextLabel="Next →"
+            />
+            <div className="pagination-info">
+              Showing {currentPage * PAGE_SIZE + 1}-{Math.min((currentPage + 1) * PAGE_SIZE, totalElements)} of {totalElements}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
