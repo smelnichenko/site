@@ -100,7 +100,7 @@ function RssDashboard() {
           const config = configs.get(feedName);
 
           return (
-            <div key={feedName} className="card">
+            <div key={feedName} className="card" data-testid="rss-feed-card">
               <div className="card-header">
                 <Link to={`/rss/${encodeURIComponent(feedName)}`} className="card-title">
                   {feedName}

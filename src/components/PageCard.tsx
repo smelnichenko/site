@@ -22,7 +22,7 @@ function formatTimeAgo(dateString: string): string {
 
 function PageCard({ pageName, latestResult }: PageCardProps) {
   return (
-    <div className="card">
+    <div className="card" data-testid="page-card">
       <div className="card-header">
         <Link to={`/page/${encodeURIComponent(pageName)}`} className="card-title">
           {pageName}
