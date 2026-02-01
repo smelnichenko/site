@@ -4,13 +4,29 @@ import PageDetail from './pages/PageDetail';
 import RssDashboard from './pages/RssDashboard';
 import RssFeedDetail from './pages/RssFeedDetail';
 
+function formatBuildTime(isoString: string): string {
+  try {
+    const date = new Date(isoString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return isoString;
+  }
+}
+
+const buildInfo = `${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`;
+
 function App() {
   const location = useLocation();
 
   return (
     <div>
       <header className="header">
-        <h1>Monitor Dashboard</h1>
+        <h1 title={buildInfo}>Monitor Dashboard</h1>
         <nav className="nav">
           <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
             Pages
