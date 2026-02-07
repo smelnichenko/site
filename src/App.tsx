@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import PageDetail from './pages/PageDetail';
@@ -19,10 +20,25 @@ function formatBuildTime(isoString: string): string {
   }
 }
 
-const buildInfo = `${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`;
-
 function App() {
   const location = useLocation();
+  const [buildInfo, setBuildInfo] = useState(
+    `FE: ${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`
+  );
+
+  useEffect(() => {
+    fetch('/api/build-info')
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then((data: { gitHash: string; buildTime: string }) => {
+        const feLine = `FE: ${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`;
+        const beLine = `BE: ${data.gitHash}${data.buildTime ? ' · ' + formatBuildTime(data.buildTime) : ''}`;
+        setBuildInfo(`${feLine}\n${beLine}`);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div>
