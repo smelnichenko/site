@@ -78,8 +78,8 @@ function MetricChart({ data, metrics, title }: MetricChartProps) {
                 name={metric}
                 stroke={COLORS[index % COLORS.length]}
                 strokeWidth={2}
-                dot={{ fill: COLORS[index % COLORS.length], r: 3 }}
-                activeDot={{ r: 5 }}
+                dot={false}
+                activeDot={false}
               />
             ))}
           </LineChart>

@@ -80,8 +80,8 @@ function ValueChart({ data, title }: ValueChartProps) {
               dataKey="value"
               stroke="#0066cc"
               strokeWidth={2}
-              dot={{ fill: '#0066cc', strokeWidth: 2, r: 3 }}
-              activeDot={{ r: 5 }}
+              dot={false}
+              activeDot={false}
             />
           </LineChart>
         </ResponsiveContainer>
