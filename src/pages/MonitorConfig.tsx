@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   PageMonitorConfig, PageMonitorRequest, RssFeedMonitorConfig, RssFeedMonitorRequest,
   MonitorResult, RssFeedResult,
@@ -6,6 +6,13 @@ import {
   fetchRssFeedMonitorConfigs, createRssFeedMonitor, updateRssFeedMonitor, deleteRssFeedMonitor,
   testPageMonitor, testRssFeedMonitor,
 } from '../services/api';
+
+// Spring cron: 6 fields (sec min hour day month weekday)
+const CRON_PATTERN = /^(\S+\s+){5}\S+$/;
+
+function isValidCron(cron: string): boolean {
+  return CRON_PATTERN.test(cron.trim());
+}
 
 // --- Page Monitor Form ---
 
@@ -44,31 +51,35 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
   };
 
   const handleTest = async () => {
+    if (!formRef.current?.reportValidity()) return;
     setTestingForm(true);
     setFormTestResult(null);
     try { setFormTestResult(await testPageMonitor(form)); } catch { /* ignore */ }
     setTestingForm(false);
   };
 
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const isValid = form.name.trim() !== '' && form.url.trim() !== '' && form.pattern.trim() !== '' && form.cron.trim() !== '' && isValidCron(form.cron);
+
   return (
-    <form className="config-form" onSubmit={handleSubmit}>
+    <form className="config-form" onSubmit={handleSubmit} ref={formRef}>
       {error && <div className="error">{error}</div>}
       <div className="form-row">
         <div className="form-group">
-          <label>Name</label>
+          <label>Name <span className="required">*</span></label>
           <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
         </div>
         <div className="form-group">
-          <label>Cron</label>
-          <input value={form.cron} onChange={e => setForm({ ...form, cron: e.target.value })} required placeholder="0 0 * * * *" />
+          <label>Cron <span className="required">*</span></label>
+          <input value={form.cron} onChange={e => setForm({ ...form, cron: e.target.value })} required placeholder="0 0 * * * *" pattern="(\S+\s+){5}\S+" title="Spring cron: 6 fields (sec min hour day month weekday)" />
         </div>
       </div>
       <div className="form-group">
-        <label>URL</label>
-        <input value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required />
+        <label>URL <span className="required">*</span></label>
+        <input type="url" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required />
       </div>
       <div className="form-group">
-        <label>Pattern (regex)</label>
+        <label>Pattern (regex) <span className="required">*</span></label>
         <input value={form.pattern} onChange={e => setForm({ ...form, pattern: e.target.value })} required />
       </div>
       {formTestResult && (() => {
@@ -94,7 +105,7 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
           Enabled
         </label>
         <div>
-          <button type="button" className="btn" onClick={handleTest} disabled={testingForm}>{testingForm ? 'Testing...' : 'Test'}</button>
+          <button type="button" className="btn" onClick={handleTest} disabled={testingForm || !isValid}>{testingForm ? 'Testing...' : 'Test'}</button>
           <button type="button" className="btn" onClick={onCancel}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
         </div>
@@ -155,7 +166,11 @@ function RssFeedForm({ initial, onSave, onCancel }: {
     }
   };
 
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const isValid = form.name.trim() !== '' && form.url.trim() !== '' && form.cron.trim() !== '';
+
   const handleTestRssForm = async () => {
+    if (!formRef.current?.reportValidity()) return;
     setTestingForm(true);
     setFormTestResult(null);
     try {
@@ -196,26 +211,26 @@ function RssFeedForm({ initial, onSave, onCancel }: {
   };
 
   return (
-    <form className="config-form" onSubmit={handleSubmit}>
+    <form className="config-form" onSubmit={handleSubmit} ref={formRef}>
       {error && <div className="error">{error}</div>}
       <div className="form-row">
         <div className="form-group">
-          <label>Name</label>
+          <label>Name <span className="required">*</span></label>
           <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
         </div>
         <div className="form-group">
-          <label>Cron</label>
-          <input value={form.cron} onChange={e => setForm({ ...form, cron: e.target.value })} required />
+          <label>Cron <span className="required">*</span></label>
+          <input value={form.cron} onChange={e => setForm({ ...form, cron: e.target.value })} required placeholder="0 0 * * * *" pattern="(\S+\s+){5}\S+" title="Spring cron: 6 fields (sec min hour day month weekday)" />
         </div>
       </div>
       <div className="form-group">
-        <label>URL</label>
-        <input value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required />
+        <label>URL <span className="required">*</span></label>
+        <input type="url" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required />
       </div>
       <div className="form-row">
         <div className="form-group">
-          <label>Max Articles</label>
-          <input type="number" value={form.maxArticles} onChange={e => setForm({ ...form, maxArticles: parseInt(e.target.value) || 30 })} />
+          <label>Max Articles <span className="required">*</span></label>
+          <input type="number" min="1" value={form.maxArticles} onChange={e => setForm({ ...form, maxArticles: parseInt(e.target.value) || 30 })} required />
         </div>
         <label className="toggle-label">
           <input type="checkbox" checked={form.fetchContent} onChange={e => setForm({ ...form, fetchContent: e.target.checked })} />
@@ -232,7 +247,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
           <div key={ci} className="collection-block">
             <div className="form-row">
               <div className="form-group">
-                <label>Collection Name</label>
+                <label>Collection Name <span className="required">*</span></label>
                 <input value={col.name} onChange={e => updateCollection(ci, { ...col, name: e.target.value })} required />
               </div>
               <button type="button" className="btn btn-sm btn-danger" onClick={() => removeCollection(ci)}>Remove</button>
@@ -275,7 +290,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
           Enabled
         </label>
         <div>
-          <button type="button" className="btn" onClick={handleTestRssForm} disabled={testingForm}>{testingForm ? 'Testing...' : 'Test'}</button>
+          <button type="button" className="btn" onClick={handleTestRssForm} disabled={testingForm || !isValid}>{testingForm ? 'Testing...' : 'Test'}</button>
           <button type="button" className="btn" onClick={onCancel}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
         </div>

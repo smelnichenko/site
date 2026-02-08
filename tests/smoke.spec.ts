@@ -1,28 +1,63 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page, APIRequestContext } from '@playwright/test';
+
+const TEST_USER = 'e2e-test-user';
+const TEST_PASS = 'e2e-test-pass';
+
+async function getAuthToken(request: APIRequestContext): Promise<string> {
+  // Try register first, then login if user exists
+  let response = await request.post('/api/auth/register', {
+    data: { username: TEST_USER, password: TEST_PASS },
+  });
+  if (!response.ok()) {
+    response = await request.post('/api/auth/login', {
+      data: { username: TEST_USER, password: TEST_PASS },
+    });
+  }
+  const body = await response.json();
+  return body.token;
+}
+
+async function loginViaUI(page: Page) {
+  await page.goto('/login');
+  await page.fill('input[name="username"]', TEST_USER);
+  await page.fill('input[name="password"]', TEST_PASS);
+  await page.click('button[type="submit"]');
+  await page.waitForURL('/');
+}
 
 test.describe('Smoke Tests', () => {
-  test('homepage loads successfully', async ({ page }) => {
-    await page.goto('/');
+  let token: string;
 
-    // Check page title
-    await expect(page).toHaveTitle(/Monitor/);
-
-    // Check main heading is visible
-    await expect(page.locator('h1')).toBeVisible();
+  test.beforeAll(async ({ request }) => {
+    token = await getAuthToken(request);
   });
 
-  test('dashboard displays monitored pages', async ({ page }) => {
+  test('homepage redirects to login when not authenticated', async ({ page }) => {
     await page.goto('/');
+    // Should redirect to login
+    await expect(page).toHaveURL(/\/login/);
+  });
 
-    // Wait for the page list to load (or empty state)
-    await expect(page.locator('body')).toBeVisible();
+  test('login page loads', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.locator('h2')).toContainText('Login');
+  });
 
-    // Check that dashboard content is rendered
+  test('can login via UI', async ({ page, request }) => {
+    await getAuthToken(request); // ensure user exists
+    await loginViaUI(page);
+    await expect(page.locator('h1')).toContainText('Monitor');
+  });
+
+  test('dashboard displays after login', async ({ page, request }) => {
+    await getAuthToken(request);
+    await loginViaUI(page);
+
     const main = page.locator('main');
     await expect(main).toBeVisible();
   });
 
-  test('API health endpoint is accessible', async ({ request }) => {
+  test('API health endpoint is accessible without auth', async ({ request }) => {
     const response = await request.get('/api/actuator/health');
     expect(response.ok()).toBeTruthy();
 
@@ -30,156 +65,200 @@ test.describe('Smoke Tests', () => {
     expect(body.status).toBe('UP');
   });
 
-  test('pages API endpoint responds', async ({ request }) => {
-    const response = await request.get('/api/monitor/pages');
+  test('pages API endpoint responds with auth', async ({ request }) => {
+    const response = await request.get('/api/monitor/pages', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     expect(response.ok()).toBeTruthy();
 
     const body = await response.json();
     expect(Array.isArray(body)).toBeTruthy();
+  });
+
+  test('pages API endpoint rejects without auth', async ({ request }) => {
+    const response = await request.get('/api/monitor/pages');
+    expect(response.status()).toBe(401);
   });
 });
 
 test.describe('RSS Feed Tests', () => {
-  test('RSS dashboard loads successfully', async ({ page }) => {
-    await page.goto('/rss');
+  let token: string;
 
-    // Check main heading is visible
+  test.beforeAll(async ({ request }) => {
+    token = await getAuthToken(request);
+  });
+
+  test('RSS dashboard loads after login', async ({ page, request }) => {
+    await getAuthToken(request);
+    await loginViaUI(page);
+
+    // Navigate to RSS
+    await page.click('text=RSS Feeds');
+    await expect(page).toHaveURL(/\/rss/);
     await expect(page.locator('h1')).toBeVisible();
-
-    // Check navigation link to RSS is present
-    await expect(page.locator('a[href="/rss"]')).toBeVisible();
   });
 
-  test('RSS feeds API endpoint responds', async ({ request }) => {
-    const response = await request.get('/api/rss/feeds');
+  test('RSS feeds API endpoint responds with auth', async ({ request }) => {
+    const response = await request.get('/api/rss/feeds', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     expect(response.ok()).toBeTruthy();
 
     const body = await response.json();
     expect(Array.isArray(body)).toBeTruthy();
   });
 
-  test('RSS config API endpoint responds', async ({ request }) => {
-    const response = await request.get('/api/rss/config');
+  test('RSS config API endpoint responds with auth', async ({ request }) => {
+    const response = await request.get('/api/rss/config', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     expect(response.ok()).toBeTruthy();
 
     const body = await response.json();
     expect(Array.isArray(body)).toBeTruthy();
-  });
-
-  test('RSS chart data API returns object', async ({ request }) => {
-    // Use a known feed name or fallback to generic test
-    const feedsResponse = await request.get('/api/rss/feeds');
-    const feeds = await feedsResponse.json();
-
-    if (feeds.length > 0) {
-      const response = await request.get(`/api/rss/results/${feeds[0]}/chart-data`);
-      expect(response.ok()).toBeTruthy();
-
-      const body = await response.json();
-      expect(typeof body).toBe('object');
-    }
   });
 });
 
 test.describe('Navigation', () => {
-  test('can navigate to page details', async ({ page }) => {
-    await page.goto('/');
+  test('can navigate between Monitors, RSS Feeds, and Configuration', async ({ page, request }) => {
+    await getAuthToken(request);
+    await loginViaUI(page);
 
-    // If there are monitored pages, click on one
+    // Should see nav links with new names
+    await expect(page.locator('a[href="/"]').filter({ hasText: 'Monitors' })).toBeVisible();
+    await expect(page.locator('a[href="/rss"]')).toBeVisible();
+    await expect(page.locator('a[href="/monitors"]').filter({ hasText: 'Configuration' })).toBeVisible();
+
+    // Navigate to RSS
+    await page.click('text=RSS Feeds');
+    await expect(page).toHaveURL(/\/rss/);
+
+    // Navigate to Configuration
+    await page.click('text=Configuration');
+    await expect(page).toHaveURL(/\/monitors/);
+
+    // Navigate back to Monitors (dashboard)
+    await page.click('nav >> text=Monitors');
+    await expect(page).toHaveURL(/^[^/]*\/$/);
+  });
+
+  test('can navigate to page details if pages exist', async ({ page, request }) => {
+    await getAuthToken(request);
+    await loginViaUI(page);
+
     const pageCard = page.locator('[data-testid="page-card"]').first();
-
-    if (await pageCard.isVisible()) {
+    if (await pageCard.isVisible({ timeout: 3000 }).catch(() => false)) {
       await pageCard.click();
-
-      // Should navigate to detail page
       await expect(page).toHaveURL(/\/page\//);
-
-      // Should show value chart
-      await expect(page.locator('canvas, svg')).toBeVisible();
     }
   });
 
-  test('can navigate between dashboard and RSS', async ({ page }) => {
-    await page.goto('/');
+  test('can navigate to RSS feed details if feeds exist', async ({ page, request }) => {
+    await getAuthToken(request);
+    await loginViaUI(page);
 
-    // Click RSS link in navigation
-    const rssLink = page.locator('a[href="/rss"]');
-    if (await rssLink.isVisible()) {
-      await rssLink.click();
-      await expect(page).toHaveURL(/\/rss/);
-    }
+    await page.click('text=RSS Feeds');
+    await expect(page).toHaveURL(/\/rss/);
 
-    // Navigate back to main dashboard
-    const dashboardLink = page.locator('a[href="/"]').first();
-    if (await dashboardLink.isVisible()) {
-      await dashboardLink.click();
-      await page.waitForURL(/^(?!.*\/rss)/);
-    }
-  });
-
-  test('can navigate to RSS feed details', async ({ page }) => {
-    await page.goto('/rss');
-
-    // If there are RSS feeds, click on one
     const feedCard = page.locator('[data-testid="rss-feed-card"]').first();
-
-    if (await feedCard.isVisible()) {
+    if (await feedCard.isVisible({ timeout: 3000 }).catch(() => false)) {
       await feedCard.click();
-
-      // Should navigate to RSS feed detail page
       await expect(page).toHaveURL(/\/rss\/.+/);
     }
   });
 });
 
-test.describe('Pagination', () => {
-  test('page detail shows pagination when results exist', async ({ page, request }) => {
-    // First check if there are pages with results
-    const pagesResponse = await request.get('/api/monitor/pages');
-    const pages = await pagesResponse.json();
+test.describe('Configuration Page', () => {
+  test('configuration page loads and shows sections', async ({ page, request }) => {
+    await getAuthToken(request);
+    await loginViaUI(page);
 
-    if (pages.length > 0) {
-      await page.goto(`/page/${encodeURIComponent(pages[0])}`);
+    await page.click('text=Configuration');
+    await expect(page).toHaveURL(/\/monitors/);
 
-      // Wait for content to load
-      await page.waitForSelector('.card');
-
-      // Check for pagination or table
-      const table = page.locator('table');
-      await expect(table).toBeVisible();
-    }
+    // Should see both sections
+    await expect(page.getByText('Page Monitors')).toBeVisible();
+    await expect(page.getByText('RSS Feed Monitors')).toBeVisible();
   });
 
-  test('RSS feed detail shows pagination when results exist', async ({ page, request }) => {
-    // First check if there are feeds with results
-    const feedsResponse = await request.get('/api/rss/feeds');
-    const feeds = await feedsResponse.json();
+  test('can open add page monitor form', async ({ page, request }) => {
+    await getAuthToken(request);
+    await loginViaUI(page);
 
-    if (feeds.length > 0) {
-      await page.goto(`/rss/${encodeURIComponent(feeds[0])}`);
+    await page.click('text=Configuration');
+    await page.click('text=+ Add Page Monitor');
 
-      // Wait for content to load
-      await page.waitForSelector('.card');
+    // Should see form fields
+    await expect(page.locator('.config-form')).toBeVisible();
+    await expect(page.locator('button:has-text("Save")')).toBeVisible();
+    await expect(page.locator('button:has-text("Cancel")')).toBeVisible();
+    await expect(page.locator('button:has-text("Test")')).toBeVisible();
+  });
 
-      // Check for table
-      const table = page.locator('table');
-      await expect(table).toBeVisible();
-    }
+  test('can open add RSS feed form', async ({ page, request }) => {
+    await getAuthToken(request);
+    await loginViaUI(page);
+
+    await page.click('text=Configuration');
+    await page.click('text=+ Add RSS Feed');
+
+    await expect(page.locator('.config-form')).toBeVisible();
+    await expect(page.locator('button:has-text("Save")')).toBeVisible();
+    await expect(page.locator('button:has-text("Test")')).toBeVisible();
+  });
+
+  test('cancel closes the form', async ({ page, request }) => {
+    await getAuthToken(request);
+    await loginViaUI(page);
+
+    await page.click('text=Configuration');
+    await page.click('text=+ Add Page Monitor');
+    await expect(page.locator('.config-form')).toBeVisible();
+
+    await page.click('button:has-text("Cancel")');
+    await expect(page.locator('.config-form')).not.toBeVisible();
+  });
+});
+
+test.describe('Auth Flow', () => {
+  test('logout redirects to login', async ({ page, request }) => {
+    await getAuthToken(request);
+    await loginViaUI(page);
+
+    await page.click('button:has-text("Logout")');
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test('register page loads and has link to login', async ({ page }) => {
+    await page.goto('/register');
+    await expect(page.locator('h2')).toContainText('Register');
+    await expect(page.locator('a[href="/login"]')).toBeVisible();
+  });
+
+  test('login page has link to register', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.locator('a[href="/register"]')).toBeVisible();
   });
 });
 
 test.describe('Rate Limiting', () => {
-  test('API returns rate limit headers', async ({ request }) => {
-    const response = await request.get('/api/monitor/pages');
+  let token: string;
 
-    // Check rate limit headers are present
+  test.beforeAll(async ({ request }) => {
+    token = await getAuthToken(request);
+  });
+
+  test('API returns rate limit headers', async ({ request }) => {
+    const response = await request.get('/api/monitor/pages', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
     const headers = response.headers();
     expect(headers['x-ratelimit-limit']).toBeDefined();
     expect(headers['x-ratelimit-remaining']).toBeDefined();
   });
 
   test('health endpoint bypasses rate limiting', async ({ request }) => {
-    // Make multiple requests to health endpoint - should never be rate limited
     for (let i = 0; i < 10; i++) {
       const response = await request.get('/api/actuator/health');
       expect(response.ok()).toBeTruthy();

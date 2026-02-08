@@ -61,13 +61,13 @@ function App() {
         {isAuthenticated && (
           <nav className="nav">
             <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
-              Pages
+              Monitors
             </Link>
             <Link to="/rss" className={location.pathname.startsWith('/rss') ? 'active' : ''}>
               RSS Feeds
             </Link>
             <Link to="/monitors" className={location.pathname === '/monitors' ? 'active' : ''}>
-              Monitors
+              Configuration
             </Link>
           </nav>
         )}

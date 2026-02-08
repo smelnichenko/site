@@ -484,3 +484,12 @@ a:hover {
   border-radius: 4px;
   font-size: 0.85rem;
 }
+
+.required {
+  color: #dc3545;
+  margin-left: 2px;
+}
+
+.form-group input:invalid:not(:placeholder-shown):not(:focus) {
+  border-color: #dc3545;
+}
