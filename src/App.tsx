@@ -50,7 +50,10 @@ function App() {
     <div>
       <header className="header">
         <div className="header-top">
-          <h1 title={buildInfo}>Monitor Dashboard</h1>
+          <h1 title={buildInfo}>
+            <img src="/logo.svg" alt="" className="header-logo" />
+            Monitor Dashboard
+          </h1>
           {isAuthenticated && (
             <div className="header-user">
               <span className="header-username">{username}</span>
