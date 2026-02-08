@@ -113,7 +113,7 @@ function RssFeedDetail() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <Link to="/rss">&larr; Back to RSS Dashboard</Link>
+        <Link to="/rss" className="status-badge edit">&larr; Back to RSS Dashboard</Link>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -121,13 +121,24 @@ function RssFeedDetail() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">{decodedFeedName}</span>
-          <button
-            className="btn btn-primary"
-            onClick={handleManualCheck}
-            disabled={checking}
-          >
-            {checking ? 'Checking...' : 'Check Now'}
-          </button>
+          <div className="badge-group">
+            <button
+              className="status-badge action"
+              onClick={handleManualCheck}
+              disabled={checking}
+            >
+              {checking ? 'Checking...' : 'Check Now'}
+            </button>
+            {config && (
+              <Link to={`/monitors?editFeed=${config.id}`} className="status-badge edit">Edit</Link>
+            )}
+            {latestResult && !latestResult.errorMessage && (
+              <span className="status-badge success">OK</span>
+            )}
+            {latestResult?.errorMessage && (
+              <span className="status-badge error">Error</span>
+            )}
+          </div>
         </div>
 
         {latestResult && (

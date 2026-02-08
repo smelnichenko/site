@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchPages, fetchLatestResult, fetchResults, MonitorResult } from '../services/api';
+import { fetchPages, fetchLatestResult, fetchResults, fetchPageMonitorConfigs, MonitorResult, PageMonitorConfig } from '../services/api';
 import PageCard from '../components/PageCard';
 import ValueChart from '../components/ValueChart';
 
@@ -7,6 +7,7 @@ function Dashboard() {
   const [pages, setPages] = useState<string[] | null>(null);
   const [latestResults, setLatestResults] = useState<Map<string, MonitorResult | null>>(new Map());
   const [allResults, setAllResults] = useState<MonitorResult[]>([]);
+  const [configs, setConfigs] = useState<Map<string, PageMonitorConfig>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -17,6 +18,14 @@ function Dashboard() {
         const pageNames = await fetchPages(controller.signal);
         if (cancelled) return;
         setPages(pageNames);
+
+        const configList = await fetchPageMonitorConfigs(controller.signal);
+        if (cancelled) return;
+        const configMap = new Map<string, PageMonitorConfig>();
+        for (const c of configList) {
+          configMap.set(c.name, c);
+        }
+        setConfigs(configMap);
 
         const results = new Map<string, MonitorResult | null>();
         for (const name of pageNames) {
@@ -58,13 +67,17 @@ function Dashboard() {
   return (
     <div>
       <div className="grid">
-        {pages.map((pageName) => (
-          <PageCard
-            key={pageName}
-            pageName={pageName}
-            latestResult={latestResults.get(pageName) || null}
-          />
-        ))}
+        {pages.map((pageName) => {
+          const config = configs.get(pageName);
+          return (
+            <PageCard
+              key={pageName}
+              pageName={pageName}
+              latestResult={latestResults.get(pageName) || null}
+              editUrl={config ? `/monitors?editPage=${config.id}` : undefined}
+            />
+          );
+        })}
       </div>
 
       {pages.map((pageName) => {

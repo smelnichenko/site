@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   PageMonitorConfig, PageMonitorRequest, RssFeedMonitorConfig, RssFeedMonitorRequest,
   MonitorResult, RssFeedResult,
@@ -105,9 +106,9 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
           Enabled
         </label>
         <div>
-          <button type="button" className="btn" onClick={handleTest} disabled={testingForm || !isValid}>{testingForm ? 'Testing...' : 'Test'}</button>
-          <button type="button" className="btn" onClick={onCancel}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+          <button type="button" className="status-badge action" onClick={handleTest} disabled={testingForm || !isValid}>{testingForm ? 'Testing...' : 'Test'}</button>
+          <button type="button" className="status-badge action" onClick={onCancel}>Cancel</button>
+          <button type="submit" className="status-badge add" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
         </div>
       </div>
     </form>
@@ -241,7 +242,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
       <div className="collections-section">
         <div className="section-header">
           <strong>Collections</strong>
-          <button type="button" className="btn btn-sm" onClick={addCollection}>+ Collection</button>
+          <button type="button" className="status-badge add" onClick={addCollection}>+ Collection</button>
         </div>
         {form.collections.map((col, ci) => (
           <div key={ci} className="collection-block">
@@ -250,16 +251,16 @@ function RssFeedForm({ initial, onSave, onCancel }: {
                 <label>Collection Name <span className="required">*</span></label>
                 <input value={col.name} onChange={e => updateCollection(ci, { ...col, name: e.target.value })} required />
               </div>
-              <button type="button" className="btn btn-sm btn-danger" onClick={() => removeCollection(ci)}>Remove</button>
+              <button type="button" className="status-badge danger" onClick={() => removeCollection(ci)}>Remove</button>
             </div>
             {col.metrics.map((m, mi) => (
               <div key={mi} className="metric-row">
                 <input placeholder="Metric name" value={m.name} onChange={e => updateMetric(ci, mi, { ...m, name: e.target.value })} required />
                 <input placeholder="Keywords (comma-separated)" value={m.keywords} onChange={e => updateMetric(ci, mi, { ...m, keywords: e.target.value })} required />
-                <button type="button" className="btn btn-sm btn-danger" onClick={() => removeMetric(ci, mi)}>x</button>
+                <button type="button" className="status-badge danger" onClick={() => removeMetric(ci, mi)}>x</button>
               </div>
             ))}
-            <button type="button" className="btn btn-sm" onClick={() => addMetric(ci)}>+ Metric</button>
+            <button type="button" className="status-badge add" onClick={() => addMetric(ci)}>+ Metric</button>
           </div>
         ))}
       </div>
@@ -290,9 +291,9 @@ function RssFeedForm({ initial, onSave, onCancel }: {
           Enabled
         </label>
         <div>
-          <button type="button" className="btn" onClick={handleTestRssForm} disabled={testingForm || !isValid}>{testingForm ? 'Testing...' : 'Test'}</button>
-          <button type="button" className="btn" onClick={onCancel}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+          <button type="button" className="status-badge action" onClick={handleTestRssForm} disabled={testingForm || !isValid}>{testingForm ? 'Testing...' : 'Test'}</button>
+          <button type="button" className="status-badge action" onClick={onCancel}>Cancel</button>
+          <button type="submit" className="status-badge add" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
         </div>
       </div>
     </form>
@@ -302,6 +303,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
 // --- Main Config Page ---
 
 function MonitorConfig() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [pageMonitors, setPageMonitors] = useState<PageMonitorConfig[]>([]);
   const [rssMonitors, setRssMonitors] = useState<RssFeedMonitorConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -316,6 +318,20 @@ function MonitorConfig() {
       const [pages, feeds] = await Promise.all([fetchPageMonitorConfigs(), fetchRssFeedMonitorConfigs()]);
       setPageMonitors(pages);
       setRssMonitors(feeds);
+
+      const editFeedId = searchParams.get('editFeed');
+      const editPageId = searchParams.get('editPage');
+      if (editFeedId) {
+        const match = feeds.find(f => f.id === Number(editFeedId));
+        if (match) setEditingRss(match);
+      }
+      if (editPageId) {
+        const match = pages.find(p => p.id === Number(editPageId));
+        if (match) setEditingPage(match);
+      }
+      if (editFeedId || editPageId) {
+        setSearchParams({}, { replace: true });
+      }
     } catch { /* ignore */ } finally {
       setLoading(false);
     }
@@ -386,7 +402,7 @@ function MonitorConfig() {
         <div className="card-header">
           <span className="card-title">Page Monitors</span>
           {!showNewPage && !editingPage && (
-            <button className="btn btn-primary" onClick={() => setShowNewPage(true)}>+ Add Page Monitor</button>
+            <button className="status-badge add" onClick={() => setShowNewPage(true)}>+ Add Page Monitor</button>
           )}
         </div>
 
@@ -416,11 +432,11 @@ function MonitorConfig() {
                       <span className="config-detail">Cron: <code>{pm.cron}</code></span>
                     </div>
                     <div className="config-item-actions">
-                      <button className="btn btn-sm" onClick={() => handleTestPage(pm)} disabled={testing === 'page:' + pm.name}>
+                      <button className="status-badge action" onClick={() => handleTestPage(pm)} disabled={testing === 'page:' + pm.name}>
                         {testing === 'page:' + pm.name ? 'Testing...' : 'Test'}
                       </button>
-                      <button className="btn btn-sm" onClick={() => setEditingPage(pm)}>Edit</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDeletePage(pm.id)}>Delete</button>
+                      <button className="status-badge action" onClick={() => setEditingPage(pm)}>Edit</button>
+                      <button className="status-badge danger" onClick={() => handleDeletePage(pm.id)}>Delete</button>
                     </div>
                   </div>
                 )}
@@ -435,7 +451,7 @@ function MonitorConfig() {
         <div className="card-header">
           <span className="card-title">RSS Feed Monitors</span>
           {!showNewRss && !editingRss && (
-            <button className="btn btn-primary" onClick={() => setShowNewRss(true)}>+ Add RSS Feed</button>
+            <button className="status-badge add" onClick={() => setShowNewRss(true)}>+ Add RSS Feed</button>
           )}
         </div>
 
@@ -476,11 +492,11 @@ function MonitorConfig() {
                       ))}
                     </div>
                     <div className="config-item-actions">
-                      <button className="btn btn-sm" onClick={() => handleTestRss(fm)} disabled={testing === 'rss:' + fm.name}>
+                      <button className="status-badge action" onClick={() => handleTestRss(fm)} disabled={testing === 'rss:' + fm.name}>
                         {testing === 'rss:' + fm.name ? 'Testing...' : 'Test'}
                       </button>
-                      <button className="btn btn-sm" onClick={() => setEditingRss(fm)}>Edit</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDeleteRss(fm.id)}>Delete</button>
+                      <button className="status-badge action" onClick={() => setEditingRss(fm)}>Edit</button>
+                      <button className="status-badge danger" onClick={() => handleDeleteRss(fm.id)}>Delete</button>
                     </div>
                   </div>
                 )}

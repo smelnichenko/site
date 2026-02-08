@@ -4,9 +4,11 @@ import ReactPaginate from 'react-paginate';
 import {
   fetchResults,
   fetchPageStats,
+  fetchPageMonitorConfigs,
   triggerCheck,
   MonitorResult,
   PageStats,
+  PageMonitorConfig,
 } from '../services/api';
 import ValueChart from '../components/ValueChart';
 
@@ -19,6 +21,7 @@ const PAGE_SIZE = 20;
 function PageDetail() {
   const { pageName } = useParams<{ pageName: string }>();
   const [results, setResults] = useState<MonitorResult[]>([]);
+  const [config, setConfig] = useState<PageMonitorConfig | null>(null);
   const [stats, setStats] = useState<PageStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
@@ -42,14 +45,17 @@ function PageDetail() {
 
     try {
       setError(null);
-      const [resultsResponse, statsResponse] = await Promise.all([
+      const [resultsResponse, statsResponse, configList] = await Promise.all([
         fetchResults(decodedPageName, page, PAGE_SIZE, signal),
         fetchPageStats(decodedPageName, signal),
+        fetchPageMonitorConfigs(signal),
       ]);
       if (signal.aborted) return;
       setResults(resultsResponse.content);
       setTotalElements(resultsResponse.totalElements);
       setStats(statsResponse);
+      const pageConfig = configList.find(c => c.name === decodedPageName);
+      setConfig(pageConfig || null);
     } catch {
       if (signal.aborted) return;
     } finally {
@@ -102,7 +108,7 @@ function PageDetail() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <Link to="/">&larr; Back to Dashboard</Link>
+        <Link to="/" className="status-badge edit">&larr; Back to Dashboard</Link>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -110,13 +116,23 @@ function PageDetail() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">{decodedPageName}</span>
-          <button
-            className="btn btn-primary"
-            onClick={handleManualCheck}
-            disabled={checking}
-          >
-            {checking ? 'Checking...' : 'Check Now'}
-          </button>
+          <div className="badge-group">
+            <button
+              className="status-badge action"
+              onClick={handleManualCheck}
+              disabled={checking}
+            >
+              {checking ? 'Checking...' : 'Check Now'}
+            </button>
+            {config && (
+              <Link to={`/monitors?editPage=${config.id}`} className="status-badge edit">Edit</Link>
+            )}
+            {results.length > 0 && (
+              <span className={`status-badge ${results[0].matched ? 'success' : 'error'}`}>
+                {results[0].matched ? 'OK' : 'Failed'}
+              </span>
+            )}
+          </div>
         </div>
 
         {stats && (

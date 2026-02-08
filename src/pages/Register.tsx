@@ -27,6 +27,9 @@ function Register() {
   return (
     <div className="auth-container">
       <div className="card auth-card">
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <img src="/logo.svg" alt="" style={{ width: 64, height: 64 }} />
+        </div>
         <h2>Register</h2>
         {error && <div className="error">{error}</div>}
         <form onSubmit={handleSubmit}>
@@ -52,7 +55,7 @@ function Register() {
               minLength={4}
             />
           </div>
-          <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
+          <button className="status-badge add full" type="submit" disabled={loading}>
             {loading ? 'Registering...' : 'Register'}
           </button>
         </form>

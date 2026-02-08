@@ -4,6 +4,7 @@ import { MonitorResult } from '../services/api';
 interface PageCardProps {
   pageName: string;
   latestResult: MonitorResult | null;
+  editUrl?: string;
 }
 
 function formatTimeAgo(dateString: string): string {
@@ -20,20 +21,25 @@ function formatTimeAgo(dateString: string): string {
   return `${diffDays}d ago`;
 }
 
-function PageCard({ pageName, latestResult }: PageCardProps) {
+function PageCard({ pageName, latestResult, editUrl }: PageCardProps) {
   return (
     <div className="card" data-testid="page-card">
       <div className="card-header">
         <Link to={`/page/${encodeURIComponent(pageName)}`} className="card-title">
           {pageName}
         </Link>
-        {latestResult && (
-          <span
-            className={`status-badge ${latestResult.matched ? 'success' : 'error'}`}
-          >
-            {latestResult.matched ? 'OK' : 'Failed'}
-          </span>
-        )}
+        <div className="badge-group">
+          {editUrl && (
+            <Link to={editUrl} className="status-badge edit">Edit</Link>
+          )}
+          {latestResult && (
+            <span
+              className={`status-badge ${latestResult.matched ? 'success' : 'error'}`}
+            >
+              {latestResult.matched ? 'OK' : 'Failed'}
+            </span>
+          )}
+        </div>
       </div>
       {latestResult ? (
         <div>

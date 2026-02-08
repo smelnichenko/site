@@ -106,12 +106,17 @@ function RssDashboard() {
                 <Link to={`/rss/${encodeURIComponent(feedName)}`} className="card-title">
                   {feedName}
                 </Link>
-                {result && !result.errorMessage && (
-                  <span className="status-badge success">OK</span>
-                )}
-                {result?.errorMessage && (
-                  <span className="status-badge error">Error</span>
-                )}
+                <div className="badge-group">
+                  {config && (
+                    <Link to={`/monitors?editFeed=${config.id}`} className="status-badge edit">Edit</Link>
+                  )}
+                  {result && !result.errorMessage && (
+                    <span className="status-badge success">OK</span>
+                  )}
+                  {result?.errorMessage && (
+                    <span className="status-badge error">Error</span>
+                  )}
+                </div>
               </div>
 
               {result && (

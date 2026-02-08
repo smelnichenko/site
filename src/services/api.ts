@@ -184,6 +184,7 @@ export interface MetricsCollectionConfig {
 }
 
 export interface RssFeedConfig {
+  id: number;
   name: string;
   url: string;
   collections: MetricsCollectionConfig[];

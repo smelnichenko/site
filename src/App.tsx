@@ -50,30 +50,31 @@ function App() {
     <div>
       <header className="header">
         <div className="header-top">
-          <h1 title={buildInfo}>
-            <img src="/logo.svg" alt="" className="header-logo" />
-            Monitor Dashboard
-          </h1>
-          {isAuthenticated && (
-            <div className="header-user">
-              <span className="header-username">{username}</span>
-              <button className="btn btn-logout" onClick={logout}>Logout</button>
-            </div>
-          )}
+          <div className="header-side">
+            {isAuthenticated && (
+              <nav className="nav">
+                <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
+                  Monitors
+                </Link>
+                <Link to="/rss" className={location.pathname.startsWith('/rss') ? 'active' : ''}>
+                  RSS Feeds
+                </Link>
+                <Link to="/monitors" className={location.pathname === '/monitors' ? 'active' : ''}>
+                  Configuration
+                </Link>
+              </nav>
+            )}
+          </div>
+          <img src="/logo.svg" alt="" className="header-logo" title={buildInfo} />
+          <div className="header-side">
+            {isAuthenticated && (
+              <div className="header-user">
+                <span className="header-username">{username}</span>
+                <button className="btn-logout" onClick={logout}>Logout</button>
+              </div>
+            )}
+          </div>
         </div>
-        {isAuthenticated && (
-          <nav className="nav">
-            <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
-              Monitors
-            </Link>
-            <Link to="/rss" className={location.pathname.startsWith('/rss') ? 'active' : ''}>
-              RSS Feeds
-            </Link>
-            <Link to="/monitors" className={location.pathname === '/monitors' ? 'active' : ''}>
-              Configuration
-            </Link>
-          </nav>
-        )}
       </header>
       <main className="container">
         <Routes>
