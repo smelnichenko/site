@@ -327,3 +327,25 @@ export async function deleteRssFeedMonitor(id: number): Promise<void> {
   const response = await apiFetch(`${API_BASE}/rss/config/${id}`, { method: 'DELETE' });
   if (!response.ok) throw new Error('Failed to delete RSS feed monitor');
 }
+
+// Test endpoints (run check with inline config, no save)
+
+export async function testPageMonitor(request: PageMonitorRequest): Promise<MonitorResult> {
+  const response = await apiFetch(`${API_BASE}/monitor/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) throw new Error('Test failed');
+  return response.json();
+}
+
+export async function testRssFeedMonitor(request: RssFeedMonitorRequest): Promise<RssFeedResult> {
+  const response = await apiFetch(`${API_BASE}/rss/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) throw new Error('Test failed');
+  return response.json();
+}

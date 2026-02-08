@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   PageMonitorConfig, PageMonitorRequest, RssFeedMonitorConfig, RssFeedMonitorRequest,
+  MonitorResult, RssFeedResult,
   fetchPageMonitorConfigs, createPageMonitor, updatePageMonitor, deletePageMonitor,
   fetchRssFeedMonitorConfigs, createRssFeedMonitor, updateRssFeedMonitor, deleteRssFeedMonitor,
-  triggerCheck, triggerRssCheck,
+  testPageMonitor, testRssFeedMonitor,
 } from '../services/api';
 
 // --- Page Monitor Form ---
@@ -26,6 +27,8 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
   const [form, setForm] = useState<PageFormState>(initial || emptyPageForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [testingForm, setTestingForm] = useState(false);
+  const [formTestResult, setFormTestResult] = useState<MonitorResult | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +41,13 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleTest = async () => {
+    setTestingForm(true);
+    setFormTestResult(null);
+    try { setFormTestResult(await testPageMonitor(form)); } catch { /* ignore */ }
+    setTestingForm(false);
   };
 
   return (
@@ -61,12 +71,30 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
         <label>Pattern (regex)</label>
         <input value={form.pattern} onChange={e => setForm({ ...form, pattern: e.target.value })} required />
       </div>
+      {formTestResult && (() => {
+        const r = formTestResult;
+        return (
+          <div style={{ padding: '8px 12px', borderRadius: 4, fontSize: '0.85rem', marginBottom: 8, background: r.errorMessage ? '#f8d7da' : r.matched ? '#d4edda' : '#fff3cd' }}>
+            {r.errorMessage
+              ? <span style={{ color: '#721c24' }}>Error: {r.errorMessage}</span>
+              : <>
+                  <span style={{ color: r.matched ? '#155724' : '#856404' }}>
+                    {r.matched ? 'Matched' : 'No match'}{r.extractedValue != null && <> — Value: <strong>{r.extractedValue}</strong></>}
+                    {r.rawMatch && <> (raw: <code>{r.rawMatch}</code>)</>}
+                  </span>
+                  <span style={{ color: '#666', marginLeft: 12 }}>HTTP {r.httpStatus} · {r.responseTimeMs}ms</span>
+                </>
+            }
+          </div>
+        );
+      })()}
       <div className="form-actions">
         <label className="toggle-label">
           <input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />
           Enabled
         </label>
         <div>
+          <button type="button" className="btn" onClick={handleTest} disabled={testingForm}>{testingForm ? 'Testing...' : 'Test'}</button>
           <button type="button" className="btn" onClick={onCancel}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
         </div>
@@ -105,6 +133,8 @@ function RssFeedForm({ initial, onSave, onCancel }: {
   const [form, setForm] = useState<RssFormState>(initial || emptyRssForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [testingForm, setTestingForm] = useState(false);
+  const [formTestResult, setFormTestResult] = useState<RssFeedResult | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +153,21 @@ function RssFeedForm({ initial, onSave, onCancel }: {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleTestRssForm = async () => {
+    setTestingForm(true);
+    setFormTestResult(null);
+    try {
+      setFormTestResult(await testRssFeedMonitor({
+        ...form,
+        collections: form.collections.map(c => ({
+          name: c.name,
+          metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords.split(',').map(k => k.trim()).filter(Boolean) })),
+        })),
+      }));
+    } catch { /* ignore */ }
+    setTestingForm(false);
   };
 
   const addCollection = () => setForm({ ...form, collections: [...form.collections, { name: '', metrics: [] }] });
@@ -204,12 +249,33 @@ function RssFeedForm({ initial, onSave, onCancel }: {
         ))}
       </div>
 
+      {formTestResult && (() => {
+        const r = formTestResult;
+        return (
+          <div style={{ padding: '8px 12px', borderRadius: 4, fontSize: '0.85rem', marginBottom: 8, background: r.errorMessage ? '#f8d7da' : '#d4edda' }}>
+            {r.errorMessage
+              ? <span style={{ color: '#721c24' }}>Error: {r.errorMessage}</span>
+              : <>
+                  <span style={{ color: '#155724' }}>
+                    {r.articleCount} articles · HTTP {r.httpStatus} · {r.responseTimeMs}ms
+                  </span>
+                  {r.metricCounts.length > 0 && (
+                    <span style={{ color: '#333', marginLeft: 12 }}>
+                      {r.metricCounts.map(m => `${m.metricName}: ${m.count}`).join(', ')}
+                    </span>
+                  )}
+                </>
+            }
+          </div>
+        );
+      })()}
       <div className="form-actions">
         <label className="toggle-label">
           <input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />
           Enabled
         </label>
         <div>
+          <button type="button" className="btn" onClick={handleTestRssForm} disabled={testingForm}>{testingForm ? 'Testing...' : 'Test'}</button>
           <button type="button" className="btn" onClick={onCancel}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
         </div>
@@ -278,15 +344,21 @@ function MonitorConfig() {
     await loadData();
   };
 
-  const handleTestPage = async (name: string) => {
-    setTesting('page:' + name);
-    try { await triggerCheck(name); } catch { /* ignore */ }
+  const handleTestPage = async (pm: PageMonitorConfig) => {
+    setTesting('page:' + pm.name);
+    try { await testPageMonitor({ name: pm.name, url: pm.url, pattern: pm.pattern, cron: pm.cron, enabled: pm.enabled }); } catch { /* ignore */ }
     setTesting(null);
   };
 
-  const handleTestRss = async (name: string) => {
-    setTesting('rss:' + name);
-    try { await triggerRssCheck(name); } catch { /* ignore */ }
+  const handleTestRss = async (fm: RssFeedMonitorConfig) => {
+    setTesting('rss:' + fm.name);
+    try {
+      await testRssFeedMonitor({
+        name: fm.name, url: fm.url, cron: fm.cron, fetchContent: fm.fetchContent,
+        maxArticles: fm.maxArticles, enabled: fm.enabled,
+        collections: fm.collections.map(c => ({ name: c.name, metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords })) })),
+      });
+    } catch { /* ignore */ }
     setTesting(null);
   };
 
@@ -329,7 +401,7 @@ function MonitorConfig() {
                       <span className="config-detail">Cron: <code>{pm.cron}</code></span>
                     </div>
                     <div className="config-item-actions">
-                      <button className="btn btn-sm" onClick={() => handleTestPage(pm.name)} disabled={testing === 'page:' + pm.name}>
+                      <button className="btn btn-sm" onClick={() => handleTestPage(pm)} disabled={testing === 'page:' + pm.name}>
                         {testing === 'page:' + pm.name ? 'Testing...' : 'Test'}
                       </button>
                       <button className="btn btn-sm" onClick={() => setEditingPage(pm)}>Edit</button>
@@ -389,7 +461,7 @@ function MonitorConfig() {
                       ))}
                     </div>
                     <div className="config-item-actions">
-                      <button className="btn btn-sm" onClick={() => handleTestRss(fm.name)} disabled={testing === 'rss:' + fm.name}>
+                      <button className="btn btn-sm" onClick={() => handleTestRss(fm)} disabled={testing === 'rss:' + fm.name}>
                         {testing === 'rss:' + fm.name ? 'Testing...' : 'Test'}
                       </button>
                       <button className="btn btn-sm" onClick={() => setEditingRss(fm)}>Edit</button>
