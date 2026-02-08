@@ -49,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.error || 'Login failed');
     }
     const data = await response.json();
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('username', data.username);
     setAuth({ token: data.token, username: data.username });
   }
 
@@ -63,10 +65,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.error || 'Registration failed');
     }
     const data = await response.json();
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('username', data.username);
     setAuth({ token: data.token, username: data.username });
   }
 
   function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
     setAuth({ token: null, username: null });
   }
 
