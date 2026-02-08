@@ -88,7 +88,7 @@ function RssDashboard() {
   if (feeds.length === 0) {
     return (
       <div className="card">
-        <p>No RSS feeds configured. Add feeds to your application.yml configuration.</p>
+        <p>No RSS feeds configured. <a href="/monitors">Add a feed monitor</a> to get started.</p>
       </div>
     );
   }
