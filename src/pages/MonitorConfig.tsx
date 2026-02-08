@@ -228,7 +228,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
         <input type="url" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required />
       </div>
       <div className="form-row">
-        <div className="form-group">
+        <div className="form-group" style={{ flex: '0 0 25%' }}>
           <label>Max Articles <span className="required">*</span></label>
           <input type="number" min="1" value={form.maxArticles} onChange={e => setForm({ ...form, maxArticles: parseInt(e.target.value) || 30 })} required />
         </div>
