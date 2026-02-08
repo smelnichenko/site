@@ -3,6 +3,7 @@ import {
   PageMonitorConfig, PageMonitorRequest, RssFeedMonitorConfig, RssFeedMonitorRequest,
   fetchPageMonitorConfigs, createPageMonitor, updatePageMonitor, deletePageMonitor,
   fetchRssFeedMonitorConfigs, createRssFeedMonitor, updateRssFeedMonitor, deleteRssFeedMonitor,
+  triggerCheck, triggerRssCheck,
 } from '../services/api';
 
 // --- Page Monitor Form ---
@@ -227,6 +228,7 @@ function MonitorConfig() {
   const [editingRss, setEditingRss] = useState<RssFeedMonitorConfig | null>(null);
   const [showNewPage, setShowNewPage] = useState(false);
   const [showNewRss, setShowNewRss] = useState(false);
+  const [testing, setTesting] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -276,6 +278,18 @@ function MonitorConfig() {
     await loadData();
   };
 
+  const handleTestPage = async (name: string) => {
+    setTesting('page:' + name);
+    try { await triggerCheck(name); } catch { /* ignore */ }
+    setTesting(null);
+  };
+
+  const handleTestRss = async (name: string) => {
+    setTesting('rss:' + name);
+    try { await triggerRssCheck(name); } catch { /* ignore */ }
+    setTesting(null);
+  };
+
   if (loading) return <div className="loading">Loading...</div>;
 
   return (
@@ -315,6 +329,9 @@ function MonitorConfig() {
                       <span className="config-detail">Cron: <code>{pm.cron}</code></span>
                     </div>
                     <div className="config-item-actions">
+                      <button className="btn btn-sm" onClick={() => handleTestPage(pm.name)} disabled={testing === 'page:' + pm.name}>
+                        {testing === 'page:' + pm.name ? 'Testing...' : 'Test'}
+                      </button>
                       <button className="btn btn-sm" onClick={() => setEditingPage(pm)}>Edit</button>
                       <button className="btn btn-sm btn-danger" onClick={() => handleDeletePage(pm.id)}>Delete</button>
                     </div>
@@ -372,6 +389,9 @@ function MonitorConfig() {
                       ))}
                     </div>
                     <div className="config-item-actions">
+                      <button className="btn btn-sm" onClick={() => handleTestRss(fm.name)} disabled={testing === 'rss:' + fm.name}>
+                        {testing === 'rss:' + fm.name ? 'Testing...' : 'Test'}
+                      </button>
                       <button className="btn btn-sm" onClick={() => setEditingRss(fm)}>Edit</button>
                       <button className="btn btn-sm btn-danger" onClick={() => handleDeleteRss(fm.id)}>Delete</button>
                     </div>
