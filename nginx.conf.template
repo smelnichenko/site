@@ -36,6 +36,7 @@ server {
 
     # SPA fallback - serve index.html for all non-file routes
     location / {
+        add_header Cache-Control "no-cache" always;
         try_files $uri $uri/ /index.html;
     }
 
