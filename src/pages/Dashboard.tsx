@@ -20,16 +20,16 @@ function Dashboard() {
 
         const pageNames = configList.map(c => c.name);
 
-        const results = new Map<string, MonitorResult | null>();
-        for (const name of pageNames) {
-          if (cancelled) return;
-          const result = await fetchLatestResult(name, controller.signal);
-          results.set(name, result);
-        }
+        const [latestArr, allResultsResponse] = await Promise.all([
+          Promise.all(pageNames.map(name =>
+            fetchLatestResult(name, controller.signal).catch(() => null)
+          )),
+          fetchResults(undefined, 0, 50, controller.signal),
+        ]);
         if (cancelled) return;
+        const results = new Map<string, MonitorResult | null>();
+        pageNames.forEach((name, i) => results.set(name, latestArr[i]));
         setLatestResults(results);
-
-        const allResultsResponse = await fetchResults(undefined, 0, 200, controller.signal);
         if (cancelled) return;
         setAllResults(allResultsResponse.content);
       } catch {

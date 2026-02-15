@@ -39,20 +39,22 @@ function RssDashboard() {
         if (cancelled) return;
         setConfigs(configList);
 
+        const [latestArr, chartArr] = await Promise.all([
+          Promise.all(configList.map(c =>
+            fetchRssLatestResult(c.name, controller.signal).catch(() => null)
+          )),
+          Promise.all(configList.map(c =>
+            fetchRssChartData(c.name, 50, controller.signal).catch(() => ({} as ChartDataByCollection))
+          )),
+        ]);
+        if (cancelled) return;
+
         const results = new Map<string, RssFeedResult | null>();
         const charts = new Map<string, ChartDataByCollection>();
-
-        for (const config of configList) {
-          if (cancelled) return;
-          const result = await fetchRssLatestResult(config.name, controller.signal);
-          results.set(config.name, result);
-
-          if (cancelled) return;
-          const data = await fetchRssChartData(config.name, 100, controller.signal);
-          charts.set(config.name, data);
-        }
-
-        if (cancelled) return;
+        configList.forEach((config, i) => {
+          results.set(config.name, latestArr[i]);
+          charts.set(config.name, chartArr[i]);
+        });
         setLatestResults(results);
         setChartData(charts);
       } catch {
