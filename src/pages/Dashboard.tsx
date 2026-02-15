@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchPages, fetchLatestResult, fetchResults, fetchPageMonitorConfigs, MonitorResult, PageMonitorConfig } from '../services/api';
+import { fetchLatestResult, fetchResults, fetchPageMonitorConfigs, MonitorResult, PageMonitorConfig } from '../services/api';
 import PageCard from '../components/PageCard';
 import ValueChart from '../components/ValueChart';
 
 function Dashboard() {
-  const [pages, setPages] = useState<string[] | null>(null);
+  const [configs, setConfigs] = useState<PageMonitorConfig[] | null>(null);
   const [latestResults, setLatestResults] = useState<Map<string, MonitorResult | null>>(new Map());
   const [allResults, setAllResults] = useState<MonitorResult[]>([]);
-  const [configs, setConfigs] = useState<Map<string, PageMonitorConfig>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -15,17 +14,11 @@ function Dashboard() {
 
     async function loadData() {
       try {
-        const pageNames = await fetchPages(controller.signal);
-        if (cancelled) return;
-        setPages(pageNames);
-
         const configList = await fetchPageMonitorConfigs(controller.signal);
         if (cancelled) return;
-        const configMap = new Map<string, PageMonitorConfig>();
-        for (const c of configList) {
-          configMap.set(c.name, c);
-        }
-        setConfigs(configMap);
+        setConfigs(configList);
+
+        const pageNames = configList.map(c => c.name);
 
         const results = new Map<string, MonitorResult | null>();
         for (const name of pageNames) {
@@ -53,7 +46,7 @@ function Dashboard() {
     };
   }, []);
 
-  if (pages === null) {
+  if (configs === null) {
     return <div className="loading">Loading...</div>;
   }
 
@@ -76,27 +69,24 @@ function Dashboard() {
   return (
     <div>
       <div className="grid">
-        {pages.map((pageName) => {
-          const config = configs.get(pageName);
-          return (
-            <PageCard
-              key={pageName}
-              pageName={pageName}
-              latestResult={latestResults.get(pageName) || null}
-              editUrl={config ? `/monitors?editPage=${config.id}` : undefined}
-            />
-          );
-        })}
+        {configs.map((config) => (
+          <PageCard
+            key={config.name}
+            pageName={config.name}
+            latestResult={latestResults.get(config.name) || null}
+            editUrl={`/monitors?editPage=${config.id}`}
+          />
+        ))}
       </div>
 
-      {pages.map((pageName) => {
-        const pageResults = resultsByPage.get(pageName) || [];
+      {configs.map((config) => {
+        const pageResults = resultsByPage.get(config.name) || [];
         if (pageResults.length === 0) return null;
         return (
           <ValueChart
-            key={pageName}
+            key={config.name}
             data={pageResults}
-            title={`${pageName} - Value History`}
+            title={`${config.name} - Value History`}
           />
         );
       })}
