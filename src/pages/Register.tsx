@@ -57,7 +57,7 @@ function Register() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={4}
+              minLength={8}
             />
           </div>
           <div className="form-group">
@@ -68,7 +68,7 @@ function Register() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              minLength={4}
+              minLength={8}
             />
           </div>
           <button className="status-badge add full" type="submit" disabled={loading}>

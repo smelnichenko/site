@@ -31,6 +31,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [auth]);
 
+  // Session validation: periodically check if the cookie/token is still valid
+  useEffect(() => {
+    if (!auth.username) return;
+
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/monitor/pages', { credentials: 'include' });
+        if (response.status === 401) {
+          localStorage.removeItem('username');
+          setAuth({ username: null });
+        }
+      } catch {
+        // Network error — don't log out
+      }
+    };
+
+    const interval = setInterval(checkSession, 5 * 60 * 1000); // every 5 minutes
+    return () => clearInterval(interval);
+  }, [auth.username]);
+
   async function login(username: string, password: string) {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
