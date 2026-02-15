@@ -81,23 +81,28 @@ export interface PageStats {
 
 const API_BASE = '/api';
 
-function getToken(): string | null {
-  return localStorage.getItem('token');
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const token = getToken();
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+
+  // Add CSRF token for state-changing requests
+  const method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
   }
 
-  const response = await fetch(url, { ...options, headers });
+  const response = await fetch(url, { ...options, headers, credentials: 'include' });
 
   if (response.status === 401) {
-    localStorage.removeItem('token');
     localStorage.removeItem('username');
     window.location.href = '/login';
     throw new Error('Unauthorized');

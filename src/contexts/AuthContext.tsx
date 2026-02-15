@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface AuthState {
-  token: string | null;
   username: string | null;
 }
 
@@ -18,19 +17,13 @@ const API_BASE = '/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState>(() => {
-    const token = localStorage.getItem('token');
     const username = localStorage.getItem('username');
-    return { token, username };
+    return { username };
   });
 
-  const isAuthenticated = !!auth.token;
+  const isAuthenticated = !!auth.username;
 
   useEffect(() => {
-    if (auth.token) {
-      localStorage.setItem('token', auth.token);
-    } else {
-      localStorage.removeItem('token');
-    }
     if (auth.username) {
       localStorage.setItem('username', auth.username);
     } else {
@@ -42,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ username, password }),
     });
     if (!response.ok) {
@@ -49,15 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.error || 'Login failed');
     }
     const data = await response.json();
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('username', data.username);
-    setAuth({ token: data.token, username: data.username });
+    setAuth({ username: data.username });
   }
 
   async function register(username: string, password: string) {
     const response = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ username, password }),
     });
     if (!response.ok) {
@@ -65,15 +58,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.error || 'Registration failed');
     }
     const data = await response.json();
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('username', data.username);
-    setAuth({ token: data.token, username: data.username });
+    setAuth({ username: data.username });
   }
 
-  function logout() {
-    localStorage.removeItem('token');
+  async function logout() {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // Ignore errors during logout
+    }
     localStorage.removeItem('username');
-    setAuth({ token: null, username: null });
+    setAuth({ username: null });
   }
 
   return (
