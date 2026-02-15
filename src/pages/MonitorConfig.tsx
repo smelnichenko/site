@@ -5,7 +5,7 @@ import {
   MonitorResult, RssFeedResult,
   fetchPageMonitorConfigs, createPageMonitor, updatePageMonitor, deletePageMonitor,
   fetchRssFeedMonitorConfigs, createRssFeedMonitor, updateRssFeedMonitor, deleteRssFeedMonitor,
-  testPageMonitor, testRssFeedMonitor,
+  testPageMonitor, testRssFeedMonitor, generateRssCollections,
 } from '../services/api';
 
 // Spring cron: 6 fields (sec min hour day month weekday)
@@ -147,6 +147,10 @@ function RssFeedForm({ initial, onSave, onCancel }: {
   const [error, setError] = useState('');
   const [testingForm, setTestingForm] = useState(false);
   const [formTestResult, setFormTestResult] = useState<RssFeedResult | null>(null);
+  const [showAiGenerate, setShowAiGenerate] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,6 +241,55 @@ function RssFeedForm({ initial, onSave, onCancel }: {
           <input type="checkbox" checked={form.fetchContent} onChange={e => setForm({ ...form, fetchContent: e.target.checked })} />
           Fetch Content
         </label>
+      </div>
+
+      <div style={{ margin: '12px 0' }}>
+        <button type="button" className="status-badge action" onClick={() => setShowAiGenerate(!showAiGenerate)}>
+          {showAiGenerate ? 'Hide' : 'Generate with AI'}
+        </button>
+        {showAiGenerate && (
+          <div style={{ marginTop: 8, padding: '12px', background: '#f8f9fa', borderRadius: 4 }}>
+            <div className="form-group">
+              <label>Describe what to track</label>
+              <textarea
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                placeholder="e.g., Track AI, cybersecurity, and cloud computing trends"
+                rows={2}
+                style={{ width: '100%', resize: 'vertical' }}
+                maxLength={500}
+              />
+            </div>
+            {aiError && <div className="error" style={{ marginBottom: 8 }}>{aiError}</div>}
+            <button
+              type="button"
+              className="status-badge add"
+              disabled={aiGenerating || !form.url.trim() || !aiPrompt.trim()}
+              onClick={async () => {
+                setAiGenerating(true);
+                setAiError('');
+                try {
+                  const collections = await generateRssCollections({ url: form.url, prompt: aiPrompt });
+                  setForm({
+                    ...form,
+                    collections: [...form.collections, ...collections.map(c => ({
+                      name: c.name,
+                      metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords.join(', ') })),
+                    }))],
+                  });
+                  setShowAiGenerate(false);
+                } catch (err: unknown) {
+                  setAiError(err instanceof Error ? err.message : 'Generation failed');
+                } finally {
+                  setAiGenerating(false);
+                }
+              }}
+            >
+              {aiGenerating ? 'Generating...' : 'Generate'}
+            </button>
+            {!form.url.trim() && <span style={{ color: '#856404', fontSize: '0.85rem', marginLeft: 8 }}>Enter a feed URL first</span>}
+          </div>
+        )}
       </div>
 
       <div className="collections-section">

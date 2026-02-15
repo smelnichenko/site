@@ -334,6 +334,24 @@ export async function deleteRssFeedMonitor(id: number): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete RSS feed monitor');
 }
 
+// AI Collection Generation
+
+export interface GenerateCollectionsRequest { url: string; prompt: string }
+export interface GeneratedCollection { name: string; metrics: { name: string; keywords: string[] }[] }
+
+export async function generateRssCollections(request: GenerateCollectionsRequest): Promise<GeneratedCollection[]> {
+  const response = await apiFetch(`${API_BASE}/rss/generate-collections`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Generation failed');
+  }
+  return (await response.json()).collections;
+}
+
 // Test endpoints (run check with inline config, no save)
 
 export async function testPageMonitor(request: PageMonitorRequest): Promise<MonitorResult> {
