@@ -1,22 +1,21 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const TEST_USER = 'e2e-nav-user';
 const TEST_PASS = 'e2e-nav-pass';
 
 async function ensureUser(request: APIRequestContext): Promise<void> {
-  const response = await request.post(`${BASE_URL}/api/auth/register`, {
+  const response = await request.post('/api/auth/register', {
     data: { username: TEST_USER, password: TEST_PASS },
   });
   // Ignore if user already exists
 }
 
 async function loginViaUI(page: Page) {
-  await page.goto(`${BASE_URL}/login`);
-  await page.fill('input[name="username"]', TEST_USER);
-  await page.fill('input[name="password"]', TEST_PASS);
+  await page.goto('/login');
+  await page.fill('input#username', TEST_USER);
+  await page.fill('input#password', TEST_PASS);
   await page.click('button[type="submit"]');
-  await page.waitForURL(`${BASE_URL}/`);
+  await expect(page.locator('button:has-text("Logout")')).toBeVisible();
 }
 
 test('simple navigation to RSS Feeds', async ({ page, request }) => {
@@ -72,6 +71,6 @@ test('navigation to Configuration page', async ({ page, request }) => {
   await page.waitForLoadState('networkidle');
 
   // Should see configuration sections
-  await expect(page.getByText('Page Monitors')).toBeVisible();
-  await expect(page.getByText('RSS Feed Monitors')).toBeVisible();
+  await expect(page.getByText('Page Monitors', { exact: true })).toBeVisible();
+  await expect(page.getByText('RSS Feed Monitors', { exact: true })).toBeVisible();
 });

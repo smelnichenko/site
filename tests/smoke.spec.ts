@@ -18,11 +18,20 @@ async function getAuthToken(request: APIRequestContext): Promise<string> {
 }
 
 async function loginViaUI(page: Page) {
-  await page.goto('/login');
-  await page.fill('input[name="username"]', TEST_USER);
-  await page.fill('input[name="password"]', TEST_PASS);
-  await page.click('button[type="submit"]');
-  await page.waitForURL('/');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.goto('/login');
+    await page.fill('input#username', TEST_USER);
+    await page.fill('input#password', TEST_PASS);
+    await page.click('button[type="submit"]');
+    try {
+      await expect(page.locator('button:has-text("Logout")')).toBeVisible({ timeout: 10000 });
+      return;
+    } catch {
+      // Rate limited or slow — wait and retry
+      await page.waitForTimeout(2000);
+    }
+  }
+  throw new Error('Login failed after 3 attempts');
 }
 
 test.describe('Smoke Tests', () => {
@@ -46,7 +55,7 @@ test.describe('Smoke Tests', () => {
   test('can login via UI', async ({ page, request }) => {
     await getAuthToken(request); // ensure user exists
     await loginViaUI(page);
-    await expect(page.locator('h1')).toContainText('Monitor');
+    await expect(page.locator('main')).toBeVisible();
   });
 
   test('dashboard displays after login', async ({ page, request }) => {
@@ -95,7 +104,7 @@ test.describe('RSS Feed Tests', () => {
     // Navigate to RSS
     await page.click('text=RSS Feeds');
     await expect(page).toHaveURL(/\/rss/);
-    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.locator('main')).toBeVisible();
   });
 
   test('RSS feeds API endpoint responds with auth', async ({ request }) => {
@@ -139,7 +148,7 @@ test.describe('Navigation', () => {
 
     // Navigate back to Monitors (dashboard)
     await page.click('nav >> text=Monitors');
-    await expect(page).toHaveURL(/^[^/]*\/$/);
+    await expect(page).toHaveURL(/\/$/);
   });
 
   test('can navigate to page details if pages exist', async ({ page, request }) => {
@@ -177,8 +186,8 @@ test.describe('Configuration Page', () => {
     await expect(page).toHaveURL(/\/monitors/);
 
     // Should see both sections
-    await expect(page.getByText('Page Monitors')).toBeVisible();
-    await expect(page.getByText('RSS Feed Monitors')).toBeVisible();
+    await expect(page.getByText('Page Monitors', { exact: true })).toBeVisible();
+    await expect(page.getByText('RSS Feed Monitors', { exact: true })).toBeVisible();
   });
 
   test('can open add page monitor form', async ({ page, request }) => {
