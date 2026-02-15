@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   LineChart,
   Line,
@@ -80,6 +81,7 @@ function MetricChart({ data, metrics, title }: MetricChartProps) {
                 strokeWidth={2}
                 dot={false}
                 activeDot={false}
+                isAnimationActive={false}
               />
             ))}
           </LineChart>
@@ -89,4 +91,4 @@ function MetricChart({ data, metrics, title }: MetricChartProps) {
   );
 }
 
-export default MetricChart;
+export default memo(MetricChart);

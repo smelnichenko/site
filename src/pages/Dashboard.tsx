@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { fetchPages, fetchLatestResult, fetchResults, fetchPageMonitorConfigs, MonitorResult, PageMonitorConfig } from '../services/api';
 import PageCard from '../components/PageCard';
 import ValueChart from '../components/ValueChart';
@@ -57,12 +57,21 @@ function Dashboard() {
     return <div className="loading">Loading...</div>;
   }
 
-  const resultsByPage = new Map<string, MonitorResult[]>();
-  for (const result of allResults) {
-    const existing = resultsByPage.get(result.pageName) || [];
-    existing.push(result);
-    resultsByPage.set(result.pageName, existing);
-  }
+  const resultsByPage = useMemo(() => {
+    const map = new Map<string, MonitorResult[]>();
+    for (const result of allResults) {
+      const existing = map.get(result.pageName) || [];
+      existing.push(result);
+      map.set(result.pageName, existing);
+    }
+    // Cap per chart to avoid rendering too many points
+    for (const [key, values] of map) {
+      if (values.length > 50) {
+        map.set(key, values.slice(-50));
+      }
+    }
+    return map;
+  }, [allResults]);
 
   return (
     <div>

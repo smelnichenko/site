@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -25,14 +26,18 @@ function formatDate(dateString: string): string {
 }
 
 function ValueChart({ data, title }: ValueChartProps) {
-  const chartData = data
-    .filter((r) => r.matched && r.extractedValue !== null)
-    .map((r) => ({
-      time: formatDate(r.checkedAt),
-      value: r.extractedValue,
-      timestamp: new Date(r.checkedAt).getTime(),
-    }))
-    .sort((a, b) => a.timestamp - b.timestamp);
+  const chartData = useMemo(
+    () =>
+      data
+        .filter((r) => r.matched && r.extractedValue !== null)
+        .map((r) => ({
+          time: formatDate(r.checkedAt),
+          value: r.extractedValue,
+          timestamp: new Date(r.checkedAt).getTime(),
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp),
+    [data],
+  );
 
   if (chartData.length === 0) {
     return (
@@ -82,6 +87,7 @@ function ValueChart({ data, title }: ValueChartProps) {
               strokeWidth={2}
               dot={false}
               activeDot={false}
+              isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -90,4 +96,4 @@ function ValueChart({ data, title }: ValueChartProps) {
   );
 }
 
-export default ValueChart;
+export default memo(ValueChart);
