@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  fetchRssFeeds,
+  fetchRssFeedMonitorConfigs,
   fetchRssLatestResult,
   fetchRssChartData,
-  fetchRssConfig,
   RssFeedResult,
-  RssFeedConfig,
+  RssFeedMonitorConfig,
   ChartDataByCollection,
 } from '../services/api';
 import MetricChart from '../components/MetricChart';
@@ -26,8 +25,7 @@ function formatTimeAgo(dateString: string): string {
 }
 
 function RssDashboard() {
-  const [feeds, setFeeds] = useState<string[] | null>(null);
-  const [configs, setConfigs] = useState<Map<string, RssFeedConfig>>(new Map());
+  const [configs, setConfigs] = useState<RssFeedMonitorConfig[] | null>(null);
   const [latestResults, setLatestResults] = useState<Map<string, RssFeedResult | null>>(new Map());
   const [chartData, setChartData] = useState<Map<string, ChartDataByCollection>>(new Map());
 
@@ -37,31 +35,21 @@ function RssDashboard() {
 
     async function loadData() {
       try {
-        const feedNames = await fetchRssFeeds(controller.signal);
+        const configList = await fetchRssFeedMonitorConfigs(controller.signal);
         if (cancelled) return;
-        setFeeds(feedNames);
-
-        const configList = await fetchRssConfig(controller.signal);
-        if (cancelled) return;
-        const configMap = new Map<string, RssFeedConfig>();
-        if (configList) {
-          for (const config of configList) {
-            configMap.set(config.name, config);
-          }
-        }
-        setConfigs(configMap);
+        setConfigs(configList);
 
         const results = new Map<string, RssFeedResult | null>();
         const charts = new Map<string, ChartDataByCollection>();
 
-        for (const name of feedNames) {
+        for (const config of configList) {
           if (cancelled) return;
-          const result = await fetchRssLatestResult(name, controller.signal);
-          results.set(name, result);
+          const result = await fetchRssLatestResult(config.name, controller.signal);
+          results.set(config.name, result);
 
           if (cancelled) return;
-          const data = await fetchRssChartData(name, 100, controller.signal);
-          charts.set(name, data);
+          const data = await fetchRssChartData(config.name, 100, controller.signal);
+          charts.set(config.name, data);
         }
 
         if (cancelled) return;
@@ -81,11 +69,11 @@ function RssDashboard() {
     };
   }, []);
 
-  if (feeds === null) {
+  if (configs === null) {
     return <div className="loading">Loading RSS feeds...</div>;
   }
 
-  if (feeds.length === 0) {
+  if (configs.length === 0) {
     return (
       <div className="card">
         <p>No RSS feeds configured. <a href="/monitors">Add a feed monitor</a> to get started.</p>
@@ -96,20 +84,17 @@ function RssDashboard() {
   return (
     <div>
       <div className="grid">
-        {feeds.map((feedName) => {
-          const result = latestResults.get(feedName);
-          const config = configs.get(feedName);
+        {configs.map((config) => {
+          const result = latestResults.get(config.name);
 
           return (
-            <div key={feedName} className="card" data-testid="rss-feed-card">
+            <div key={config.name} className="card" data-testid="rss-feed-card">
               <div className="card-header">
-                <Link to={`/rss/${encodeURIComponent(feedName)}`} className="card-title">
-                  {feedName}
+                <Link to={`/rss/${encodeURIComponent(config.name)}`} className="card-title">
+                  {config.name}
                 </Link>
                 <div className="badge-group">
-                  {config && (
-                    <Link to={`/monitors?editFeed=${config.id}`} className="status-badge edit">Edit</Link>
-                  )}
+                  <Link to={`/monitors?editFeed=${config.id}`} className="status-badge edit">Edit</Link>
                   {result && !result.errorMessage && (
                     <span className="status-badge success">OK</span>
                   )}
@@ -119,7 +104,7 @@ function RssDashboard() {
                 </div>
               </div>
 
-              {result && (
+              {result ? (
                 <div style={{ marginTop: '1rem' }}>
                   <div className="stat-value">{result.articleCount ?? 0}</div>
                   <div className="stat-label">Articles processed</div>
@@ -127,14 +112,14 @@ function RssDashboard() {
                     Last check: {formatTimeAgo(result.checkedAt)}
                   </div>
                 </div>
+              ) : (
+                <div className="loading">No data yet</div>
               )}
 
-              {config && (
-                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
-                  {config.collections.length} collection(s),{' '}
-                  {config.collections.reduce((sum, c) => sum + c.metrics.length, 0)} metric(s)
-                </div>
-              )}
+              <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
+                {config.collections.length} collection(s),{' '}
+                {config.collections.reduce((sum, c) => sum + c.metrics.length, 0)} metric(s)
+              </div>
 
               {result?.errorMessage && (
                 <div style={{ marginTop: '0.5rem', color: '#dc3545', fontSize: '0.85rem' }}>
@@ -146,10 +131,9 @@ function RssDashboard() {
         })}
       </div>
 
-      {feeds.map((feedName) => {
-        const data = chartData.get(feedName);
-        const config = configs.get(feedName);
-        if (!data || !config) return null;
+      {configs.map((config) => {
+        const data = chartData.get(config.name);
+        if (!data) return null;
 
         return Object.entries(data).map(([collectionName, points]) => {
           const collection = config.collections.find((c) => c.name === collectionName);
@@ -157,10 +141,10 @@ function RssDashboard() {
 
           return (
             <MetricChart
-              key={`${feedName}-${collectionName}`}
+              key={`${config.name}-${collectionName}`}
               data={points}
               metrics={metricNames}
-              title={`${feedName} - ${collectionName}`}
+              title={`${config.name} - ${collectionName}`}
             />
           );
         });
