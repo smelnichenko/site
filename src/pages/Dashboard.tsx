@@ -46,10 +46,7 @@ function Dashboard() {
     };
   }, []);
 
-  if (configs === null) {
-    return <div className="loading">Loading...</div>;
-  }
-
+  // Must be before the early return to satisfy React's Rules of Hooks
   const resultsByPage = useMemo(() => {
     const map = new Map<string, MonitorResult[]>();
     for (const result of allResults) {
@@ -57,7 +54,6 @@ function Dashboard() {
       existing.push(result);
       map.set(result.pageName, existing);
     }
-    // Cap per chart to avoid rendering too many points
     for (const [key, values] of map) {
       if (values.length > 50) {
         map.set(key, values.slice(-50));
@@ -65,6 +61,10 @@ function Dashboard() {
     }
     return map;
   }, [allResults]);
+
+  if (configs === null) {
+    return <div className="loading">Loading...</div>;
+  }
 
   return (
     <div>
