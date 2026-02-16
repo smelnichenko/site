@@ -137,17 +137,17 @@ function RssDashboard() {
         const data = chartData.get(config.name);
         if (!data) return null;
 
-        return Object.entries(data).map(([collectionName, points]) => {
-          const collection = config.collections.find((c) => c.name === collectionName);
-          const metricNames = collection?.metrics.map((m) => m.name)
-            || [...new Set(points.flatMap((p) => Object.keys(p).filter((k) => k !== 'time' && k !== 'timestamp')))];
+        return config.collections.map((collection) => {
+          const points = data[collection.name];
+          if (!points || points.length === 0) return null;
+          const metricNames = collection.metrics.map((m) => m.name);
 
           return (
             <MetricChart
-              key={`${config.name}-${collectionName}`}
+              key={`${config.name}-${collection.name}`}
               data={points}
               metrics={metricNames}
-              title={`${config.name} - ${collectionName}`}
+              title={`${config.name} - ${collection.name}`}
             />
           );
         });

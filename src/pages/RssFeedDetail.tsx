@@ -170,17 +170,17 @@ function RssFeedDetail() {
         )}
       </div>
 
-      {config && Object.entries(chartData).map(([collectionName, points]) => {
-        const collection = config.collections.find((c) => c.name === collectionName);
-        const metricNames = collection?.metrics.map((m) => m.name)
-          || [...new Set(points.flatMap((p) => Object.keys(p).filter((k) => k !== 'time' && k !== 'timestamp')))];
+      {config && config.collections.map((collection) => {
+        const points = chartData[collection.name];
+        if (!points || points.length === 0) return null;
+        const metricNames = collection.metrics.map((m) => m.name);
 
         return (
           <MetricChart
-            key={collectionName}
+            key={collection.name}
             data={points}
             metrics={metricNames}
-            title={collectionName}
+            title={collection.name}
           />
         );
       })}
