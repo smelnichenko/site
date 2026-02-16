@@ -139,7 +139,8 @@ function RssDashboard() {
 
         return Object.entries(data).map(([collectionName, points]) => {
           const collection = config.collections.find((c) => c.name === collectionName);
-          const metricNames = collection?.metrics.map((m) => m.name) || [];
+          const metricNames = collection?.metrics.map((m) => m.name)
+            || [...new Set(points.flatMap((p) => Object.keys(p).filter((k) => k !== 'time' && k !== 'timestamp')))];
 
           return (
             <MetricChart
