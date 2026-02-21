@@ -1,73 +1,107 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchGameState, spinGame, resetGame, SpinResult } from '../services/api';
+
+interface GameState {
+  player1Position: number;
+  player2Position: number;
+  currentTurn: number;
+  totalSpins: number;
+  completed: boolean;
+  winner: number | null;
+}
 
 export default function Game() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [state, setState] = useState<GameState | null>(null);
+  const [spinning, setSpinning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [debug, setDebug] = useState<string[]>([]);
+  const [godotReady, setGodotReady] = useState(false);
 
-  const log = (msg: string) => {
-    setDebug(prev => [...prev.slice(-9), msg]);
-  };
-
-  const sendToGodot = (type: string, data: unknown) => {
+  const sendToGodot = useCallback((type: string, data: unknown) => {
     try {
       const win = iframeRef.current?.contentWindow as Window & { _gameInbox?: unknown };
       if (win) {
         win._gameInbox = { type, data };
-        log(`→ Godot: ${type}`);
-      } else {
-        log(`→ Godot FAILED: no contentWindow`);
       }
+    } catch {
+      // cross-origin or not loaded yet
+    }
+  }, []);
+
+  // Poll for Godot ready
+  useEffect(() => {
+    const interval = setInterval(() => {
+      try {
+        const win = iframeRef.current?.contentWindow as Window & { _gameReady?: boolean };
+        if (win?._gameReady) {
+          setGodotReady(true);
+          clearInterval(interval);
+        }
+      } catch {
+        // not ready yet
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Load initial state
+  useEffect(() => {
+    fetchGameState()
+      .then(s => {
+        setState(s);
+      })
+      .catch(err => setError(String(err)));
+  }, []);
+
+  // Send state to Godot when ready
+  useEffect(() => {
+    if (godotReady && state) {
+      sendToGodot('state', state);
+    }
+  }, [godotReady, state, sendToGodot]);
+
+  const handleSpin = async () => {
+    if (spinning || !state || state.completed) return;
+    setSpinning(true);
+    try {
+      const result: SpinResult = await spinGame();
+      sendToGodot('spinResult', result);
+      // Wait for animation before updating React state
+      setTimeout(() => {
+        setState({
+          player1Position: result.player1Position,
+          player2Position: result.player2Position,
+          currentTurn: result.currentTurn,
+          totalSpins: result.totalSpins,
+          completed: result.completed,
+          winner: result.winner || null,
+        });
+        setSpinning(false);
+      }, 2000);
     } catch (err) {
-      log(`→ Godot ERROR: ${err}`);
+      setError(String(err));
+      setSpinning(false);
     }
   };
 
-  useEffect(() => {
-    const handler = async (e: MessageEvent) => {
-      if (e.data?.source !== 'godot') return;
-      log(`← Godot: ${e.data.type}`);
+  const handleReset = async () => {
+    try {
+      const s = await resetGame();
+      setState(s);
+      sendToGodot('state', s);
+    } catch (err) {
+      setError(String(err));
+    }
+  };
 
-      if (e.data.type === 'ready') {
-        try {
-          const s = await fetchGameState();
-          log(`API: got state (p1=${s.player1Position}, p2=${s.player2Position})`);
-          sendToGodot('state', s);
-        } catch (err) {
-          log(`API ERROR: ${err}`);
-          setError(String(err));
-        }
-      } else if (e.data.type === 'spin') {
-        try {
-          log('API: calling spin...');
-          const result: SpinResult = await spinGame();
-          log(`API: spin ok (colors=${result.colors})`);
-          sendToGodot('spinResult', result);
-        } catch (err) {
-          log(`API SPIN ERROR: ${err}`);
-          sendToGodot('spinError', { error: String(err) });
-        }
-      } else if (e.data.type === 'reset') {
-        try {
-          const s = await resetGame();
-          sendToGodot('state', s);
-        } catch (err) {
-          setError(String(err));
-        }
-      }
-    };
-
-    window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
-  }, []);
-
-  if (error) {
-    return <div className="card" style={{ padding: '2rem', color: 'var(--danger)' }}>Error: {error}</div>;
-  }
+  const turnText = state
+    ? state.completed
+      ? `Player ${state.winner} Wins!`
+      : `Player ${state.currentTurn}'s Turn`
+    : 'Loading...';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)', gap: '8px' }}>
       <iframe
         ref={iframeRef}
         src="/game/index.html"
@@ -80,9 +114,25 @@ export default function Game() {
           background: '#1a1a2e',
         }}
       />
-      <div style={{ padding: '8px', fontSize: '12px', fontFamily: 'monospace', color: '#888', maxHeight: '120px', overflow: 'auto' }}>
-        {debug.map((d, i) => <div key={i}>{d}</div>)}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '8px' }}>
+        <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{turnText}</span>
+        <button
+          className="btn-primary"
+          onClick={handleSpin}
+          disabled={spinning || !state || state.completed}
+          style={{ padding: '8px 32px', fontSize: '16px' }}
+        >
+          {spinning ? 'Spinning...' : 'SPIN'}
+        </button>
+        <button
+          onClick={handleReset}
+          style={{ padding: '8px 16px', fontSize: '14px' }}
+        >
+          Reset
+        </button>
+        {state && <span style={{ fontSize: '12px', color: '#888' }}>Spins: {state.totalSpins}</span>}
       </div>
+      {error && <div style={{ color: 'var(--danger)', textAlign: 'center', padding: '4px' }}>{error}</div>}
     </div>
   );
 }
