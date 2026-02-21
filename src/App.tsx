@@ -9,6 +9,8 @@ import RssDashboard from './pages/RssDashboard';
 import RssFeedDetail from './pages/RssFeedDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import MonitorConfig from './pages/MonitorConfig';
 
 function formatBuildTime(isoString: string): string {
@@ -87,6 +89,8 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/page/:pageName" element={<ProtectedRoute><PageDetail /></ProtectedRoute>} />
           <Route path="/rss" element={<ProtectedRoute><RssDashboard /></ProtectedRoute>} />

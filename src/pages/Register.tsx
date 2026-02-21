@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 function Register() {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +21,7 @@ function Register() {
     }
     setLoading(true);
     try {
-      await register(username, password);
+      await register(username, password, email);
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
@@ -47,6 +48,16 @@ function Register() {
               onChange={(e) => setUsername(e.target.value)}
               required
               autoFocus
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
             />
           </div>
           <div className="form-group">

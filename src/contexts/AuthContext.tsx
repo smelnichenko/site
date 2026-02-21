@@ -6,7 +6,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string) => Promise<void>;
+  register: (username: string, password: string, email: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -66,12 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth({ username: data.username });
   }
 
-  async function register(username: string, password: string) {
+  async function register(username: string, password: string, email: string) {
     const response = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, email }),
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
