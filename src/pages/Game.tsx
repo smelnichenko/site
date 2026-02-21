@@ -18,14 +18,7 @@ export default function Game() {
   const [godotReady, setGodotReady] = useState(false);
 
   const sendToGodot = useCallback((type: string, data: unknown) => {
-    try {
-      const win = iframeRef.current?.contentWindow as Window & { _gameInbox?: unknown };
-      if (win) {
-        win._gameInbox = { type, data };
-      }
-    } catch {
-      // cross-origin or not loaded yet
-    }
+    iframeRef.current?.contentWindow?.postMessage({ type, data }, '*');
   }, []);
 
   // Poll for Godot ready
