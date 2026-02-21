@@ -39,12 +39,13 @@ server {
 
     # Godot WASM game files
     location /game/ {
-        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
-        include /etc/nginx/security-headers.conf;
+        include mime.types;
         types {
             application/wasm wasm;
             application/octet-stream pck;
         }
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        include /etc/nginx/security-headers.conf;
         try_files $uri =404;
     }
 
