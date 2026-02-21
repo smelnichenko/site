@@ -18,15 +18,16 @@ export default function Game() {
   const [godotReady, setGodotReady] = useState(false);
 
   const sendToGodot = useCallback((type: string, data: unknown) => {
+    // postMessage → HTML listener → _godotReceive(json) → GDScript callback
     iframeRef.current?.contentWindow?.postMessage({ type, data }, '*');
   }, []);
 
-  // Poll for Godot ready
+  // Poll for Godot ready (_godotReceive is registered by WASM _ready())
   useEffect(() => {
     const interval = setInterval(() => {
       try {
-        const win = iframeRef.current?.contentWindow as Window & { _gameReady?: boolean };
-        if (win?._gameReady) {
+        const win = iframeRef.current?.contentWindow as Window & { _godotReceive?: unknown };
+        if (win?._godotReceive) {
           setGodotReady(true);
           clearInterval(interval);
         }
