@@ -7,6 +7,8 @@ import {
   fetchRssFeedMonitorConfigs, createRssFeedMonitor, updateRssFeedMonitor, deleteRssFeedMonitor,
   testPageMonitor, testRssFeedMonitor, generateRssCollections,
 } from '../services/api';
+import LoadingButton from '../components/LoadingButton';
+import { useLoading } from '../contexts/LoadingContext';
 
 // Spring cron: 6 fields (sec min hour day month weekday)
 const CRON_PATTERN = /^(\S+\s+){5}\S+$/;
@@ -37,13 +39,14 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
   const [error, setError] = useState('');
   const [testingForm, setTestingForm] = useState(false);
   const [formTestResult, setFormTestResult] = useState<MonitorResult | null>(null);
+  const { withLoading } = useLoading();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
-      await onSave(form);
+      await withLoading(() => onSave(form));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -55,7 +58,7 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
     if (!formRef.current?.reportValidity()) return;
     setTestingForm(true);
     setFormTestResult(null);
-    try { setFormTestResult(await testPageMonitor(form)); } catch { /* ignore */ }
+    try { setFormTestResult(await withLoading(() => testPageMonitor(form))); } catch { /* ignore */ }
     setTestingForm(false);
   };
 
@@ -106,9 +109,9 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
           Enabled
         </label>
         <div>
-          <button type="button" className="status-badge action" onClick={handleTest} disabled={testingForm || !isValid}>{testingForm ? 'Testing...' : 'Test'}</button>
+          <LoadingButton type="button" className="status-badge action" onClick={handleTest} disabled={!isValid} loading={testingForm} label="Test" loadingLabel="Testing..." />
           <button type="button" className="status-badge action" onClick={onCancel}>Cancel</button>
-          <button type="submit" className="status-badge add" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+          <LoadingButton type="submit" className="status-badge add" loading={saving} label="Save" loadingLabel="Saving..." />
         </div>
       </div>
     </form>
@@ -151,19 +154,20 @@ function RssFeedForm({ initial, onSave, onCancel }: {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
+  const { withLoading } = useLoading();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
-      await onSave({
+      await withLoading(() => onSave({
         ...form,
         collections: form.collections.map(c => ({
           name: c.name,
           metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords.split(',').map(k => k.trim()).filter(Boolean) })),
         })),
-      });
+      }));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -179,13 +183,13 @@ function RssFeedForm({ initial, onSave, onCancel }: {
     setTestingForm(true);
     setFormTestResult(null);
     try {
-      setFormTestResult(await testRssFeedMonitor({
+      setFormTestResult(await withLoading(() => testRssFeedMonitor({
         ...form,
         collections: form.collections.map(c => ({
           name: c.name,
           metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords.split(',').map(k => k.trim()).filter(Boolean) })),
         })),
-      }));
+      })));
     } catch { /* ignore */ }
     setTestingForm(false);
   };
@@ -261,15 +265,18 @@ function RssFeedForm({ initial, onSave, onCancel }: {
               />
             </div>
             {aiError && <div className="error" style={{ marginBottom: 8 }}>{aiError}</div>}
-            <button
+            <LoadingButton
               type="button"
               className="status-badge add"
-              disabled={aiGenerating || !form.url.trim() || !aiPrompt.trim()}
+              disabled={!form.url.trim() || !aiPrompt.trim()}
+              loading={aiGenerating}
+              label="Generate"
+              loadingLabel="Generating..."
               onClick={async () => {
                 setAiGenerating(true);
                 setAiError('');
                 try {
-                  const collections = await generateRssCollections({ url: form.url, prompt: aiPrompt });
+                  const collections = await withLoading(() => generateRssCollections({ url: form.url, prompt: aiPrompt }));
                   setForm({
                     ...form,
                     collections: [...form.collections, ...collections.map(c => ({
@@ -284,9 +291,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
                   setAiGenerating(false);
                 }
               }}
-            >
-              {aiGenerating ? 'Generating...' : 'Generate'}
-            </button>
+            />
             {!form.url.trim() && <span style={{ color: '#856404', fontSize: '0.85rem', marginLeft: 8 }}>Enter a feed URL first</span>}
           </div>
         )}
@@ -344,9 +349,9 @@ function RssFeedForm({ initial, onSave, onCancel }: {
           Enabled
         </label>
         <div>
-          <button type="button" className="status-badge action" onClick={handleTestRssForm} disabled={testingForm || !isValid}>{testingForm ? 'Testing...' : 'Test'}</button>
+          <LoadingButton type="button" className="status-badge action" onClick={handleTestRssForm} disabled={!isValid} loading={testingForm} label="Test" loadingLabel="Testing..." />
           <button type="button" className="status-badge action" onClick={onCancel}>Cancel</button>
-          <button type="submit" className="status-badge add" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+          <LoadingButton type="submit" className="status-badge add" loading={saving} label="Save" loadingLabel="Saving..." />
         </div>
       </div>
     </form>
@@ -365,6 +370,7 @@ function MonitorConfig() {
   const [showNewPage, setShowNewPage] = useState(false);
   const [showNewRss, setShowNewRss] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
+  const { withLoading } = useLoading();
 
   const loadData = async () => {
     try {
@@ -430,18 +436,18 @@ function MonitorConfig() {
 
   const handleTestPage = async (pm: PageMonitorConfig) => {
     setTesting('page:' + pm.name);
-    try { await testPageMonitor({ name: pm.name, url: pm.url, pattern: pm.pattern, cron: pm.cron, enabled: pm.enabled }); } catch { /* ignore */ }
+    try { await withLoading(() => testPageMonitor({ name: pm.name, url: pm.url, pattern: pm.pattern, cron: pm.cron, enabled: pm.enabled })); } catch { /* ignore */ }
     setTesting(null);
   };
 
   const handleTestRss = async (fm: RssFeedMonitorConfig) => {
     setTesting('rss:' + fm.name);
     try {
-      await testRssFeedMonitor({
+      await withLoading(() => testRssFeedMonitor({
         name: fm.name, url: fm.url, cron: fm.cron, fetchContent: fm.fetchContent,
         maxArticles: fm.maxArticles, enabled: fm.enabled,
         collections: fm.collections.map(c => ({ name: c.name, metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords })) })),
-      });
+      }));
     } catch { /* ignore */ }
     setTesting(null);
   };
@@ -485,9 +491,7 @@ function MonitorConfig() {
                       <span className="config-detail">Cron: <code>{pm.cron}</code></span>
                     </div>
                     <div className="config-item-actions">
-                      <button className="status-badge action" onClick={() => handleTestPage(pm)} disabled={testing === 'page:' + pm.name}>
-                        {testing === 'page:' + pm.name ? 'Testing...' : 'Test'}
-                      </button>
+                      <LoadingButton className="status-badge action" onClick={() => handleTestPage(pm)} loading={testing === 'page:' + pm.name} label="Test" loadingLabel="Testing..." />
                       <button className="status-badge action" onClick={() => setEditingPage(pm)}>Edit</button>
                       <button className="status-badge danger" onClick={() => handleDeletePage(pm.id)}>Delete</button>
                     </div>
@@ -545,9 +549,7 @@ function MonitorConfig() {
                       ))}
                     </div>
                     <div className="config-item-actions">
-                      <button className="status-badge action" onClick={() => handleTestRss(fm)} disabled={testing === 'rss:' + fm.name}>
-                        {testing === 'rss:' + fm.name ? 'Testing...' : 'Test'}
-                      </button>
+                      <LoadingButton className="status-badge action" onClick={() => handleTestRss(fm)} loading={testing === 'rss:' + fm.name} label="Test" loadingLabel="Testing..." />
                       <button className="status-badge action" onClick={() => setEditingRss(fm)}>Edit</button>
                       <button className="status-badge danger" onClick={() => handleDeleteRss(fm.id)}>Delete</button>
                     </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { useLoading } from './contexts/LoadingContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import PageDetail from './pages/PageDetail';
@@ -28,6 +29,7 @@ function formatBuildTime(isoString: string): string {
 function App() {
   const location = useLocation();
   const { isAuthenticated, username, logout } = useAuth();
+  const { loading } = useLoading();
   const [buildInfo, setBuildInfo] = useState(
     `FE: ${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`
   );
@@ -52,7 +54,7 @@ function App() {
         <div className="header-top">
           <div className="header-side">
             {isAuthenticated && (
-              <nav className="nav">
+              <nav className={`nav${loading ? ' disabled' : ''}`}>
                 <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
                   Monitors
                 </Link>
@@ -70,12 +72,17 @@ function App() {
             {isAuthenticated && (
               <div className="header-user">
                 <span className="header-username">{username}</span>
-                <button className="btn-logout" onClick={logout}>Logout</button>
+                <button className="btn-logout" onClick={logout} disabled={loading}>Logout</button>
               </div>
             )}
           </div>
         </div>
       </header>
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner" />
+        </div>
+      )}
       <main className="container">
         <Routes>
           <Route path="/login" element={<Login />} />
