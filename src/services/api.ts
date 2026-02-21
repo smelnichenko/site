@@ -352,6 +352,49 @@ export async function generateRssCollections(request: GenerateCollectionsRequest
   return (await response.json()).collections;
 }
 
+// Game Types & API
+
+export interface GameState {
+  id: number;
+  player1Position: number;
+  player2Position: number;
+  currentTurn: number;
+  totalSpins: number;
+  completed: boolean;
+  winner: number | null;
+}
+
+export interface SpinResult {
+  colors: string[];
+  player1Position: number;
+  player2Position: number;
+  currentTurn: number;
+  completed: boolean;
+  winner: number;
+  totalSpins: number;
+}
+
+export async function fetchGameState(signal?: AbortSignal): Promise<GameState> {
+  const response = await apiFetch(`${API_BASE}/game/state`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch game state');
+  return response.json();
+}
+
+export async function spinGame(): Promise<SpinResult> {
+  const response = await apiFetch(`${API_BASE}/game/spin`, { method: 'POST' });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Spin failed');
+  }
+  return response.json();
+}
+
+export async function resetGame(): Promise<GameState> {
+  const response = await apiFetch(`${API_BASE}/game/reset`, { method: 'POST' });
+  if (!response.ok) throw new Error('Failed to reset game');
+  return response.json();
+}
+
 // Test endpoints (run check with inline config, no save)
 
 export async function testPageMonitor(request: PageMonitorRequest): Promise<MonitorResult> {

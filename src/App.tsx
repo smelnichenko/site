@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import MonitorConfig from './pages/MonitorConfig';
+import Game from './pages/Game';
 
 function formatBuildTime(isoString: string): string {
   try {
@@ -66,6 +67,9 @@ function App() {
                 <Link to="/monitors" className={location.pathname === '/monitors' ? 'active' : ''}>
                   Configuration
                 </Link>
+                <Link to="/game" className={location.pathname === '/game' ? 'active' : ''}>
+                  Game
+                </Link>
               </nav>
             )}
           </div>
@@ -96,6 +100,7 @@ function App() {
           <Route path="/rss" element={<ProtectedRoute><RssDashboard /></ProtectedRoute>} />
           <Route path="/rss/:feedName" element={<ProtectedRoute><RssFeedDetail /></ProtectedRoute>} />
           <Route path="/monitors" element={<ProtectedRoute><MonitorConfig /></ProtectedRoute>} />
+          <Route path="/game" element={<ProtectedRoute><Game /></ProtectedRoute>} />
         </Routes>
       </main>
     </div>

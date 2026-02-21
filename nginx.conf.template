@@ -9,13 +9,13 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self';" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self';" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
 
     # Gzip compression
     gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript application/wasm;
     gzip_min_length 1000;
 
     # Proxy API requests to backend
@@ -35,6 +35,17 @@ server {
         expires 1y;
         add_header Cache-Control "public, immutable" always;
         include /etc/nginx/security-headers.conf;
+    }
+
+    # Godot WASM game files
+    location /game/ {
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        include /etc/nginx/security-headers.conf;
+        types {
+            application/wasm wasm;
+            application/octet-stream pck;
+        }
+        try_files $uri =404;
     }
 
     # SPA fallback - serve index.html for all non-file routes
