@@ -5,7 +5,7 @@ set -e
 API_BACKEND_HOST=${API_BACKEND_HOST:-monitor-monitor-app}
 
 # Substitute environment variables in nginx config
-envsubst '${API_BACKEND_HOST}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
+envsubst '${API_BACKEND_HOST}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
 
 # Start nginx
 exec nginx -g 'daemon off;'
