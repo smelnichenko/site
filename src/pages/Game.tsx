@@ -46,6 +46,7 @@ export default function Game() {
         }
       } catch (err) {
         setError(String(err));
+        sendToGodot('error', { message: String(err) });
       }
     };
     window.addEventListener('message', handler);
