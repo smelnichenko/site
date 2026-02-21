@@ -101,20 +101,8 @@ export default function Game() {
     : 'Loading...';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)', gap: '8px' }}>
-      <iframe
-        ref={iframeRef}
-        src="/game/index.html"
-        title="Slot Machine Board Game"
-        style={{
-          width: '100%',
-          flex: 1,
-          border: 'none',
-          borderRadius: '8px',
-          background: '#1a1a2e',
-        }}
-      />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '8px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '12px 8px', flexShrink: 0 }}>
         <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{turnText}</span>
         <button
           className="btn-primary"
@@ -132,6 +120,19 @@ export default function Game() {
         </button>
         {state && <span style={{ fontSize: '12px', color: '#888' }}>Spins: {state.totalSpins}</span>}
       </div>
+      <iframe
+        ref={iframeRef}
+        src="/game/index.html"
+        title="Slot Machine Board Game"
+        style={{
+          width: '100%',
+          flex: 1,
+          minHeight: 0,
+          border: 'none',
+          borderRadius: '8px',
+          background: '#1a1a2e',
+        }}
+      />
       {error && <div style={{ color: 'var(--danger)', textAlign: 'center', padding: '4px' }}>{error}</div>}
     </div>
   );
