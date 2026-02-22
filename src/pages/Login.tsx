@@ -18,7 +18,8 @@ function Login() {
     setLoading(true);
     try {
       const lastPath = await login(email, password);
-      navigate(from ?? lastPath ?? '/', { replace: true });
+      const redirectTo = from && from !== '/' ? from : lastPath ?? '/';
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
