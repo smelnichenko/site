@@ -432,6 +432,11 @@ a.card-title {
   font-size: 0.95rem;
 }
 
+.form-group input::-ms-reveal,
+.form-group input::-webkit-credentials-auto-fill-button {
+  display: none;
+}
+
 .form-group input:focus {
   outline: none;
   border-color: #0066cc;
