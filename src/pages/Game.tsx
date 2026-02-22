@@ -7,7 +7,7 @@ export default function Game() {
   const [error, setError] = useState<string | null>(null);
 
   const sendToGodot = useCallback((type: string, data: unknown) => {
-    iframeRef.current?.contentWindow?.postMessage({ type, data }, '*');
+    iframeRef.current?.contentWindow?.postMessage({ type, data }, window.location.origin);
   }, []);
 
   // Poll for Godot ready
@@ -35,7 +35,7 @@ export default function Game() {
   // Listen for messages from Godot (spin/reset requests)
   useEffect(() => {
     const handler = async (e: MessageEvent) => {
-      if (e.data?.source !== 'godot') return;
+      if (e.origin !== window.location.origin || e.data?.source !== 'godot') return;
       try {
         if (e.data.type === 'spin') {
           const result = await spinGame();
