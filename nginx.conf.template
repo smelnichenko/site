@@ -37,6 +37,13 @@ server {
         include /etc/nginx/security-headers.conf;
     }
 
+    # SPA route for /game (React handles auth check before loading game)
+    location = /game {
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        include /etc/nginx/security-headers.conf;
+        try_files /index.html =404;
+    }
+
     # Godot WASM game files (needs unsafe-inline for Godot's inline boot script)
     location /game/ {
         include mime.types;
