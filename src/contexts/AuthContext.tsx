@@ -6,7 +6,6 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -66,21 +65,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth({ email: data.email });
   }
 
-  async function register(email: string, password: string) {
-    const response = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email, password }),
-    });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'Registration failed');
-    }
-    const data = await response.json();
-    setAuth({ email: data.email });
-  }
-
   async function logout() {
     try {
       await fetch(`${API_BASE}/auth/logout`, {
@@ -95,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ ...auth, login, register, logout, isAuthenticated }}>
+    <AuthContext.Provider value={{ ...auth, login, logout, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );

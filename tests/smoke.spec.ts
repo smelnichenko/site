@@ -4,17 +4,22 @@ const TEST_EMAIL = 'e2e-test@test.com';
 const TEST_PASS = 'e2e-test-pass';
 
 async function getAuthToken(request: APIRequestContext): Promise<string> {
-  // Try register first, then login if user exists
-  let response = await request.post('/api/auth/register', {
+  // Register (auto-verifies when mail is disabled in test env)
+  await request.post('/api/auth/register', {
+    data: { email: TEST_EMAIL, password: TEST_PASS },
+  });
+
+  // Login to get token cookie
+  const response = await request.post('/api/auth/login', {
     data: { email: TEST_EMAIL, password: TEST_PASS },
   });
   if (!response.ok()) {
-    response = await request.post('/api/auth/login', {
-      data: { email: TEST_EMAIL, password: TEST_PASS },
-    });
+    throw new Error('Could not authenticate test user');
   }
-  const body = await response.json();
-  return body.token;
+  const cookies = response.headers()['set-cookie'] || '';
+  const match = cookies.match(/AUTH_TOKEN=([^;]+)/);
+  if (match) return match[1];
+  throw new Error('AUTH_TOKEN cookie not found');
 }
 
 async function loginViaUI(page: Page) {

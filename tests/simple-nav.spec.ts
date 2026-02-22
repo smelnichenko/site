@@ -4,10 +4,11 @@ const TEST_EMAIL = 'e2e-nav@test.com';
 const TEST_PASS = 'e2e-nav-pass';
 
 async function ensureUser(request: APIRequestContext): Promise<void> {
-  const response = await request.post('/api/auth/register', {
+  // Register (auto-verifies when mail is disabled in test env)
+  await request.post('/api/auth/register', {
     data: { email: TEST_EMAIL, password: TEST_PASS },
   });
-  // Ignore if user already exists
+  // Ignore errors if user already exists
 }
 
 async function loginViaUI(page: Page) {
