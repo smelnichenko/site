@@ -395,6 +395,16 @@ export async function resetGame(): Promise<GameState> {
   return response.json();
 }
 
+// User preferences
+
+export async function saveLastPath(path: string): Promise<void> {
+  await apiFetch(`${API_BASE}/user/last-path`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  });
+}
+
 // Test endpoints (run check with inline config, no save)
 
 export async function testPageMonitor(request: PageMonitorRequest): Promise<MonitorResult> {

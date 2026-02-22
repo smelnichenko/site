@@ -5,7 +5,7 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<string | null>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [auth.email]);
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string): Promise<string | null> {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -63,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const data = await response.json();
     setAuth({ email: data.email });
+    return data.lastPath ?? null;
   }
 
   async function logout() {
