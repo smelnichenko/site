@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { useLoading } from './contexts/LoadingContext';
@@ -39,20 +39,15 @@ function App() {
     `FE: ${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`
   );
 
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const debouncedSaveLastPath = useCallback((path: string) => {
-    clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
-      saveLastPath(path).catch(() => {});
-    }, 2000);
-  }, []);
+  const lastSavedPath = useRef<string | null>(null);
 
   useEffect(() => {
     const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
-    if (isAuthenticated && !publicPaths.includes(location.pathname)) {
-      debouncedSaveLastPath(location.pathname);
+    if (isAuthenticated && !publicPaths.includes(location.pathname) && location.pathname !== lastSavedPath.current) {
+      lastSavedPath.current = location.pathname;
+      saveLastPath(location.pathname).catch(() => {});
     }
-  }, [location.pathname, isAuthenticated, debouncedSaveLastPath]);
+  }, [location.pathname, isAuthenticated]);
 
   useEffect(() => {
     fetch('/api/build-info')
