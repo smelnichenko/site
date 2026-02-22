@@ -1,16 +1,16 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 
-const TEST_USER = 'e2e-test-user';
+const TEST_EMAIL = 'e2e-test@test.com';
 const TEST_PASS = 'e2e-test-pass';
 
 async function getAuthToken(request: APIRequestContext): Promise<string> {
   // Try register first, then login if user exists
   let response = await request.post('/api/auth/register', {
-    data: { username: TEST_USER, password: TEST_PASS },
+    data: { email: TEST_EMAIL, password: TEST_PASS },
   });
   if (!response.ok()) {
     response = await request.post('/api/auth/login', {
-      data: { username: TEST_USER, password: TEST_PASS },
+      data: { email: TEST_EMAIL, password: TEST_PASS },
     });
   }
   const body = await response.json();
@@ -20,7 +20,7 @@ async function getAuthToken(request: APIRequestContext): Promise<string> {
 async function loginViaUI(page: Page) {
   for (let attempt = 0; attempt < 3; attempt++) {
     await page.goto('/login');
-    await page.fill('input#username', TEST_USER);
+    await page.fill('input#email', TEST_EMAIL);
     await page.fill('input#password', TEST_PASS);
     await page.click('button[type="submit"]');
     try {

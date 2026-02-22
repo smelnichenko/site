@@ -1,18 +1,18 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 
-const TEST_USER = 'e2e-nav-user';
+const TEST_EMAIL = 'e2e-nav@test.com';
 const TEST_PASS = 'e2e-nav-pass';
 
 async function ensureUser(request: APIRequestContext): Promise<void> {
   const response = await request.post('/api/auth/register', {
-    data: { username: TEST_USER, password: TEST_PASS },
+    data: { email: TEST_EMAIL, password: TEST_PASS },
   });
   // Ignore if user already exists
 }
 
 async function loginViaUI(page: Page) {
   await page.goto('/login');
-  await page.fill('input#username', TEST_USER);
+  await page.fill('input#email', TEST_EMAIL);
   await page.fill('input#password', TEST_PASS);
   await page.click('button[type="submit"]');
   await expect(page.locator('button:has-text("Logout")')).toBeVisible();

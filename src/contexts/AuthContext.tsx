@@ -1,12 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface AuthState {
-  username: string | null;
+  email: string | null;
 }
 
 interface AuthContextType extends AuthState {
-  login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string, email: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -17,30 +17,30 @@ const API_BASE = '/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState>(() => {
-    const username = localStorage.getItem('username');
-    return { username };
+    const email = localStorage.getItem('email');
+    return { email };
   });
 
-  const isAuthenticated = !!auth.username;
+  const isAuthenticated = !!auth.email;
 
   useEffect(() => {
-    if (auth.username) {
-      localStorage.setItem('username', auth.username);
+    if (auth.email) {
+      localStorage.setItem('email', auth.email);
     } else {
-      localStorage.removeItem('username');
+      localStorage.removeItem('email');
     }
   }, [auth]);
 
   // Session validation: periodically check if the cookie/token is still valid
   useEffect(() => {
-    if (!auth.username) return;
+    if (!auth.email) return;
 
     const checkSession = async () => {
       try {
         const response = await fetch('/api/monitor/pages', { credentials: 'include' });
         if (response.status === 401) {
-          localStorage.removeItem('username');
-          setAuth({ username: null });
+          localStorage.removeItem('email');
+          setAuth({ email: null });
         }
       } catch {
         // Network error — don't log out
@@ -49,36 +49,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const interval = setInterval(checkSession, 5 * 60 * 1000); // every 5 minutes
     return () => clearInterval(interval);
-  }, [auth.username]);
+  }, [auth.email]);
 
-  async function login(username: string, password: string) {
+  async function login(email: string, password: string) {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ email, password }),
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       throw new Error(data.error || 'Login failed');
     }
     const data = await response.json();
-    setAuth({ username: data.username });
+    setAuth({ email: data.email });
   }
 
-  async function register(username: string, password: string, email: string) {
+  async function register(email: string, password: string) {
     const response = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ username, password, email }),
+      body: JSON.stringify({ email, password }),
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       throw new Error(data.error || 'Registration failed');
     }
     const data = await response.json();
-    setAuth({ username: data.username });
+    setAuth({ email: data.email });
   }
 
   async function logout() {
@@ -90,8 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore errors during logout
     }
-    localStorage.removeItem('username');
-    setAuth({ username: null });
+    localStorage.removeItem('email');
+    setAuth({ email: null });
   }
 
   return (

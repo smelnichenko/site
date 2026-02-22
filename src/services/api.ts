@@ -103,7 +103,7 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
   const response = await fetch(url, { ...options, headers, credentials: 'include' });
 
   if (response.status === 401) {
-    localStorage.removeItem('username');
+    localStorage.removeItem('email');
     window.location.href = '/login';
     throw new Error('Unauthorized');
   }

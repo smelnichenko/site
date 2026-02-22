@@ -31,7 +31,7 @@ function formatBuildTime(isoString: string): string {
 
 function App() {
   const location = useLocation();
-  const { isAuthenticated, username, logout } = useAuth();
+  const { isAuthenticated, email, logout } = useAuth();
   const { loading } = useLoading();
   const [buildInfo, setBuildInfo] = useState(
     `FE: ${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`
@@ -77,7 +77,7 @@ function App() {
           <div className="header-side">
             {isAuthenticated && (
               <div className="header-user">
-                <span className="header-username">{username}</span>
+                <span className="header-username">{email}</span>
                 <button className="btn-logout" onClick={logout} disabled={loading}>Logout</button>
               </div>
             )}

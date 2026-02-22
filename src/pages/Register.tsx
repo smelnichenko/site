@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 function Register() {
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -21,7 +20,7 @@ function Register() {
     }
     setLoading(true);
     try {
-      await register(username, password, email);
+      await register(email, password);
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
@@ -40,17 +39,6 @@ function Register() {
         {error && <div className="error">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              autoFocus
-            />
-          </div>
-          <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
               id="email"
@@ -58,6 +46,7 @@ function Register() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoFocus
             />
           </div>
           <div className="form-group">
