@@ -27,7 +27,8 @@ FROM nginx:alpine
 # Install envsubst (part of gettext)
 RUN apk add --no-cache gettext
 
-# Copy nginx config template and security headers
+# Copy nginx config (override default to drop 'user' directive for non-root)
+COPY nginx.conf /etc/nginx/nginx.conf
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY security-headers.conf /etc/nginx/security-headers.conf
 COPY security-headers-base.conf /etc/nginx/security-headers-base.conf

@@ -55,7 +55,6 @@ server {
     location /game/ {
         include mime.types;
         types {
-            application/wasm wasm;
             application/octet-stream pck;
         }
         include /etc/nginx/security-headers-base.conf;
