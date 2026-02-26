@@ -15,6 +15,7 @@ import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import MonitorConfig from './pages/MonitorConfig';
 import Game from './pages/Game';
+import Inbox from './pages/Inbox';
 
 function formatBuildTime(isoString: string): string {
   try {
@@ -79,6 +80,9 @@ function App() {
                 <Link to="/monitors" className={location.pathname === '/monitors' ? 'active' : ''}>
                   Configuration
                 </Link>
+                <Link to="/inbox" className={location.pathname === '/inbox' ? 'active' : ''}>
+                  Inbox
+                </Link>
                 <Link to="/game" className={location.pathname === '/game' ? 'active' : ''}>
                   Game
                 </Link>
@@ -113,6 +117,7 @@ function App() {
           <Route path="/rss" element={<ProtectedRoute><RssDashboard /></ProtectedRoute>} />
           <Route path="/rss/:feedName" element={<ProtectedRoute><RssFeedDetail /></ProtectedRoute>} />
           <Route path="/monitors" element={<ProtectedRoute><MonitorConfig /></ProtectedRoute>} />
+          <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
           <Route path="/game" element={<ProtectedRoute><Game /></ProtectedRoute>} />
         </Routes>
       </main>

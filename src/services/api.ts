@@ -405,6 +405,36 @@ export async function saveLastPath(path: string): Promise<void> {
   });
 }
 
+// Inbox (received emails)
+
+export interface ReceivedEmail {
+  id: number;
+  resendEmailId: string;
+  fromAddress: string;
+  toAddresses: string;
+  subject: string | null;
+  bodyHtml: string | null;
+  bodyText: string | null;
+  receivedAt: string;
+  createdAt: string;
+}
+
+export async function fetchInboxEmails(
+  page = 0,
+  size = 20,
+  signal?: AbortSignal
+): Promise<PagedResponse<ReceivedEmail>> {
+  const response = await apiFetch(`${API_BASE}/inbox/emails?page=${page}&size=${size}`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch emails');
+  return response.json();
+}
+
+export async function fetchInboxEmail(id: number, signal?: AbortSignal): Promise<ReceivedEmail> {
+  const response = await apiFetch(`${API_BASE}/inbox/emails/${id}`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch email');
+  return response.json();
+}
+
 // Test endpoints (run check with inline config, no save)
 
 export async function testPageMonitor(request: PageMonitorRequest): Promise<MonitorResult> {
