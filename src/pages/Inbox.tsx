@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { fetchInboxEmails, ReceivedEmail, PagedResponse } from '../services/api';
+import {
+  fetchInboxEmails,
+  fetchEmailAttachments,
+  getAttachmentDownloadUrl,
+  ReceivedEmail,
+  EmailAttachment,
+  PagedResponse,
+} from '../services/api';
 
 function formatTimeAgo(dateString: string): string {
   const date = new Date(dateString);
@@ -25,6 +32,12 @@ function formatDate(dateString: string): string {
   });
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function extractName(address: string): string {
   const match = address.match(/^(.+?)\s*<.+>$/);
   if (match) return match[1].trim();
@@ -35,6 +48,7 @@ function Inbox() {
   const [data, setData] = useState<PagedResponse<ReceivedEmail> | null>(null);
   const [page, setPage] = useState(0);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [attachments, setAttachments] = useState<Record<number, EmailAttachment[]>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +71,16 @@ function Inbox() {
       clearInterval(interval);
     };
   }, [page]);
+
+  useEffect(() => {
+    if (expandedId === null) return;
+    if (attachments[expandedId]) return; // Already loaded
+    const controller = new AbortController();
+    fetchEmailAttachments(expandedId, controller.signal)
+      .then((atts) => setAttachments((prev) => ({ ...prev, [expandedId]: atts })))
+      .catch(() => {}); // Ignore aborted
+    return () => controller.abort();
+  }, [expandedId]);
 
   if (data === null) {
     return <div className="loading">Loading inbox...</div>;
@@ -120,6 +144,28 @@ function Inbox() {
                         <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{email.bodyText}</pre>
                       ) : (
                         <p style={{ color: '#999' }}>No body content available.</p>
+                      )}
+                      {attachments[email.id] && attachments[email.id].length > 0 && (
+                        <div style={{ marginTop: '0.75rem', borderTop: '1px solid #ddd', paddingTop: '0.5rem' }}>
+                          <strong style={{ fontSize: '0.85rem' }}>Attachments:</strong>
+                          <ul style={{ margin: '0.25rem 0', paddingLeft: '1.25rem', listStyle: 'none' }}>
+                            {attachments[email.id].map((att) => (
+                              <li key={att.id} style={{ fontSize: '0.85rem', margin: '0.2rem 0' }}>
+                                <a
+                                  href={getAttachmentDownloadUrl(email.id, att.id)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{ textDecoration: 'none' }}
+                                >
+                                  {att.filename}
+                                </a>
+                                <span style={{ color: '#999', marginLeft: '0.5rem' }}>
+                                  ({formatFileSize(att.sizeBytes)})
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       )}
                     </td>
                   </tr>

@@ -435,6 +435,28 @@ export async function fetchInboxEmail(id: number, signal?: AbortSignal): Promise
   return response.json();
 }
 
+export interface EmailAttachment {
+  id: number;
+  emailId: number;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export async function fetchEmailAttachments(
+  emailId: number,
+  signal?: AbortSignal
+): Promise<EmailAttachment[]> {
+  const response = await apiFetch(`${API_BASE}/inbox/emails/${emailId}/attachments`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch attachments');
+  return response.json();
+}
+
+export function getAttachmentDownloadUrl(emailId: number, attachmentId: number): string {
+  return `${API_BASE}/inbox/emails/${emailId}/attachments/${attachmentId}`;
+}
+
 // Test endpoints (run check with inline config, no save)
 
 export async function testPageMonitor(request: PageMonitorRequest): Promise<MonitorResult> {
