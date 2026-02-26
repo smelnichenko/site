@@ -27,8 +27,10 @@ FROM nginx:alpine
 # Install envsubst (part of gettext)
 RUN apk add --no-cache gettext
 
-# Copy nginx config template
-COPY nginx.conf.template /etc/nginx/conf.d/default.conf.template
+# Copy nginx config template and security headers
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY security-headers.conf /etc/nginx/security-headers.conf
+COPY security-headers-base.conf /etc/nginx/security-headers-base.conf
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /docker-entrypoint.sh
