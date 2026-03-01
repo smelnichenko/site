@@ -81,10 +81,19 @@ export interface PageStats {
 
 const API_BASE = '/api';
 
+// Global callback for permission refresh — set by AuthContext
+let _onPermissionsChanged: (() => Promise<void>) | null = null;
+
+export function setPermissionsChangedCallback(cb: (() => Promise<void>) | null) {
+  _onPermissionsChanged = cb;
+}
+
 function getCsrfToken(): string | null {
   const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
   return match ? decodeURIComponent(match[1]) : null;
 }
+
+let _refreshPromise: Promise<void> | null = null;
 
 async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers: Record<string, string> = {
@@ -104,8 +113,24 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
 
   if (response.status === 401) {
     localStorage.removeItem('email');
+    localStorage.removeItem('permissions');
+    localStorage.removeItem('groups');
     window.location.href = '/login';
     throw new Error('Unauthorized');
+  }
+
+  // Handle stale permissions — refresh token and retry once
+  if (response.status === 403 && _onPermissionsChanged) {
+    const body = await response.clone().json().catch(() => null);
+    if (body?.error === 'permissions_changed') {
+      // Deduplicate concurrent refresh calls
+      if (!_refreshPromise) {
+        _refreshPromise = _onPermissionsChanged().finally(() => { _refreshPromise = null; });
+      }
+      await _refreshPromise;
+      // Retry the original request once
+      return fetch(url, { ...options, headers, credentials: 'include' });
+    }
   }
 
   return response;
@@ -477,4 +502,91 @@ export async function testRssFeedMonitor(request: RssFeedMonitorRequest): Promis
   });
   if (!response.ok) throw new Error('Test failed');
   return response.json();
+}
+
+// Admin API
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  enabled: boolean;
+  groups: string[];
+  permissions: string[];
+  createdAt: string;
+}
+
+export interface AppGroup {
+  id: number;
+  name: string;
+  description: string | null;
+  permissions: { id: number; permission: string }[];
+  createdAt: string;
+}
+
+export async function fetchAdminUsers(signal?: AbortSignal): Promise<AdminUser[]> {
+  const response = await apiFetch(`${API_BASE}/admin/users`, { signal });
+  return response.json();
+}
+
+export async function setUserEnabled(userId: number, enabled: boolean): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/admin/users/${userId}/enabled`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to update user');
+  }
+}
+
+export async function setUserGroups(userId: number, groupIds: number[]): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/admin/users/${userId}/groups`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupIds }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to update groups');
+  }
+}
+
+export async function fetchAdminGroups(signal?: AbortSignal): Promise<AppGroup[]> {
+  const response = await apiFetch(`${API_BASE}/admin/groups`, { signal });
+  return response.json();
+}
+
+export async function createGroup(name: string, description: string, permissions: string[]): Promise<AppGroup> {
+  const response = await apiFetch(`${API_BASE}/admin/groups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description, permissions }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to create group');
+  }
+  return response.json();
+}
+
+export async function updateGroup(id: number, name: string, description: string, permissions: string[]): Promise<AppGroup> {
+  const response = await apiFetch(`${API_BASE}/admin/groups/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description, permissions }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to update group');
+  }
+  return response.json();
+}
+
+export async function deleteGroup(id: number): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/admin/groups/${id}`, { method: 'DELETE' });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to delete group');
+  }
 }

@@ -12,6 +12,9 @@ vi.mock('../contexts/AuthContext', () => ({
     login: mockLogin,
     isAuthenticated: false,
     email: null,
+    permissions: [],
+    groups: [],
+    hasPermission: () => false,
     logout: vi.fn(),
   }),
 }))

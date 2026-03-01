@@ -4,6 +4,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useLoading } from './contexts/LoadingContext';
 import { saveLastPath } from './services/api';
 import ProtectedRoute from './components/ProtectedRoute';
+import PendingApproval from './components/PendingApproval';
 import Dashboard from './pages/Dashboard';
 import PageDetail from './pages/PageDetail';
 import RssDashboard from './pages/RssDashboard';
@@ -16,6 +17,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import MonitorConfig from './pages/MonitorConfig';
 import Game from './pages/Game';
 import Inbox from './pages/Inbox';
+import Admin from './pages/Admin';
 
 function formatBuildTime(isoString: string): string {
   try {
@@ -34,13 +36,14 @@ function formatBuildTime(isoString: string): string {
 
 function App() {
   const location = useLocation();
-  const { isAuthenticated, email, logout } = useAuth();
+  const { isAuthenticated, email, logout, hasPermission, permissions } = useAuth();
   const { loading } = useLoading();
   const [buildInfo, setBuildInfo] = useState(
     `FE: ${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`
   );
 
   const lastSavedPath = useRef<string | null>(null);
+  const hasPendingApproval = isAuthenticated && permissions.length === 0;
 
   useEffect(() => {
     const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
@@ -69,23 +72,36 @@ function App() {
       <header className="header">
         <div className="header-top">
           <div className="header-side">
-            {isAuthenticated && (
+            {isAuthenticated && !hasPendingApproval && (
               <nav className={`nav${loading ? ' disabled' : ''}`}>
-                <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
-                  Monitors
-                </Link>
-                <Link to="/rss" className={location.pathname.startsWith('/rss') ? 'active' : ''}>
-                  RSS Feeds
-                </Link>
-                <Link to="/monitors" className={location.pathname === '/monitors' ? 'active' : ''}>
-                  Configuration
-                </Link>
-                <Link to="/inbox" className={location.pathname === '/inbox' ? 'active' : ''}>
-                  Inbox
-                </Link>
-                <Link to="/game" className={location.pathname === '/game' ? 'active' : ''}>
-                  Game
-                </Link>
+                {hasPermission('METRICS') && (
+                  <>
+                    <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
+                      Monitors
+                    </Link>
+                    <Link to="/rss" className={location.pathname.startsWith('/rss') ? 'active' : ''}>
+                      RSS Feeds
+                    </Link>
+                    <Link to="/monitors" className={location.pathname === '/monitors' ? 'active' : ''}>
+                      Configuration
+                    </Link>
+                  </>
+                )}
+                {hasPermission('EMAIL') && (
+                  <Link to="/inbox" className={location.pathname === '/inbox' ? 'active' : ''}>
+                    Inbox
+                  </Link>
+                )}
+                {hasPermission('PLAY') && (
+                  <Link to="/game" className={location.pathname === '/game' ? 'active' : ''}>
+                    Game
+                  </Link>
+                )}
+                {hasPermission('MANAGE_USERS') && (
+                  <Link to="/admin" className={location.pathname === '/admin' ? 'active' : ''}>
+                    Admin
+                  </Link>
+                )}
               </nav>
             )}
           </div>
@@ -106,20 +122,25 @@ function App() {
         </div>
       )}
       <main className="container">
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/page/:pageName" element={<ProtectedRoute><PageDetail /></ProtectedRoute>} />
-          <Route path="/rss" element={<ProtectedRoute><RssDashboard /></ProtectedRoute>} />
-          <Route path="/rss/:feedName" element={<ProtectedRoute><RssFeedDetail /></ProtectedRoute>} />
-          <Route path="/monitors" element={<ProtectedRoute><MonitorConfig /></ProtectedRoute>} />
-          <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
-          <Route path="/game" element={<ProtectedRoute><Game /></ProtectedRoute>} />
-        </Routes>
+        {hasPendingApproval ? (
+          <PendingApproval />
+        ) : (
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/" element={<ProtectedRoute permission="METRICS"><Dashboard /></ProtectedRoute>} />
+            <Route path="/page/:pageName" element={<ProtectedRoute permission="METRICS"><PageDetail /></ProtectedRoute>} />
+            <Route path="/rss" element={<ProtectedRoute permission="METRICS"><RssDashboard /></ProtectedRoute>} />
+            <Route path="/rss/:feedName" element={<ProtectedRoute permission="METRICS"><RssFeedDetail /></ProtectedRoute>} />
+            <Route path="/monitors" element={<ProtectedRoute permission="METRICS"><MonitorConfig /></ProtectedRoute>} />
+            <Route path="/inbox" element={<ProtectedRoute permission="EMAIL"><Inbox /></ProtectedRoute>} />
+            <Route path="/game" element={<ProtectedRoute permission="PLAY"><Game /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute permission="MANAGE_USERS"><Admin /></ProtectedRoute>} />
+          </Routes>
+        )}
       </main>
     </div>
   );
