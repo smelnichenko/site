@@ -18,11 +18,10 @@ test('simple navigation to RSS Feeds', async ({ page }) => {
   await page.click('text=RSS Feeds');
   await expect(page).toHaveURL(/\/rss/);
 
-  // Check that we're either showing feed cards OR "No RSS feeds configured"
-  const hasCards = await page.locator('[data-testid="rss-feed-card"]').first().isVisible({ timeout: 5000 }).catch(() => false);
-  const hasNoFeedsMessage = await page.getByText('No RSS feeds configured').isVisible({ timeout: 5000 }).catch(() => false);
-
-  expect(hasCards || hasNoFeedsMessage).toBe(true);
+  // Wait for loading to complete: expect either feed cards or the empty-state message
+  const feedCards = page.locator('[data-testid="rss-feed-card"]');
+  const noFeedsMsg = page.getByText('No RSS feeds configured');
+  await expect(feedCards.first().or(noFeedsMsg)).toBeVisible({ timeout: 10000 });
 });
 
 test('back and forth navigation preserves data loading', async ({ page }) => {
