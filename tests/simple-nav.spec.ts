@@ -1,77 +1,54 @@
-import { test, expect, Page, APIRequestContext } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 const TEST_EMAIL = 'e2e-nav@test.com';
 const TEST_PASS = 'e2e-nav-pass';
-
-async function ensureUser(request: APIRequestContext): Promise<void> {
-  // Register (auto-verifies when mail is disabled in test env)
-  await request.post('/api/auth/register', {
-    data: { email: TEST_EMAIL, password: TEST_PASS },
-  });
-  // Ignore errors if user already exists
-}
 
 async function loginViaUI(page: Page) {
   await page.goto('/login');
   await page.fill('input#email', TEST_EMAIL);
   await page.fill('input#password', TEST_PASS);
   await page.click('button[type="submit"]');
-  await expect(page.locator('button:has-text("Logout")')).toBeVisible();
+  await expect(page.locator('header button.btn-logout')).toBeVisible();
 }
 
-test('simple navigation to RSS Feeds', async ({ page, request }) => {
-  await ensureUser(request);
+test('simple navigation to RSS Feeds', async ({ page }) => {
   await loginViaUI(page);
+  await expect(page.locator('main')).toBeVisible();
 
-  await page.waitForLoadState('networkidle');
-
-  // Navigate to RSS Feeds
   await page.click('text=RSS Feeds');
   await expect(page).toHaveURL(/\/rss/);
 
-  await page.waitForLoadState('networkidle');
-
   // Check that we're either showing feed cards OR "No RSS feeds configured"
-  const hasCards = await page.locator('[data-testid="rss-feed-card"]').first().isVisible().catch(() => false);
-  const hasNoFeedsMessage = await page.getByText('No RSS feeds configured').isVisible().catch(() => false);
+  const hasCards = await page.locator('[data-testid="rss-feed-card"]').first().isVisible({ timeout: 5000 }).catch(() => false);
+  const hasNoFeedsMessage = await page.getByText('No RSS feeds configured').isVisible({ timeout: 5000 }).catch(() => false);
 
   expect(hasCards || hasNoFeedsMessage).toBe(true);
 });
 
-test('back and forth navigation preserves data loading', async ({ page, request }) => {
-  await ensureUser(request);
+test('back and forth navigation preserves data loading', async ({ page }) => {
   await loginViaUI(page);
-  await page.waitForLoadState('networkidle');
+  await expect(page.locator('main')).toBeVisible();
 
-  // Navigate to RSS
   await page.click('text=RSS Feeds');
   await expect(page).toHaveURL(/\/rss/);
-  await page.waitForLoadState('networkidle');
+  await expect(page.locator('main')).toBeVisible();
 
-  // Navigate back to Monitors (was "Pages")
   await page.click('nav >> text=Monitors');
-  await page.waitForLoadState('networkidle');
+  await expect(page.locator('main')).toBeVisible();
 
-  // Navigate to RSS again
   await page.click('text=RSS Feeds');
   await expect(page).toHaveURL(/\/rss/);
-  await page.waitForLoadState('networkidle');
 
-  // Verify that we can still see content
   await expect(page.locator('.card, main').first()).toBeVisible({ timeout: 5000 });
 });
 
-test('navigation to Configuration page', async ({ page, request }) => {
-  await ensureUser(request);
+test('navigation to Configuration page', async ({ page }) => {
   await loginViaUI(page);
-  await page.waitForLoadState('networkidle');
+  await expect(page.locator('main')).toBeVisible();
 
-  // Navigate to Configuration
   await page.click('text=Configuration');
   await expect(page).toHaveURL(/\/monitors/);
-  await page.waitForLoadState('networkidle');
 
-  // Should see configuration sections
   await expect(page.getByText('Page Monitors', { exact: true })).toBeVisible();
   await expect(page.getByText('RSS Feed Monitors', { exact: true })).toBeVisible();
 });

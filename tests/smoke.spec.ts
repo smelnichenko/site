@@ -1,25 +1,18 @@
-import { test, expect, Page, APIRequestContext } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const TEST_EMAIL = 'e2e-test@test.com';
 const TEST_PASS = 'e2e-test-pass';
 
-async function getAuthToken(request: APIRequestContext): Promise<string> {
-  // Register (auto-verifies when mail is disabled in test env)
-  await request.post('/api/auth/register', {
-    data: { email: TEST_EMAIL, password: TEST_PASS },
-  });
-
-  // Login to get token cookie
-  const response = await request.post('/api/auth/login', {
-    data: { email: TEST_EMAIL, password: TEST_PASS },
-  });
-  if (!response.ok()) {
-    throw new Error('Could not authenticate test user');
-  }
-  const cookies = response.headers()['set-cookie'] || '';
-  const match = cookies.match(/AUTH_TOKEN=([^;]+)/);
-  if (match) return match[1];
-  throw new Error('AUTH_TOKEN cookie not found');
+/** Read the pre-saved token from globalSetup — avoids hitting the auth rate limiter. */
+function getSavedToken(): string {
+  const tokens = JSON.parse(readFileSync(join(__dirname, '.auth.json'), 'utf-8'));
+  return tokens.smoke;
 }
 
 async function loginViaUI(page: Page) {
@@ -29,7 +22,7 @@ async function loginViaUI(page: Page) {
     await page.fill('input#password', TEST_PASS);
     await page.click('button[type="submit"]');
     try {
-      await expect(page.locator('button:has-text("Logout")')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('header button.btn-logout')).toBeVisible({ timeout: 10000 });
       return;
     } catch {
       // Rate limited or slow — wait and retry
@@ -42,13 +35,12 @@ async function loginViaUI(page: Page) {
 test.describe('Smoke Tests', () => {
   let token: string;
 
-  test.beforeAll(async ({ request }) => {
-    token = await getAuthToken(request);
+  test.beforeAll(() => {
+    token = getSavedToken();
   });
 
   test('homepage redirects to login when not authenticated', async ({ page }) => {
     await page.goto('/');
-    // Should redirect to login
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -57,18 +49,14 @@ test.describe('Smoke Tests', () => {
     await expect(page.locator('h2')).toContainText('Login');
   });
 
-  test('can login via UI', async ({ page, request }) => {
-    await getAuthToken(request); // ensure user exists
+  test('can login via UI', async ({ page }) => {
     await loginViaUI(page);
     await expect(page.locator('main')).toBeVisible();
   });
 
-  test('dashboard displays after login', async ({ page, request }) => {
-    await getAuthToken(request);
+  test('dashboard displays after login', async ({ page }) => {
     await loginViaUI(page);
-
-    const main = page.locator('main');
-    await expect(main).toBeVisible();
+    await expect(page.locator('main')).toBeVisible();
   });
 
   test('API health endpoint is accessible without auth', async ({ request }) => {
@@ -98,15 +86,13 @@ test.describe('Smoke Tests', () => {
 test.describe('RSS Feed Tests', () => {
   let token: string;
 
-  test.beforeAll(async ({ request }) => {
-    token = await getAuthToken(request);
+  test.beforeAll(() => {
+    token = getSavedToken();
   });
 
-  test('RSS dashboard loads after login', async ({ page, request }) => {
-    await getAuthToken(request);
+  test('RSS dashboard loads after login', async ({ page }) => {
     await loginViaUI(page);
 
-    // Navigate to RSS
     await page.click('text=RSS Feeds');
     await expect(page).toHaveURL(/\/rss/);
     await expect(page.locator('main')).toBeVisible();
@@ -134,30 +120,24 @@ test.describe('RSS Feed Tests', () => {
 });
 
 test.describe('Navigation', () => {
-  test('can navigate between Monitors, RSS Feeds, and Configuration', async ({ page, request }) => {
-    await getAuthToken(request);
+  test('can navigate between Monitors, RSS Feeds, and Configuration', async ({ page }) => {
     await loginViaUI(page);
 
-    // Should see nav links with new names
     await expect(page.locator('a[href="/"]').filter({ hasText: 'Monitors' })).toBeVisible();
     await expect(page.locator('a[href="/rss"]')).toBeVisible();
     await expect(page.locator('a[href="/monitors"]').filter({ hasText: 'Configuration' })).toBeVisible();
 
-    // Navigate to RSS
     await page.click('text=RSS Feeds');
     await expect(page).toHaveURL(/\/rss/);
 
-    // Navigate to Configuration
     await page.click('text=Configuration');
     await expect(page).toHaveURL(/\/monitors/);
 
-    // Navigate back to Monitors (dashboard)
     await page.click('nav >> text=Monitors');
     await expect(page).toHaveURL(/\/$/);
   });
 
-  test('can navigate to page details if pages exist', async ({ page, request }) => {
-    await getAuthToken(request);
+  test('can navigate to page details if pages exist', async ({ page }) => {
     await loginViaUI(page);
 
     const pageCard = page.locator('[data-testid="page-card"]').first();
@@ -167,50 +147,44 @@ test.describe('Navigation', () => {
     }
   });
 
-  test('can navigate to RSS feed details if feeds exist', async ({ page, request }) => {
-    await getAuthToken(request);
+  test('can navigate to RSS feed details if feeds exist', async ({ page }) => {
     await loginViaUI(page);
 
     await page.click('text=RSS Feeds');
     await expect(page).toHaveURL(/\/rss/);
 
-    const feedCard = page.locator('[data-testid="rss-feed-card"]').first();
-    if (await feedCard.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await feedCard.click();
+    const feedLink = page.locator('[data-testid="rss-feed-card"] .card-title').first();
+    if (await feedLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await feedLink.click();
       await expect(page).toHaveURL(/\/rss\/.+/);
     }
   });
 });
 
 test.describe('Configuration Page', () => {
-  test('configuration page loads and shows sections', async ({ page, request }) => {
-    await getAuthToken(request);
+  test('configuration page loads and shows sections', async ({ page }) => {
     await loginViaUI(page);
 
     await page.click('text=Configuration');
     await expect(page).toHaveURL(/\/monitors/);
 
-    // Should see both sections
     await expect(page.getByText('Page Monitors', { exact: true })).toBeVisible();
     await expect(page.getByText('RSS Feed Monitors', { exact: true })).toBeVisible();
   });
 
-  test('can open add page monitor form', async ({ page, request }) => {
-    await getAuthToken(request);
+  test('can open add page monitor form', async ({ page }) => {
     await loginViaUI(page);
 
     await page.click('text=Configuration');
     await page.click('text=+ Add Page Monitor');
 
-    // Should see form fields
     await expect(page.locator('.config-form')).toBeVisible();
     await expect(page.locator('button:has-text("Save")')).toBeVisible();
     await expect(page.locator('button:has-text("Cancel")')).toBeVisible();
-    await expect(page.locator('button:has-text("Test")')).toBeVisible();
+    await expect(page.locator('.config-form button:has-text("Test")')).toBeVisible();
   });
 
-  test('can open add RSS feed form', async ({ page, request }) => {
-    await getAuthToken(request);
+  test('can open add RSS feed form', async ({ page }) => {
     await loginViaUI(page);
 
     await page.click('text=Configuration');
@@ -218,11 +192,10 @@ test.describe('Configuration Page', () => {
 
     await expect(page.locator('.config-form')).toBeVisible();
     await expect(page.locator('button:has-text("Save")')).toBeVisible();
-    await expect(page.locator('button:has-text("Test")')).toBeVisible();
+    await expect(page.locator('.config-form button:has-text("Test")')).toBeVisible();
   });
 
-  test('cancel closes the form', async ({ page, request }) => {
-    await getAuthToken(request);
+  test('cancel closes the form', async ({ page }) => {
     await loginViaUI(page);
 
     await page.click('text=Configuration');
@@ -235,11 +208,10 @@ test.describe('Configuration Page', () => {
 });
 
 test.describe('Auth Flow', () => {
-  test('logout redirects to login', async ({ page, request }) => {
-    await getAuthToken(request);
+  test('logout redirects to login', async ({ page }) => {
     await loginViaUI(page);
 
-    await page.click('button:has-text("Logout")');
+    await page.click('header button.btn-logout');
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -258,8 +230,8 @@ test.describe('Auth Flow', () => {
 test.describe('Rate Limiting', () => {
   let token: string;
 
-  test.beforeAll(async ({ request }) => {
-    token = await getAuthToken(request);
+  test.beforeAll(() => {
+    token = getSavedToken();
   });
 
   test('API returns rate limit headers', async ({ request }) => {
