@@ -1,8 +1,21 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { setPermissionsChangedCallback } from '../services/api';
+import { setPermissionsChangedCallback, fetchUserKeys, uploadUserKeys } from '../services/api';
+import {
+  generateIdentityKeyPair,
+  exportPublicKey,
+  importPublicKey,
+  generateSalt,
+  deriveWrappingKey,
+  encryptPrivateKey,
+  decryptPrivateKey,
+  bufferToBase64,
+  base64ToBuffer,
+} from '../services/crypto';
+import * as keyStore from '../services/keyStore';
 
 interface AuthState {
   email: string | null;
+  userId: number | null;
   permissions: string[];
   groups: string[];
 }
@@ -20,18 +33,21 @@ const API_BASE = '/api';
 
 function loadState(): AuthState {
   const email = localStorage.getItem('email');
+  const userId = localStorage.getItem('userId');
   const permissions = JSON.parse(localStorage.getItem('permissions') || '[]');
   const groups = JSON.parse(localStorage.getItem('groups') || '[]');
-  return { email, permissions, groups };
+  return { email, userId: userId ? parseInt(userId) : null, permissions, groups };
 }
 
 function saveState(state: AuthState) {
   if (state.email) {
     localStorage.setItem('email', state.email);
+    if (state.userId) localStorage.setItem('userId', String(state.userId));
     localStorage.setItem('permissions', JSON.stringify(state.permissions));
     localStorage.setItem('groups', JSON.stringify(state.groups));
   } else {
     localStorage.removeItem('email');
+    localStorage.removeItem('userId');
     localStorage.removeItem('permissions');
     localStorage.removeItem('groups');
   }
@@ -60,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (!response.ok) {
         // Refresh failed — force re-login
-        setAuth({ email: null, permissions: [], groups: [] });
+        setAuth({ email: null, userId: null, permissions: [], groups: [] });
         return;
       }
       const data = await response.json();
@@ -96,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ path: '/' }),
         });
         if (response.status === 401) {
-          setAuth({ email: null, permissions: [], groups: [] });
+          setAuth({ email: null, userId: null, permissions: [], groups: [] });
         }
       } catch {
         // Network error — don't log out
@@ -121,10 +137,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await response.json();
     setAuth({
       email: data.email,
+      userId: data.userId ?? null,
       permissions: data.permissions || [],
       groups: data.groups || [],
     });
+
+    // Set up E2E encryption keys (best-effort, don't block login)
+    if (data.permissions?.includes('CHAT')) {
+      try {
+        await setupE2eKeys(password);
+      } catch (e) {
+        console.warn('E2E key setup failed:', e);
+      }
+    }
+
     return data.lastPath ?? null;
+  }
+
+  async function setupE2eKeys(password: string) {
+    const existing = await fetchUserKeys();
+    if (existing) {
+      // Decrypt existing private key
+      const salt = base64ToBuffer(existing.pbkdf2Salt);
+      const wrappingKey = await deriveWrappingKey(password, salt.buffer as ArrayBuffer, existing.pbkdf2Iterations);
+      const privateKey = await decryptPrivateKey(existing.encryptedPrivateKey, wrappingKey);
+      const publicKey = await importPublicKey(JSON.parse(existing.publicKey));
+      keyStore.setIdentityKeys(privateKey, publicKey);
+    } else {
+      // Generate new key pair
+      const keyPair = await generateIdentityKeyPair();
+      const salt = generateSalt();
+      const wrappingKey = await deriveWrappingKey(password, salt.buffer as ArrayBuffer, 600000);
+      const encryptedPrivKey = await encryptPrivateKey(keyPair.privateKey, wrappingKey);
+      const publicKeyJwk = await exportPublicKey(keyPair.publicKey);
+
+      await uploadUserKeys({
+        publicKey: JSON.stringify(publicKeyJwk),
+        encryptedPrivateKey: encryptedPrivKey,
+        pbkdf2Salt: bufferToBase64(salt),
+        pbkdf2Iterations: 600000,
+      });
+      keyStore.setIdentityKeys(keyPair.privateKey, keyPair.publicKey);
+    }
   }
 
   async function logout() {
@@ -136,7 +190,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore errors during logout
     }
-    setAuth({ email: null, permissions: [], groups: [] });
+    keyStore.clear();
+    setAuth({ email: null, userId: null, permissions: [], groups: [] });
   }
 
   return (

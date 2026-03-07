@@ -187,6 +187,8 @@ function Chat() {
         <InviteModal
           channelId={inviteChannel.id}
           channelName={inviteChannel.name}
+          encrypted={inviteChannel.encrypted}
+          currentKeyVersion={inviteChannel.currentKeyVersion}
           onClose={() => setInviteChannelId(null)}
           onInvited={() => loadChannels()}
         />
@@ -195,6 +197,7 @@ function Chat() {
         <MembersModal
           channelId={membersChannel.id}
           channelName={membersChannel.name}
+          encrypted={membersChannel.encrypted}
           onClose={() => setMembersChannelId(null)}
           onKicked={() => loadChannels()}
         />

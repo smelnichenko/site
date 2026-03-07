@@ -8,7 +8,10 @@ import {
   editChatMessage,
   markChannelRead,
   verifyChannelChain,
+  fetchChannelKeys,
 } from '../../services/api';
+import { encryptMessage, decryptMessage, unwrapChannelKey } from '../../services/crypto';
+import * as keyStore from '../../services/keyStore';
 
 function formatTime(dateString: string): string {
   return new Date(dateString).toLocaleTimeString('en-US', {
@@ -42,11 +45,68 @@ function MessageArea({ channel }: MessageAreaProps) {
   const [editContent, setEditContent] = useState('');
   const [chainStatus, setChainStatus] = useState<ChainVerification | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [keyLoaded, setKeyLoaded] = useState(!channel.encrypted);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const shouldScrollRef = useRef(true);
 
   const currentUserEmail = localStorage.getItem('email');
+  const isEncrypted = channel.encrypted;
+
+  // Load channel key for encrypted channels
+  useEffect(() => {
+    if (!isEncrypted) {
+      setKeyLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+    async function loadChannelKey() {
+      try {
+        const existing = keyStore.getLatestChannelKey(channel.id);
+        if (existing) {
+          setKeyLoaded(true);
+          return;
+        }
+        const bundles = await fetchChannelKeys(channel.id);
+        const privateKey = keyStore.getIdentityPrivateKey();
+        if (!privateKey || bundles.length === 0) return;
+
+        for (const bundle of bundles) {
+          const channelKey = await unwrapChannelKey(
+            bundle.encryptedChannelKey,
+            JSON.parse(bundle.wrapperPublicKey),
+            privateKey
+          );
+          keyStore.setChannelKey(channel.id, bundle.keyVersion, channelKey);
+        }
+        if (!cancelled) setKeyLoaded(true);
+      } catch (e) {
+        console.warn('Failed to load channel key:', e);
+      }
+    }
+    loadChannelKey();
+    return () => { cancelled = true; };
+  }, [channel.id, isEncrypted]);
+
+  async function decryptMessages(msgs: ChatMessage[]): Promise<ChatMessage[]> {
+    if (!isEncrypted) return msgs;
+    return Promise.all(msgs.map(async (msg) => {
+      try {
+        const version = msg.keyVersion ?? channel.currentKeyVersion;
+        const key = keyStore.getChannelKey(channel.id, version);
+        if (!key) return { ...msg, content: '[Unable to decrypt]' };
+        const plaintext = await decryptMessage(msg.content, key);
+        const decrypted: ChatMessage = { ...msg, content: plaintext };
+        if (msg.editedContent) {
+          decrypted.editedContent = await decryptMessage(msg.editedContent, key);
+        }
+        return decrypted;
+      } catch {
+        return { ...msg, content: '[Unable to decrypt]' };
+      }
+    }));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -56,7 +116,8 @@ function MessageArea({ channel }: MessageAreaProps) {
       try {
         const msgs = await fetchChatMessages(channel.id, 50, controller.signal);
         if (!cancelled) {
-          setMessages(msgs);
+          const decrypted = await decryptMessages(msgs);
+          setMessages(decrypted);
           markChannelRead(channel.id).catch(() => {});
         }
       } catch {
@@ -64,14 +125,17 @@ function MessageArea({ channel }: MessageAreaProps) {
       }
     }
 
-    loadMessages();
-    const interval = setInterval(loadMessages, 3000);
-    return () => {
-      cancelled = true;
-      controller.abort();
-      clearInterval(interval);
-    };
-  }, [channel.id]);
+    if (keyLoaded || !isEncrypted) {
+      loadMessages();
+      const interval = setInterval(loadMessages, 3000);
+      return () => {
+        cancelled = true;
+        controller.abort();
+        clearInterval(interval);
+      };
+    }
+    return () => { cancelled = true; };
+  }, [channel.id, keyLoaded]);
 
   useEffect(() => {
     if (shouldScrollRef.current) {
@@ -97,8 +161,21 @@ function MessageArea({ channel }: MessageAreaProps) {
     setError('');
     setSending(true);
     try {
-      const newMsg = await sendChatMessage(channel.id, content);
-      setMessages((prev) => [...prev, newMsg]);
+      let msgContent = content;
+      let keyVersion: number | undefined;
+      if (isEncrypted) {
+        const key = keyStore.getLatestChannelKey(channel.id);
+        if (!key) {
+          setError('No encryption key available');
+          setSending(false);
+          return;
+        }
+        msgContent = await encryptMessage(content, key);
+        keyVersion = channel.currentKeyVersion;
+      }
+      const newMsg = await sendChatMessage(channel.id, msgContent, undefined, keyVersion);
+      // Show plaintext locally
+      setMessages((prev) => [...prev, { ...newMsg, content }]);
       setInput('');
       shouldScrollRef.current = true;
     } catch {
@@ -131,7 +208,14 @@ function MessageArea({ channel }: MessageAreaProps) {
 
     setError('');
     try {
-      await editChatMessage(channel.id, messageId, content);
+      let contentToSend = content;
+      if (channel.encrypted) {
+        const channelKey = keyStore.getChannelKey(channel.id, channel.currentKeyVersion);
+        if (channelKey) {
+          contentToSend = await encryptMessage(content, channelKey);
+        }
+      }
+      await editChatMessage(channel.id, messageId, contentToSend);
       setMessages((prev) =>
         prev.map((m) =>
           m.messageId === messageId ? { ...m, editedContent: content } : m
@@ -178,7 +262,9 @@ function MessageArea({ channel }: MessageAreaProps) {
         alignItems: 'center',
         gap: '8px',
       }}>
-        <span style={{ fontWeight: 600, fontSize: '1rem' }}># {channel.name}</span>
+        <span style={{ fontWeight: 600, fontSize: '1rem' }}>
+          {isEncrypted ? '\uD83D\uDD12 ' : '# '}{channel.name}
+        </span>
         <span style={{ fontSize: '0.8rem', color: '#999' }}>
           {channel.memberCount} member{channel.memberCount !== 1 ? 's' : ''}
         </span>

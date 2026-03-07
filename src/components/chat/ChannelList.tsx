@@ -90,7 +90,7 @@ function ChannelList({
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                   }}>
-                    {channel.type === 'PRIVATE' ? '🔒 ' : '# '}{channel.name}
+                    {channel.encrypted ? '\uD83D\uDD12 ' : channel.type === 'PRIVATE' ? '\uD83D\uDD10 ' : '# '}{channel.name}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#999' }}>
                     {channel.memberCount} member{channel.memberCount !== 1 ? 's' : ''}

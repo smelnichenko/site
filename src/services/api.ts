@@ -493,6 +493,8 @@ export interface ChatChannel {
   joined: boolean;
   isOwner: boolean;
   unreadCount: number;
+  encrypted: boolean;
+  currentKeyVersion: number;
 }
 
 export interface ChatUser {
@@ -511,6 +513,7 @@ export interface ChatMessage {
   hash?: string;
   prevHash?: string;
   editedContent?: string;
+  keyVersion?: number;
 }
 
 export interface MessageEdit {
@@ -534,11 +537,11 @@ export async function fetchChatChannels(signal?: AbortSignal): Promise<ChatChann
   return response.json();
 }
 
-export async function createChatChannel(name: string, type: string): Promise<ChatChannel> {
+export async function createChatChannel(name: string, type: string, encrypted?: boolean): Promise<ChatChannel> {
   const response = await apiFetch(`${API_BASE}/chat/channels`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, type }),
+    body: JSON.stringify({ name, type, encrypted }),
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
@@ -575,12 +578,13 @@ export async function fetchChatMessages(
 export async function sendChatMessage(
   channelId: number,
   content: string,
-  parentMessageId?: string
+  parentMessageId?: string,
+  keyVersion?: number
 ): Promise<ChatMessage> {
   const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content, parentMessageId }),
+    body: JSON.stringify({ content, parentMessageId, keyVersion }),
   });
   if (!response.ok) throw new Error('Failed to send message');
   return response.json();
@@ -654,6 +658,114 @@ export async function kickFromChannel(channelId: number, userId: number): Promis
     const err = await response.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to kick user');
   }
+}
+
+// E2E Encryption Key Management
+
+export interface UserKeysResponse {
+  publicKey: string;
+  encryptedPrivateKey: string;
+  pbkdf2Salt: string;
+  pbkdf2Iterations: number;
+  keyVersion: number;
+}
+
+export interface PublicKeyInfo {
+  userId: number;
+  publicKey: string;
+  keyVersion: number;
+}
+
+export interface ChannelKeyBundleResponse {
+  userId: number;
+  keyVersion: number;
+  encryptedChannelKey: string;
+  wrapperPublicKey: string;
+}
+
+export interface MemberKeyBundle {
+  userId: number;
+  encryptedChannelKey: string;
+  wrapperPublicKey: string;
+}
+
+export async function fetchUserKeys(signal?: AbortSignal): Promise<UserKeysResponse | null> {
+  const response = await apiFetch(`${API_BASE}/chat/keys`, { signal });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error('Failed to fetch keys');
+  return response.json();
+}
+
+export async function uploadUserKeys(request: {
+  publicKey: string;
+  encryptedPrivateKey: string;
+  pbkdf2Salt: string;
+  pbkdf2Iterations: number;
+}): Promise<UserKeysResponse> {
+  const response = await apiFetch(`${API_BASE}/chat/keys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) throw new Error('Failed to upload keys');
+  return response.json();
+}
+
+export async function updateUserKeys(request: {
+  publicKey: string;
+  encryptedPrivateKey: string;
+  pbkdf2Salt: string;
+  pbkdf2Iterations: number;
+}): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/chat/keys`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) throw new Error('Failed to update keys');
+}
+
+export async function fetchPublicKeys(userIds: number[], signal?: AbortSignal): Promise<PublicKeyInfo[]> {
+  const params = userIds.map(id => `userIds=${id}`).join('&');
+  const response = await apiFetch(`${API_BASE}/chat/keys/public?${params}`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch public keys');
+  return response.json();
+}
+
+export async function fetchChannelKeys(
+  channelId: number,
+  keyVersion?: number,
+  signal?: AbortSignal
+): Promise<ChannelKeyBundleResponse[]> {
+  const params = keyVersion != null ? `?keyVersion=${keyVersion}` : '';
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/keys${params}`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch channel keys');
+  return response.json();
+}
+
+export async function setChannelKeys(
+  channelId: number,
+  bundles: MemberKeyBundle[]
+): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/keys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bundles }),
+  });
+  if (!response.ok) throw new Error('Failed to set channel keys');
+}
+
+export async function rotateChannelKeys(
+  channelId: number,
+  bundles: MemberKeyBundle[]
+): Promise<{ newKeyVersion: number }> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/keys/rotate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bundles }),
+  });
+  if (!response.ok) throw new Error('Failed to rotate channel keys');
+  return response.json();
 }
 
 // Test endpoints (run check with inline config, no save)

@@ -67,6 +67,9 @@ function ResetPassword() {
         ) : (
           <>
             {error && <div className="error">{error}</div>}
+            <div style={{ background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px', fontSize: '0.85rem', color: '#856404' }}>
+              Resetting your password will revoke access to encrypted chat history.
+            </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label htmlFor="password">New Password</label>

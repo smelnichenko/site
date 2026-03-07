@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { createChatChannel } from '../../services/api';
+import { createChatChannel, setChannelKeys } from '../../services/api';
+import { generateChannelKey, wrapChannelKeyForMember } from '../../services/crypto';
+import * as keyStore from '../../services/keyStore';
 
 interface CreateChannelModalProps {
   onCreated: () => void;
@@ -9,8 +11,11 @@ interface CreateChannelModalProps {
 function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
   const [name, setName] = useState('');
   const [type, setType] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
+  const [encrypted, setEncrypted] = useState(false);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
+
+  const canEncrypt = keyStore.hasIdentityKeys();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +25,23 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
     setError('');
     setCreating(true);
     try {
-      await createChatChannel(trimmed, type);
+      const channel = await createChatChannel(trimmed, type, encrypted);
+
+      if (encrypted && canEncrypt) {
+        const channelKey = await generateChannelKey();
+        const publicKey = keyStore.getIdentityPublicKey();
+        const uid = localStorage.getItem('userId');
+        if (publicKey && uid) {
+          const wrapped = await wrapChannelKeyForMember(channelKey, publicKey);
+          await setChannelKeys(channel.id, [{
+            userId: parseInt(uid),
+            encryptedChannelKey: wrapped.encryptedChannelKey,
+            wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
+          }]);
+          keyStore.setChannelKey(channel.id, 1, channelKey);
+        }
+      }
+
       onCreated();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create channel');
@@ -95,6 +116,22 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
               </label>
             </div>
           </div>
+
+          {canEncrypt && (
+            <div className="form-group">
+              <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={encrypted}
+                  onChange={(e) => setEncrypted(e.target.checked)}
+                />
+                End-to-end encrypted
+              </label>
+              <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '4px' }}>
+                Messages can only be read by channel members
+              </div>
+            </div>
+          )}
 
           <div className="form-actions">
             <div />

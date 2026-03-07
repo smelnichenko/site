@@ -1,14 +1,26 @@
 import { useState, useEffect } from 'react';
-import { ChatUser, ChannelMember, fetchChatUsers, fetchChannelMembers, inviteToChannel } from '../../services/api';
+import {
+  ChatUser,
+  ChannelMember,
+  fetchChatUsers,
+  fetchChannelMembers,
+  inviteToChannel,
+  fetchPublicKeys,
+  setChannelKeys,
+} from '../../services/api';
+import { wrapChannelKeyForMember, importPublicKey } from '../../services/crypto';
+import * as keyStore from '../../services/keyStore';
 
 interface InviteModalProps {
   channelId: number;
   channelName: string;
+  encrypted?: boolean;
+  currentKeyVersion?: number;
   onClose: () => void;
   onInvited: () => void;
 }
 
-function InviteModal({ channelId, channelName, onClose, onInvited }: InviteModalProps) {
+function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onClose, onInvited }: InviteModalProps) {
   const [users, setUsers] = useState<ChatUser[]>([]);
   const [memberIds, setMemberIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -40,6 +52,24 @@ function InviteModal({ channelId, channelName, onClose, onInvited }: InviteModal
     setInviting(userId);
     try {
       await inviteToChannel(channelId, userId);
+
+      // Wrap channel key for invited user (encrypted channels)
+      if (encrypted && currentKeyVersion) {
+        const channelKey = keyStore.getChannelKey(channelId, currentKeyVersion);
+        if (channelKey) {
+          const pubKeys = await fetchPublicKeys([userId]);
+          if (pubKeys.length > 0) {
+            const recipientPubKey = await importPublicKey(JSON.parse(pubKeys[0].publicKey));
+            const wrapped = await wrapChannelKeyForMember(channelKey, recipientPubKey);
+            await setChannelKeys(channelId, [{
+              userId,
+              encryptedChannelKey: wrapped.encryptedChannelKey,
+              wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
+            }]);
+          }
+        }
+      }
+
       setMemberIds((prev) => new Set(prev).add(userId));
       onInvited();
     } catch (err: unknown) {
