@@ -17,6 +17,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import MonitorConfig from './pages/MonitorConfig';
 import Game from './pages/Game';
 import Inbox from './pages/Inbox';
+import Chat from './pages/Chat';
 import Admin from './pages/Admin';
 
 function formatBuildTime(isoString: string): string {
@@ -87,6 +88,11 @@ function App() {
                     </Link>
                   </>
                 )}
+                {hasPermission('CHAT') && (
+                  <Link to="/chat" className={location.pathname.startsWith('/chat') ? 'active' : ''}>
+                    Chat
+                  </Link>
+                )}
                 {hasPermission('EMAIL') && (
                   <Link to="/inbox" className={location.pathname === '/inbox' ? 'active' : ''}>
                     Inbox
@@ -136,6 +142,8 @@ function App() {
             <Route path="/rss" element={<ProtectedRoute permission="METRICS"><RssDashboard /></ProtectedRoute>} />
             <Route path="/rss/:feedName" element={<ProtectedRoute permission="METRICS"><RssFeedDetail /></ProtectedRoute>} />
             <Route path="/monitors" element={<ProtectedRoute permission="METRICS"><MonitorConfig /></ProtectedRoute>} />
+            <Route path="/chat" element={<ProtectedRoute permission="CHAT"><Chat /></ProtectedRoute>} />
+            <Route path="/chat/:channelId" element={<ProtectedRoute permission="CHAT"><Chat /></ProtectedRoute>} />
             <Route path="/inbox" element={<ProtectedRoute permission="EMAIL"><Inbox /></ProtectedRoute>} />
             <Route path="/game" element={<ProtectedRoute permission="PLAY"><Game /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute permission="MANAGE_USERS"><Admin /></ProtectedRoute>} />

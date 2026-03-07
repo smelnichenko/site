@@ -482,6 +482,86 @@ export function getAttachmentDownloadUrl(emailId: number, attachmentId: number):
   return `${API_BASE}/inbox/emails/${emailId}/attachments/${attachmentId}`;
 }
 
+// Chat API
+
+export interface ChatChannel {
+  id: number;
+  name: string;
+  type: 'PUBLIC' | 'PRIVATE';
+  createdBy: number;
+  createdAt: string;
+  memberCount: number;
+  joined: boolean;
+  unreadCount: number;
+}
+
+export interface ChatMessage {
+  messageId: string;
+  channelId: number;
+  userId: number;
+  username: string;
+  content: string;
+  parentMessageId?: string;
+  createdAt: string;
+}
+
+export async function fetchChatChannels(signal?: AbortSignal): Promise<ChatChannel[]> {
+  const response = await apiFetch(`${API_BASE}/chat/channels`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch channels');
+  return response.json();
+}
+
+export async function createChatChannel(name: string, type: string): Promise<ChatChannel> {
+  const response = await apiFetch(`${API_BASE}/chat/channels`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, type }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to create channel');
+  }
+  return response.json();
+}
+
+export async function joinChatChannel(channelId: number): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/join`, { method: 'POST' });
+  if (!response.ok) throw new Error('Failed to join channel');
+}
+
+export async function leaveChatChannel(channelId: number): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/leave`, { method: 'POST' });
+  if (!response.ok) throw new Error('Failed to leave channel');
+}
+
+export async function fetchChatMessages(
+  channelId: number,
+  limit = 50,
+  signal?: AbortSignal
+): Promise<ChatMessage[]> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/messages?limit=${limit}`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch messages');
+  return response.json();
+}
+
+export async function sendChatMessage(
+  channelId: number,
+  content: string,
+  parentMessageId?: string
+): Promise<ChatMessage> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, parentMessageId }),
+  });
+  if (!response.ok) throw new Error('Failed to send message');
+  return response.json();
+}
+
+export async function markChannelRead(channelId: number): Promise<void> {
+  await apiFetch(`${API_BASE}/chat/channels/${channelId}/read`, { method: 'POST' });
+}
+
 // Test endpoints (run check with inline config, no save)
 
 export async function testPageMonitor(request: PageMonitorRequest): Promise<MonitorResult> {
