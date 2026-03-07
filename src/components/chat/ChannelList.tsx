@@ -9,6 +9,7 @@ interface ChannelListProps {
   onLeaveChannel: (channelId: number) => void;
   onInvite: (channelId: number) => void;
   onDeleteChannel: (channelId: number) => void;
+  onManageMembers: (channelId: number) => void;
 }
 
 function ChannelList({
@@ -20,6 +21,7 @@ function ChannelList({
   onLeaveChannel,
   onInvite,
   onDeleteChannel,
+  onManageMembers,
 }: ChannelListProps) {
   const joinedChannels = channels.filter((c) => c.joined);
   const availableChannels = channels.filter((c) => !c.joined);
@@ -108,6 +110,18 @@ function ChannelList({
                     }}>
                       {channel.unreadCount}
                     </span>
+                  )}
+                  {channel.isOwner && (
+                    <button
+                      className="status-badge action"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onManageMembers(channel.id);
+                      }}
+                      style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+                    >
+                      Members
+                    </button>
                   )}
                   {channel.type === 'PRIVATE' && channel.isOwner && (
                     <button

@@ -11,6 +11,7 @@ import ChannelList from '../components/chat/ChannelList';
 import MessageArea from '../components/chat/MessageArea';
 import CreateChannelModal from '../components/chat/CreateChannelModal';
 import InviteModal from '../components/chat/InviteModal';
+import MembersModal from '../components/chat/MembersModal';
 
 function Chat() {
   const { channelId: channelIdParam } = useParams<{ channelId?: string }>();
@@ -19,11 +20,13 @@ function Chat() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [inviteChannelId, setInviteChannelId] = useState<number | null>(null);
+  const [membersChannelId, setMembersChannelId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   const activeChannelId = channelIdParam ? parseInt(channelIdParam, 10) : null;
   const activeChannel = channels.find((c) => c.id === activeChannelId) || null;
   const inviteChannel = inviteChannelId ? channels.find((c) => c.id === inviteChannelId) : null;
+  const membersChannel = membersChannelId ? channels.find((c) => c.id === membersChannelId) : null;
 
   const loadChannels = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -126,6 +129,7 @@ function Chat() {
             onLeaveChannel={handleLeaveChannel}
             onInvite={(id) => setInviteChannelId(id)}
             onDeleteChannel={handleDeleteChannel}
+            onManageMembers={(id) => setMembersChannelId(id)}
           />
         </div>
 
@@ -185,6 +189,14 @@ function Chat() {
           channelName={inviteChannel.name}
           onClose={() => setInviteChannelId(null)}
           onInvited={() => loadChannels()}
+        />
+      )}
+      {membersChannel && (
+        <MembersModal
+          channelId={membersChannel.id}
+          channelName={membersChannel.name}
+          onClose={() => setMembersChannelId(null)}
+          onKicked={() => loadChannels()}
         />
       )}
     </div>

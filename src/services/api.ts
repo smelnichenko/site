@@ -590,6 +590,30 @@ export async function inviteToChannel(channelId: number, userId: number): Promis
   }
 }
 
+export interface ChannelMember {
+  id: number;
+  email: string;
+  joinedAt: string;
+}
+
+export async function fetchChannelMembers(channelId: number, signal?: AbortSignal): Promise<ChannelMember[]> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/members`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch members');
+  return response.json();
+}
+
+export async function kickFromChannel(channelId: number, userId: number): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/kick`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to kick user');
+  }
+}
+
 // Test endpoints (run check with inline config, no save)
 
 export async function testPageMonitor(request: PageMonitorRequest): Promise<MonitorResult> {
