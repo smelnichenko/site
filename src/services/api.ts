@@ -508,6 +508,24 @@ export interface ChatMessage {
   content: string;
   parentMessageId?: string;
   createdAt: string;
+  hash?: string;
+  prevHash?: string;
+  editedContent?: string;
+}
+
+export interface MessageEdit {
+  editId: string;
+  userId: number;
+  content: string;
+  hash: string;
+  createdAt: string;
+}
+
+export interface ChainVerification {
+  messageCount: number;
+  validCount: number;
+  intact: boolean;
+  firstBrokenMessageId?: string;
 }
 
 export async function fetchChatChannels(signal?: AbortSignal): Promise<ChatChannel[]> {
@@ -570,6 +588,30 @@ export async function sendChatMessage(
 
 export async function markChannelRead(channelId: number): Promise<void> {
   await apiFetch(`${API_BASE}/chat/channels/${channelId}/read`, { method: 'POST' });
+}
+
+export async function editChatMessage(channelId: number, messageId: string, content: string): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/messages/${messageId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to edit message');
+  }
+}
+
+export async function fetchMessageEdits(channelId: number, messageId: string, signal?: AbortSignal): Promise<MessageEdit[]> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/messages/${messageId}/edits`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch edits');
+  return response.json();
+}
+
+export async function verifyChannelChain(channelId: number, signal?: AbortSignal): Promise<ChainVerification> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/verify`, { signal });
+  if (!response.ok) throw new Error('Failed to verify chain');
+  return response.json();
 }
 
 export async function fetchChatUsers(signal?: AbortSignal): Promise<ChatUser[]> {

@@ -1,5 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChatMessage, ChatChannel, fetchChatMessages, sendChatMessage, markChannelRead } from '../../services/api';
+import {
+  ChatMessage,
+  ChatChannel,
+  ChainVerification,
+  fetchChatMessages,
+  sendChatMessage,
+  editChatMessage,
+  markChannelRead,
+  verifyChannelChain,
+} from '../../services/api';
 
 function formatTime(dateString: string): string {
   return new Date(dateString).toLocaleTimeString('en-US', {
@@ -29,9 +38,15 @@ function MessageArea({ channel }: MessageAreaProps) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [chainStatus, setChainStatus] = useState<ChainVerification | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const shouldScrollRef = useRef(true);
+
+  const currentUserEmail = localStorage.getItem('email');
 
   useEffect(() => {
     let cancelled = false;
@@ -58,14 +73,12 @@ function MessageArea({ channel }: MessageAreaProps) {
     };
   }, [channel.id]);
 
-  // Auto-scroll to bottom when messages change, if user is near bottom
   useEffect(() => {
     if (shouldScrollRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
 
-  // Initial scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView();
   }, [channel.id]);
@@ -102,7 +115,57 @@ function MessageArea({ channel }: MessageAreaProps) {
     }
   };
 
-  // Group messages by date
+  const handleStartEdit = (msg: ChatMessage) => {
+    setEditingId(msg.messageId);
+    setEditContent(msg.editedContent || msg.content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditContent('');
+  };
+
+  const handleSaveEdit = async (messageId: string) => {
+    const content = editContent.trim();
+    if (!content) return;
+
+    setError('');
+    try {
+      await editChatMessage(channel.id, messageId, content);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.messageId === messageId ? { ...m, editedContent: content } : m
+        )
+      );
+      setEditingId(null);
+      setEditContent('');
+    } catch {
+      setError('Failed to edit message');
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent, messageId: string) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveEdit(messageId);
+    }
+    if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
+  const handleVerifyChain = async () => {
+    setVerifying(true);
+    try {
+      const result = await verifyChannelChain(channel.id);
+      setChainStatus(result);
+    } catch {
+      setError('Failed to verify chain');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   let lastDate = '';
 
   return (
@@ -119,6 +182,27 @@ function MessageArea({ channel }: MessageAreaProps) {
         <span style={{ fontSize: '0.8rem', color: '#999' }}>
           {channel.memberCount} member{channel.memberCount !== 1 ? 's' : ''}
         </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {chainStatus && (
+            <span style={{
+              fontSize: '0.75rem',
+              color: chainStatus.intact ? '#28a745' : '#dc3545',
+              fontWeight: 600,
+            }}>
+              {chainStatus.intact
+                ? `Chain OK (${chainStatus.messageCount} msgs)`
+                : `Chain broken at ${chainStatus.validCount}/${chainStatus.messageCount}`}
+            </span>
+          )}
+          <button
+            className="status-badge action"
+            onClick={handleVerifyChain}
+            disabled={verifying}
+            style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+          >
+            {verifying ? '...' : 'Verify'}
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -146,6 +230,9 @@ function MessageArea({ channel }: MessageAreaProps) {
             showDateSeparator = true;
             lastDate = msgDate;
           }
+          const isOwnMessage = msg.username === currentUserEmail;
+          const isEdited = msg.editedContent != null;
+          const displayContent = msg.editedContent || msg.content;
 
           return (
             <div key={msg.messageId}>
@@ -160,7 +247,10 @@ function MessageArea({ channel }: MessageAreaProps) {
                   {formatDateSeparator(msg.createdAt)}
                 </div>
               )}
-              <div style={{ padding: '4px 0' }}>
+              <div
+                style={{ padding: '4px 0', position: 'relative' }}
+                className="chat-message"
+              >
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                   <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#333' }}>
                     {msg.username}
@@ -168,10 +258,83 @@ function MessageArea({ channel }: MessageAreaProps) {
                   <span style={{ fontSize: '0.75rem', color: '#999' }}>
                     {formatTime(msg.createdAt)}
                   </span>
+                  {isEdited && (
+                    <span style={{ fontSize: '0.7rem', color: '#999', fontStyle: 'italic' }}>
+                      (edited)
+                    </span>
+                  )}
+                  {isOwnMessage && editingId !== msg.messageId && (
+                    <button
+                      onClick={() => handleStartEdit(msg)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#999',
+                        cursor: 'pointer',
+                        fontSize: '0.7rem',
+                        padding: '0 4px',
+                      }}
+                    >
+                      edit
+                    </button>
+                  )}
                 </div>
-                <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                  {msg.content}
-                </div>
+                {editingId === msg.messageId ? (
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      onKeyDown={(e) => handleEditKeyDown(e, msg.messageId)}
+                      autoFocus
+                      rows={1}
+                      style={{
+                        flex: 1,
+                        padding: '6px 10px',
+                        border: '1px solid #0066cc',
+                        borderRadius: '4px',
+                        fontSize: '0.9rem',
+                        fontFamily: 'inherit',
+                        resize: 'none',
+                        outline: 'none',
+                        lineHeight: 1.5,
+                      }}
+                    />
+                    <button
+                      className="status-badge action"
+                      onClick={() => handleSaveEdit(msg.messageId)}
+                      style={{ fontSize: '0.7rem', padding: '2px 8px', alignSelf: 'flex-end' }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      className="status-badge danger"
+                      onClick={handleCancelEdit}
+                      style={{ fontSize: '0.7rem', padding: '2px 8px', alignSelf: 'flex-end' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                    {displayContent}
+                  </div>
+                )}
+                {msg.hash && (
+                  <div
+                    style={{
+                      fontSize: '0.65rem',
+                      color: '#ccc',
+                      fontFamily: 'monospace',
+                      marginTop: '2px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={`hash: ${msg.hash}\nprev: ${msg.prevHash}`}
+                  >
+                    {msg.hash?.substring(0, 16)}...
+                  </div>
+                )}
               </div>
             </div>
           );
