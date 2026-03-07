@@ -5,6 +5,7 @@ import {
   fetchChatChannels,
   joinChatChannel,
   leaveChatChannel,
+  deleteChatChannel,
 } from '../services/api';
 import ChannelList from '../components/chat/ChannelList';
 import MessageArea from '../components/chat/MessageArea';
@@ -72,6 +73,19 @@ function Chat() {
     }
   };
 
+  const handleDeleteChannel = async (id: number) => {
+    setError('');
+    try {
+      await deleteChatChannel(id);
+      await loadChannels();
+      if (activeChannelId === id) {
+        navigate('/chat');
+      }
+    } catch {
+      setError('Failed to delete channel');
+    }
+  };
+
   const handleChannelCreated = async () => {
     setShowCreateModal(false);
     await loadChannels();
@@ -111,6 +125,7 @@ function Chat() {
             onJoinChannel={handleJoinChannel}
             onLeaveChannel={handleLeaveChannel}
             onInvite={(id) => setInviteChannelId(id)}
+            onDeleteChannel={handleDeleteChannel}
           />
         </div>
 

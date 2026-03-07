@@ -8,6 +8,7 @@ interface ChannelListProps {
   onJoinChannel: (channelId: number) => void;
   onLeaveChannel: (channelId: number) => void;
   onInvite: (channelId: number) => void;
+  onDeleteChannel: (channelId: number) => void;
 }
 
 function ChannelList({
@@ -18,6 +19,7 @@ function ChannelList({
   onJoinChannel,
   onLeaveChannel,
   onInvite,
+  onDeleteChannel,
 }: ChannelListProps) {
   const joinedChannels = channels.filter((c) => c.joined);
   const availableChannels = channels.filter((c) => !c.joined);
@@ -119,16 +121,31 @@ function ChannelList({
                       Invite
                     </button>
                   )}
-                  <button
-                    className="status-badge danger"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLeaveChannel(channel.id);
-                    }}
-                    style={{ fontSize: '0.7rem', padding: '2px 8px' }}
-                  >
-                    Leave
-                  </button>
+                  {channel.isOwner ? (
+                    <button
+                      className="status-badge danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Delete #${channel.name}? All messages will be permanently lost.`)) {
+                          onDeleteChannel(channel.id);
+                        }
+                      }}
+                      style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+                    >
+                      Delete
+                    </button>
+                  ) : (
+                    <button
+                      className="status-badge danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onLeaveChannel(channel.id);
+                      }}
+                      style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+                    >
+                      Leave
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

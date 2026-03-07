@@ -539,6 +539,11 @@ export async function leaveChatChannel(channelId: number): Promise<void> {
   if (!response.ok) throw new Error('Failed to leave channel');
 }
 
+export async function deleteChatChannel(channelId: number): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to delete channel');
+}
+
 export async function fetchChatMessages(
   channelId: number,
   limit = 50,
