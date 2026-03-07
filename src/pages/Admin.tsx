@@ -135,26 +135,31 @@ function Admin() {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <button
-          className={tab === 'users' ? 'btn-primary' : 'btn-secondary'}
+          className="status-badge action"
           onClick={() => setTab('users')}
+          style={{ background: tab === 'users' ? '#004085' : undefined, color: tab === 'users' ? 'white' : undefined }}
         >
           Users
         </button>
         <button
-          className={tab === 'groups' ? 'btn-primary' : 'btn-secondary'}
+          className="status-badge action"
           onClick={() => setTab('groups')}
+          style={{ background: tab === 'groups' ? '#004085' : undefined, color: tab === 'groups' ? 'white' : undefined }}
         >
           Groups
         </button>
       </div>
 
-      {error && <div className="error" style={{ marginBottom: 12 }}>{error}</div>}
+      {error && <div className="error">{error}</div>}
 
       {tab === 'users' && (
         <div className="card">
-          <table className="data-table">
+          <div className="card-header">
+            <span className="card-title">Users</span>
+          </div>
+          <table className="table">
             <thead>
               <tr>
                 <th>Email</th>
@@ -172,7 +177,7 @@ function Admin() {
                     {editingUserId === user.id ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {groups.map(g => (
-                          <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                          <label key={g.id} className="toggle-label">
                             <input
                               type="checkbox"
                               checked={selectedGroupIds.includes(g.id)}
@@ -182,8 +187,8 @@ function Admin() {
                           </label>
                         ))}
                         <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                          <button className="btn-primary btn-sm" onClick={saveUserGroups}>Save</button>
-                          <button className="btn-secondary btn-sm" onClick={() => setEditingUserId(null)}>Cancel</button>
+                          <button className="status-badge action" onClick={saveUserGroups}>Save</button>
+                          <button className="status-badge action" onClick={() => setEditingUserId(null)}>Cancel</button>
                         </div>
                       </div>
                     ) : (
@@ -192,19 +197,19 @@ function Admin() {
                         onClick={() => startEditGroups(user)}
                         title="Click to edit groups"
                       >
-                        {user.groups.length > 0 ? user.groups.join(', ') : <em style={{ color: 'var(--text-secondary)' }}>None</em>}
+                        {user.groups.length > 0 ? user.groups.join(', ') : <em style={{ color: '#888' }}>None</em>}
                       </span>
                     )}
                   </td>
                   <td>
-                    <span style={{ color: user.enabled ? 'var(--success)' : 'var(--error)' }}>
+                    <span style={{ color: user.enabled ? '#28a745' : '#dc3545' }}>
                       {user.enabled ? 'Active' : 'Disabled'}
                     </span>
                   </td>
                   <td>{formatDate(user.createdAt)}</td>
                   <td>
                     <button
-                      className="btn-secondary btn-sm"
+                      className={user.enabled ? 'status-badge danger' : 'status-badge action'}
                       onClick={() => handleToggleEnabled(user)}
                     >
                       {user.enabled ? 'Disable' : 'Enable'}
@@ -219,83 +224,77 @@ function Admin() {
 
       {tab === 'groups' && (
         <div>
-          <button className="btn-primary" onClick={startCreateGroup} style={{ marginBottom: 12 }}>
-            New Group
-          </button>
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">Groups</span>
+              <button className="status-badge add" onClick={startCreateGroup}>+ New Group</button>
+            </div>
 
-          {groupForm && (
-            <div className="card" style={{ marginBottom: 16 }}>
-              <h3 style={{ marginBottom: 12 }}>{groupForm.id ? 'Edit Group' : 'New Group'}</h3>
-              <div className="form-group" style={{ marginBottom: 8 }}>
-                <label>Name</label>
-                <input
-                  value={groupForm.name}
-                  onChange={e => setGroupForm({ ...groupForm, name: e.target.value })}
-                  placeholder="Group name"
-                />
-              </div>
-              <div className="form-group" style={{ marginBottom: 8 }}>
-                <label>Description</label>
-                <input
-                  value={groupForm.description}
-                  onChange={e => setGroupForm({ ...groupForm, description: e.target.value })}
-                  placeholder="Optional description"
-                />
-              </div>
-              <div className="form-group" style={{ marginBottom: 12 }}>
-                <label>Permissions</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {ALL_PERMISSIONS.map(p => (
-                    <label key={p} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={groupForm.permissions.includes(p)}
-                        onChange={() => togglePermission(p)}
-                      />
-                      {p}
-                    </label>
-                  ))}
+            {groupForm && (
+              <div className="config-form" style={{ marginBottom: 16 }}>
+                <strong style={{ display: 'block', marginBottom: 12 }}>{groupForm.id ? 'Edit Group' : 'New Group'}</strong>
+                <div className="form-group">
+                  <label>Name</label>
+                  <input
+                    value={groupForm.name}
+                    onChange={e => setGroupForm({ ...groupForm, name: e.target.value })}
+                    placeholder="Group name"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Description</label>
+                  <input
+                    value={groupForm.description}
+                    onChange={e => setGroupForm({ ...groupForm, description: e.target.value })}
+                    placeholder="Optional description"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Permissions</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {ALL_PERMISSIONS.map(p => (
+                      <label key={p} className="toggle-label">
+                        <input
+                          type="checkbox"
+                          checked={groupForm.permissions.includes(p)}
+                          onChange={() => togglePermission(p)}
+                        />
+                        {p}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="form-actions">
+                  <div />
+                  <div>
+                    <button className="status-badge action" onClick={() => setGroupForm(null)}>Cancel</button>
+                    <button className="status-badge add" onClick={saveGroup} disabled={!groupForm.name.trim()}>Save</button>
+                  </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn-primary" onClick={saveGroup} disabled={!groupForm.name.trim()}>
-                  Save
-                </button>
-                <button className="btn-secondary" onClick={() => setGroupForm(null)}>Cancel</button>
-              </div>
-            </div>
-          )}
+            )}
 
-          <div className="card">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Description</th>
-                  <th>Permissions</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map(group => (
-                  <tr key={group.id}>
-                    <td>{group.name}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{group.description || '-'}</td>
-                    <td>{group.permissions.map(p => p.permission).join(', ') || '-'}</td>
-                    <td style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn-secondary btn-sm" onClick={() => startEditGroup(group)}>
-                        Edit
-                      </button>
+            <div className="config-list">
+              {groups.map(group => (
+                <div key={group.id} className="config-item">
+                  <div className="config-item-row">
+                    <div className="config-item-info">
+                      <strong>{group.name}</strong>
+                      {group.description && <span className="config-detail">{group.description}</span>}
+                      <span className="config-detail">
+                        {group.permissions.map(p => p.permission).join(', ') || 'No permissions'}
+                      </span>
+                    </div>
+                    <div className="config-item-actions">
+                      <button className="status-badge action" onClick={() => startEditGroup(group)}>Edit</button>
                       {group.name !== 'Admins' && (
-                        <button className="btn-danger btn-sm" onClick={() => handleDeleteGroup(group)}>
-                          Delete
-                        </button>
+                        <button className="status-badge danger" onClick={() => handleDeleteGroup(group)}>Delete</button>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
