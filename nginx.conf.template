@@ -71,7 +71,7 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Deny access to hidden files
+    # Deny hidden files
     location ~ /\. {
         deny all;
     }
