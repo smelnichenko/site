@@ -7,6 +7,7 @@ interface ChannelListProps {
   onCreateChannel: () => void;
   onJoinChannel: (channelId: number) => void;
   onLeaveChannel: (channelId: number) => void;
+  onInvite: (channelId: number) => void;
 }
 
 function ChannelList({
@@ -16,6 +17,7 @@ function ChannelList({
   onCreateChannel,
   onJoinChannel,
   onLeaveChannel,
+  onInvite,
 }: ChannelListProps) {
   const joinedChannels = channels.filter((c) => c.joined);
   const availableChannels = channels.filter((c) => !c.joined);
@@ -84,7 +86,7 @@ function ChannelList({
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                   }}>
-                    # {channel.name}
+                    {channel.type === 'PRIVATE' ? '🔒 ' : '# '}{channel.name}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#999' }}>
                     {channel.memberCount} member{channel.memberCount !== 1 ? 's' : ''}
@@ -104,6 +106,18 @@ function ChannelList({
                     }}>
                       {channel.unreadCount}
                     </span>
+                  )}
+                  {channel.type === 'PRIVATE' && channel.isOwner && (
+                    <button
+                      className="status-badge action"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onInvite(channel.id);
+                      }}
+                      style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+                    >
+                      Invite
+                    </button>
                   )}
                   <button
                     className="status-badge danger"

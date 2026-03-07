@@ -9,6 +9,7 @@ import {
 import ChannelList from '../components/chat/ChannelList';
 import MessageArea from '../components/chat/MessageArea';
 import CreateChannelModal from '../components/chat/CreateChannelModal';
+import InviteModal from '../components/chat/InviteModal';
 
 function Chat() {
   const { channelId: channelIdParam } = useParams<{ channelId?: string }>();
@@ -16,10 +17,12 @@ function Chat() {
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [inviteChannelId, setInviteChannelId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   const activeChannelId = channelIdParam ? parseInt(channelIdParam, 10) : null;
   const activeChannel = channels.find((c) => c.id === activeChannelId) || null;
+  const inviteChannel = inviteChannelId ? channels.find((c) => c.id === inviteChannelId) : null;
 
   const loadChannels = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -34,7 +37,6 @@ function Chat() {
   useEffect(() => {
     const controller = new AbortController();
     loadChannels(controller.signal);
-    // Poll channels for unread counts
     const interval = setInterval(() => loadChannels(), 10000);
     return () => {
       controller.abort();
@@ -108,6 +110,7 @@ function Chat() {
             onCreateChannel={() => setShowCreateModal(true)}
             onJoinChannel={handleJoinChannel}
             onLeaveChannel={handleLeaveChannel}
+            onInvite={(id) => setInviteChannelId(id)}
           />
         </div>
 
@@ -158,6 +161,15 @@ function Chat() {
         <CreateChannelModal
           onCreated={handleChannelCreated}
           onClose={() => setShowCreateModal(false)}
+        />
+      )}
+
+      {inviteChannel && (
+        <InviteModal
+          channelId={inviteChannel.id}
+          channelName={inviteChannel.name}
+          onClose={() => setInviteChannelId(null)}
+          onInvited={() => loadChannels()}
         />
       )}
     </div>

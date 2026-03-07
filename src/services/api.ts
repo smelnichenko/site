@@ -488,11 +488,16 @@ export interface ChatChannel {
   id: number;
   name: string;
   type: 'PUBLIC' | 'PRIVATE';
-  createdBy: number;
   createdAt: string;
   memberCount: number;
   joined: boolean;
+  isOwner: boolean;
   unreadCount: number;
+}
+
+export interface ChatUser {
+  id: number;
+  email: string;
 }
 
 export interface ChatMessage {
@@ -560,6 +565,24 @@ export async function sendChatMessage(
 
 export async function markChannelRead(channelId: number): Promise<void> {
   await apiFetch(`${API_BASE}/chat/channels/${channelId}/read`, { method: 'POST' });
+}
+
+export async function fetchChatUsers(signal?: AbortSignal): Promise<ChatUser[]> {
+  const response = await apiFetch(`${API_BASE}/chat/users`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch users');
+  return response.json();
+}
+
+export async function inviteToChannel(channelId: number, userId: number): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/invite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to invite user');
+  }
 }
 
 // Test endpoints (run check with inline config, no save)
