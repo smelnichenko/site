@@ -10,7 +10,6 @@ interface CreateChannelModalProps {
 
 function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
   const [name, setName] = useState('');
-  const [type, setType] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   const [encrypted, setEncrypted] = useState(false);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -25,7 +24,7 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
     setError('');
     setCreating(true);
     try {
-      const channel = await createChatChannel(trimmed, type, encrypted);
+      const channel = await createChatChannel(trimmed, encrypted);
 
       if (encrypted && canEncrypt) {
         const channelKey = await generateChannelKey();
@@ -91,30 +90,6 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
               required
               maxLength={50}
             />
-          </div>
-
-          <div className="form-group">
-            <label>Type</label>
-            <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
-              <label className="toggle-label">
-                <input
-                  type="radio"
-                  name="channelType"
-                  checked={type === 'PUBLIC'}
-                  onChange={() => setType('PUBLIC')}
-                />
-                Public
-              </label>
-              <label className="toggle-label">
-                <input
-                  type="radio"
-                  name="channelType"
-                  checked={type === 'PRIVATE'}
-                  onChange={() => setType('PRIVATE')}
-                />
-                Private
-              </label>
-            </div>
           </div>
 
           {canEncrypt && (

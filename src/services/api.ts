@@ -487,7 +487,6 @@ export function getAttachmentDownloadUrl(emailId: number, attachmentId: number):
 export interface ChatChannel {
   id: number;
   name: string;
-  type: 'PUBLIC' | 'PRIVATE';
   createdAt: string;
   memberCount: number;
   joined: boolean;
@@ -537,22 +536,17 @@ export async function fetchChatChannels(signal?: AbortSignal): Promise<ChatChann
   return response.json();
 }
 
-export async function createChatChannel(name: string, type: string, encrypted?: boolean): Promise<ChatChannel> {
+export async function createChatChannel(name: string, encrypted?: boolean): Promise<ChatChannel> {
   const response = await apiFetch(`${API_BASE}/chat/channels`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, type, encrypted }),
+    body: JSON.stringify({ name, encrypted }),
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to create channel');
   }
   return response.json();
-}
-
-export async function joinChatChannel(channelId: number): Promise<void> {
-  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/join`, { method: 'POST' });
-  if (!response.ok) throw new Error('Failed to join channel');
 }
 
 export async function leaveChatChannel(channelId: number): Promise<void> {

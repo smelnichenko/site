@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ChatChannel,
   fetchChatChannels,
-  joinChatChannel,
   leaveChatChannel,
   deleteChatChannel,
 } from '../services/api';
@@ -50,17 +49,6 @@ function Chat() {
 
   const handleSelectChannel = (id: number) => {
     navigate(`/chat/${id}`);
-  };
-
-  const handleJoinChannel = async (id: number) => {
-    setError('');
-    try {
-      await joinChatChannel(id);
-      await loadChannels();
-      navigate(`/chat/${id}`);
-    } catch {
-      setError('Failed to join channel');
-    }
   };
 
   const handleLeaveChannel = async (id: number) => {
@@ -125,7 +113,6 @@ function Chat() {
             activeChannelId={activeChannelId}
             onSelectChannel={handleSelectChannel}
             onCreateChannel={() => setShowCreateModal(true)}
-            onJoinChannel={handleJoinChannel}
             onLeaveChannel={handleLeaveChannel}
             onInvite={(id) => setInviteChannelId(id)}
             onDeleteChannel={handleDeleteChannel}
@@ -135,32 +122,8 @@ function Chat() {
 
         {/* Message area */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          {activeChannel && activeChannel.joined ? (
+          {activeChannel ? (
             <MessageArea channel={activeChannel} />
-          ) : activeChannel && !activeChannel.joined ? (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              gap: '12px',
-              color: '#666',
-            }}>
-              <span style={{ fontSize: '1.1rem' }}>
-                # {activeChannel.name}
-              </span>
-              <span style={{ fontSize: '0.9rem' }}>
-                Join this channel to see messages and participate.
-              </span>
-              <button
-                className="status-badge action"
-                onClick={() => handleJoinChannel(activeChannel.id)}
-                style={{ padding: '8px 20px', fontSize: '0.9rem' }}
-              >
-                Join Channel
-              </button>
-            </div>
           ) : (
             <div style={{
               display: 'flex',
