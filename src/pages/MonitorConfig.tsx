@@ -29,8 +29,8 @@ function PageTestResultBanner({ result: r }: Readonly<{ result: MonitorResult }>
         ? <span style={{ color: '#721c24' }}>Error: {r.errorMessage}</span>
         : <>
             <span style={{ color: r.matched ? '#155724' : '#856404' }}>
-              {r.matched ? 'Matched' : 'No match'}{r.extractedValue != null && <> — Value: <strong>{r.extractedValue}</strong></>}
-              {r.rawMatch && <> (raw: <code>{r.rawMatch}</code>)</>}
+              {r.matched ? 'Matched' : 'No match'}{r.extractedValue != null && <>{' '}— Value: <strong>{r.extractedValue}</strong></>}
+              {r.rawMatch && <>{' '}(raw: <code>{r.rawMatch}</code>)</>}
             </span>
             <span style={{ color: '#666', marginLeft: 12 }}>HTTP {r.httpStatus} · {r.responseTimeMs}ms</span>
           </>
@@ -71,11 +71,11 @@ interface PageFormState {
 
 const emptyPageForm: PageFormState = { name: '', url: '', pattern: '', cron: '0 0 * * * *', enabled: true };
 
-function PageMonitorForm({ initial, onSave, onCancel }: {
+function PageMonitorForm({ initial, onSave, onCancel }: Readonly<{
   initial?: PageFormState;
   onSave: (data: PageMonitorRequest) => Promise<void>;
   onCancel: () => void;
-}) {
+}>) {
   const [form, setForm] = useState<PageFormState>(initial || emptyPageForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -83,7 +83,7 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
   const [formTestResult, setFormTestResult] = useState<MonitorResult | null>(null);
   const { withLoading } = useLoading();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
     setError('');
@@ -112,26 +112,26 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
       {error && <div className="error">{error}</div>}
       <div className="form-row">
         <div className="form-group">
-          <label>Name <span className="required">*</span></label>
-          <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
+          <label htmlFor="page-name">Name <span className="required">*</span></label>
+          <input id="page-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
         </div>
         <div className="form-group">
-          <label>Cron <span className="required">*</span></label>
-          <input value={form.cron} onChange={e => setForm({ ...form, cron: e.target.value })} required placeholder="0 0 * * * *" pattern="(\S+\s+){5}\S+" title="Spring cron: 6 fields (sec min hour day month weekday)" />
+          <label htmlFor="page-cron">Cron <span className="required">*</span></label>
+          <input id="page-cron" value={form.cron} onChange={e => setForm({ ...form, cron: e.target.value })} required placeholder="0 0 * * * *" pattern="(\S+\s+){5}\S+" title="Spring cron: 6 fields (sec min hour day month weekday)" />
         </div>
       </div>
       <div className="form-group">
-        <label>URL <span className="required">*</span></label>
-        <input type="url" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required />
+        <label htmlFor="page-url">URL <span className="required">*</span></label>
+        <input id="page-url" type="url" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required />
       </div>
       <div className="form-group">
-        <label>Pattern (regex) <span className="required">*</span></label>
-        <input value={form.pattern} onChange={e => setForm({ ...form, pattern: e.target.value })} required />
+        <label htmlFor="page-pattern">Pattern (regex) <span className="required">*</span></label>
+        <input id="page-pattern" value={form.pattern} onChange={e => setForm({ ...form, pattern: e.target.value })} required />
       </div>
       {formTestResult && <PageTestResultBanner result={formTestResult} />}
       <div className="form-actions">
         <label className="toggle-label">
-          <input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />
+          <input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />{' '}
           Enabled
         </label>
         <div>
@@ -176,11 +176,18 @@ function toCollectionRequests(collections: CollectionFormState[]) {
   }));
 }
 
-function RssFeedForm({ initial, onSave, onCancel }: {
+function mapGeneratedCollections(collections: { name: string; metrics: { name: string; keywords: string[] }[] }[]): CollectionFormState[] {
+  return collections.map(c => ({
+    name: c.name,
+    metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords.join(', ') })),
+  }));
+}
+
+function RssFeedForm({ initial, onSave, onCancel }: Readonly<{
   initial?: RssFormState;
   onSave: (data: RssFeedMonitorRequest) => Promise<void>;
   onCancel: () => void;
-}) {
+}>) {
   const [form, setForm] = useState<RssFormState>(initial || emptyRssForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -192,7 +199,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
   const [aiError, setAiError] = useState('');
   const { withLoading } = useLoading();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
     setError('');
@@ -254,25 +261,25 @@ function RssFeedForm({ initial, onSave, onCancel }: {
       {error && <div className="error">{error}</div>}
       <div className="form-row">
         <div className="form-group">
-          <label>Name <span className="required">*</span></label>
-          <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
+          <label htmlFor="rss-name">Name <span className="required">*</span></label>
+          <input id="rss-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
         </div>
         <div className="form-group">
-          <label>Cron <span className="required">*</span></label>
-          <input value={form.cron} onChange={e => setForm({ ...form, cron: e.target.value })} required placeholder="0 0 * * * *" pattern="(\S+\s+){5}\S+" title="Spring cron: 6 fields (sec min hour day month weekday)" />
+          <label htmlFor="rss-cron">Cron <span className="required">*</span></label>
+          <input id="rss-cron" value={form.cron} onChange={e => setForm({ ...form, cron: e.target.value })} required placeholder="0 0 * * * *" pattern="(\S+\s+){5}\S+" title="Spring cron: 6 fields (sec min hour day month weekday)" />
         </div>
       </div>
       <div className="form-group">
-        <label>URL <span className="required">*</span></label>
-        <input type="url" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required />
+        <label htmlFor="rss-url">URL <span className="required">*</span></label>
+        <input id="rss-url" type="url" value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} required />
       </div>
       <div>
         <div className="form-group" style={{ width: '10%' }}>
-          <label>Max Articles <span className="required">*</span></label>
-          <input type="number" min="1" value={form.maxArticles} onChange={e => setForm({ ...form, maxArticles: parseInt(e.target.value) || 30 })} required />
+          <label htmlFor="rss-max-articles">Max Articles <span className="required">*</span></label>
+          <input id="rss-max-articles" type="number" min="1" value={form.maxArticles} onChange={e => setForm({ ...form, maxArticles: Number.parseInt(e.target.value, 10) || 30 })} required />
         </div>
         <label className="toggle-label">
-          <input type="checkbox" checked={form.fetchContent} onChange={e => setForm({ ...form, fetchContent: e.target.checked })} />
+          <input type="checkbox" checked={form.fetchContent} onChange={e => setForm({ ...form, fetchContent: e.target.checked })} />{' '}
           Fetch Content
         </label>
       </div>
@@ -284,8 +291,9 @@ function RssFeedForm({ initial, onSave, onCancel }: {
         {showAiGenerate && (
           <div style={{ marginTop: 8, padding: '12px', background: '#f8f9fa', borderRadius: 4 }}>
             <div className="form-group">
-              <label>Describe what to track</label>
+              <label htmlFor="ai-prompt">Describe what to track</label>
               <textarea
+                id="ai-prompt"
                 value={aiPrompt}
                 onChange={e => setAiPrompt(e.target.value)}
                 placeholder="e.g., Track AI, cybersecurity, and cloud computing trends"
@@ -309,10 +317,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
                   const collections = await withLoading(() => generateRssCollections({ url: form.url, prompt: aiPrompt }));
                   setForm({
                     ...form,
-                    collections: [...form.collections, ...collections.map(c => ({
-                      name: c.name,
-                      metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords.join(', ') })),
-                    }))],
+                    collections: [...form.collections, ...mapGeneratedCollections(collections)],
                   });
                   setShowAiGenerate(false);
                 } catch (err: unknown) {
@@ -333,16 +338,16 @@ function RssFeedForm({ initial, onSave, onCancel }: {
           <button type="button" className="status-badge add" onClick={addCollection}>+ Collection</button>
         </div>
         {form.collections.map((col, ci) => (
-          <div key={ci} className="collection-block">
+          <div key={`col-${col.name || ci}`} className="collection-block">
             <div className="form-row">
               <div className="form-group">
-                <label>Collection Name <span className="required">*</span></label>
-                <input value={col.name} onChange={e => updateCollection(ci, { ...col, name: e.target.value })} required />
+                <label htmlFor={`col-name-${ci}`}>Collection Name <span className="required">*</span></label>
+                <input id={`col-name-${ci}`} value={col.name} onChange={e => updateCollection(ci, { ...col, name: e.target.value })} required />
               </div>
               <button type="button" className="status-badge danger" onClick={() => removeCollection(ci)}>Remove</button>
             </div>
             {col.metrics.map((m, mi) => (
-              <div key={mi} className="metric-row">
+              <div key={`metric-${ci}-${m.name || mi}`} className="metric-row">
                 <input placeholder="Metric name" value={m.name} onChange={e => updateMetric(ci, mi, { ...m, name: e.target.value })} required />
                 <input placeholder="Keywords (comma-separated)" value={m.keywords} onChange={e => updateMetric(ci, mi, { ...m, keywords: e.target.value })} required />
                 <button type="button" className="status-badge danger" onClick={() => removeMetric(ci, mi)}>x</button>
@@ -356,7 +361,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
       {formTestResult && <RssTestResultBanner result={formTestResult} />}
       <div className="form-actions">
         <label className="toggle-label">
-          <input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />
+          <input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />{' '}
           Enabled
         </label>
         <div>
@@ -370,6 +375,29 @@ function RssFeedForm({ initial, onSave, onCancel }: {
 }
 
 // --- Main Config Page ---
+
+function buildTestPageRequest(pm: PageMonitorConfig): PageMonitorRequest {
+  return { name: pm.name, url: pm.url, pattern: pm.pattern, cron: pm.cron, enabled: pm.enabled };
+}
+
+function buildTestRssRequest(fm: RssFeedMonitorConfig): RssFeedMonitorRequest {
+  return {
+    name: fm.name, url: fm.url, cron: fm.cron, fetchContent: fm.fetchContent,
+    maxArticles: fm.maxArticles, enabled: fm.enabled,
+    collections: fm.collections.map(c => ({ name: c.name, metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords })) })),
+  };
+}
+
+function toRssFormInitial(fm: RssFeedMonitorConfig): RssFormState {
+  return {
+    name: fm.name, url: fm.url, cron: fm.cron, fetchContent: fm.fetchContent,
+    maxArticles: fm.maxArticles, enabled: fm.enabled,
+    collections: fm.collections.map(c => ({
+      name: c.name,
+      metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords.join(', ') })),
+    })),
+  };
+}
 
 function MonitorConfig() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -447,18 +475,14 @@ function MonitorConfig() {
 
   const handleTestPage = async (pm: PageMonitorConfig) => {
     setTesting('page:' + pm.name);
-    try { await withLoading(() => testPageMonitor({ name: pm.name, url: pm.url, pattern: pm.pattern, cron: pm.cron, enabled: pm.enabled })); } catch { /* ignore */ }
+    try { await withLoading(() => testPageMonitor(buildTestPageRequest(pm))); } catch { /* ignore */ }
     setTesting(null);
   };
 
   const handleTestRss = async (fm: RssFeedMonitorConfig) => {
     setTesting('rss:' + fm.name);
     try {
-      await withLoading(() => testRssFeedMonitor({
-        name: fm.name, url: fm.url, cron: fm.cron, fetchContent: fm.fetchContent,
-        maxArticles: fm.maxArticles, enabled: fm.enabled,
-        collections: fm.collections.map(c => ({ name: c.name, metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords })) })),
-      }));
+      await withLoading(() => testRssFeedMonitor(buildTestRssRequest(fm)));
     } catch { /* ignore */ }
     setTesting(null);
   };
@@ -481,7 +505,7 @@ function MonitorConfig() {
         )}
 
         {pageMonitors.length === 0 && !showNewPage ? (
-          <p className="empty-state">No page monitors configured. Click "+ Add Page Monitor" to create one.</p>
+          <p className="empty-state">No page monitors configured. Click &quot;+ Add Page Monitor&quot; to create one.</p>
         ) : (
           <div className="config-list">
             {pageMonitors.map(pm => (
@@ -528,21 +552,14 @@ function MonitorConfig() {
         )}
 
         {rssMonitors.length === 0 && !showNewRss ? (
-          <p className="empty-state">No RSS feed monitors configured. Click "+ Add RSS Feed" to create one.</p>
+          <p className="empty-state">No RSS feed monitors configured. Click &quot;+ Add RSS Feed&quot; to create one.</p>
         ) : (
           <div className="config-list">
             {rssMonitors.map(fm => (
               <div key={fm.id} className="config-item">
                 {editingRss?.id === fm.id ? (
                   <RssFeedForm
-                    initial={{
-                      name: fm.name, url: fm.url, cron: fm.cron, fetchContent: fm.fetchContent,
-                      maxArticles: fm.maxArticles, enabled: fm.enabled,
-                      collections: fm.collections.map(c => ({
-                        name: c.name,
-                        metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords.join(', ') })),
-                      })),
-                    }}
+                    initial={toRssFormInitial(fm)}
                     onSave={handleUpdateRss}
                     onCancel={() => setEditingRss(null)}
                   />
@@ -553,8 +570,8 @@ function MonitorConfig() {
                       <span className={`status-dot ${fm.enabled ? 'active' : 'inactive'}`} />
                       <span className="config-detail">{fm.url}</span>
                       <span className="config-detail">Cron: <code>{fm.cron}</code> | Max articles: {fm.maxArticles}</span>
-                      {fm.collections.map((c, ci) => (
-                        <span key={ci} className="config-detail">
+                      {fm.collections.map(c => (
+                        <span key={c.name} className="config-detail">
                           {c.name}: {c.metrics.map(m => m.name).join(', ')}
                         </span>
                       ))}

@@ -28,7 +28,7 @@ const COLORS = [
   '#e83e8c',
 ];
 
-function MetricChart({ data, metrics, title }: MetricChartProps) {
+function MetricChart({ data, metrics, title }: Readonly<MetricChartProps>) {
   if (data.length === 0) {
     return (
       <div className="card">

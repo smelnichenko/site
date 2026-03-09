@@ -36,7 +36,7 @@ interface MessageAreaProps {
   channel: ChatChannel;
 }
 
-function MessageArea({ channel }: MessageAreaProps) {
+function MessageArea({ channel }: Readonly<MessageAreaProps>) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -266,7 +266,7 @@ function MessageArea({ channel }: MessageAreaProps) {
           {isEncrypted ? '\uD83D\uDD12 ' : '# '}{channel.name}
         </span>
         <span style={{ fontSize: '0.8rem', color: '#999' }}>
-          {channel.memberCount} member{channel.memberCount !== 1 ? 's' : ''}
+          {channel.memberCount} member{channel.memberCount === 1 ? '' : 's'}
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
           {chainStatus && (

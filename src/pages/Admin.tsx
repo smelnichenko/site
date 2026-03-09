@@ -192,13 +192,14 @@ function Admin() {
                         </div>
                       </div>
                     ) : (
-                      <span
-                        style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}
+                      <button
+                        type="button"
+                        style={{ cursor: 'pointer', textDecoration: 'underline dotted', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit' }}
                         onClick={() => startEditGroups(user)}
                         title="Click to edit groups"
                       >
                         {user.groups.length > 0 ? user.groups.join(', ') : <em style={{ color: '#888' }}>None</em>}
-                      </span>
+                      </button>
                     )}
                   </td>
                   <td>
@@ -234,27 +235,30 @@ function Admin() {
               <div className="config-form" style={{ marginBottom: 16 }}>
                 <strong style={{ display: 'block', marginBottom: 12 }}>{groupForm.id ? 'Edit Group' : 'New Group'}</strong>
                 <div className="form-group">
-                  <label>Name</label>
+                  <label htmlFor="group-name">Name</label>
                   <input
+                    id="group-name"
                     value={groupForm.name}
                     onChange={e => setGroupForm({ ...groupForm, name: e.target.value })}
                     placeholder="Group name"
                   />
                 </div>
                 <div className="form-group">
-                  <label>Description</label>
+                  <label htmlFor="group-description">Description</label>
                   <input
+                    id="group-description"
                     value={groupForm.description}
                     onChange={e => setGroupForm({ ...groupForm, description: e.target.value })}
                     placeholder="Optional description"
                   />
                 </div>
                 <div className="form-group">
-                  <label>Permissions</label>
+                  <label htmlFor="perm-PLAY">Permissions</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {ALL_PERMISSIONS.map(p => (
-                      <label key={p} className="toggle-label">
+                      <label key={p} htmlFor={`perm-${p}`} className="toggle-label">
                         <input
+                          id={`perm-${p}`}
                           type="checkbox"
                           checked={groupForm.permissions.includes(p)}
                           onChange={() => togglePermission(p)}

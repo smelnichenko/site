@@ -12,14 +12,19 @@ function Login() {
   const location = useLocation();
   const from = (location.state as { from?: string })?.from;
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
       const lastPath = await login(email, password);
       const isValidPath = (p: string) => p.startsWith('/') && !p.startsWith('//');
-      const redirectTo = from && from !== '/' && isValidPath(from) ? from : (lastPath && isValidPath(lastPath) ? lastPath : '/');
+      let redirectTo = '/';
+      if (from && from !== '/' && isValidPath(from)) {
+        redirectTo = from;
+      } else if (lastPath && isValidPath(lastPath)) {
+        redirectTo = lastPath;
+      }
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');

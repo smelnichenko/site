@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { setPermissionsChangedCallback, fetchUserKeys, uploadUserKeys } from '../services/api';
 import {
   generateIdentityKeyPair,
@@ -36,7 +36,7 @@ function loadState(): AuthState {
   const userId = localStorage.getItem('userId');
   const permissions = JSON.parse(localStorage.getItem('permissions') || '[]');
   const groups = JSON.parse(localStorage.getItem('groups') || '[]');
-  return { email, userId: userId ? parseInt(userId) : null, permissions, groups };
+  return { email, userId: userId ? Number.parseInt(userId, 10) : null, permissions, groups };
 }
 
 function saveState(state: AuthState) {
@@ -53,7 +53,34 @@ function saveState(state: AuthState) {
   }
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+async function setupE2eKeys(password: string) {
+  const existing = await fetchUserKeys();
+  if (existing) {
+    // Decrypt existing private key
+    const salt = base64ToBuffer(existing.pbkdf2Salt);
+    const wrappingKey = await deriveWrappingKey(password, salt.buffer as ArrayBuffer, existing.pbkdf2Iterations);
+    const privateKey = await decryptPrivateKey(existing.encryptedPrivateKey, wrappingKey);
+    const publicKey = await importPublicKey(JSON.parse(existing.publicKey));
+    keyStore.setIdentityKeys(privateKey, publicKey);
+  } else {
+    // Generate new key pair
+    const keyPair = await generateIdentityKeyPair();
+    const salt = generateSalt();
+    const wrappingKey = await deriveWrappingKey(password, salt.buffer as ArrayBuffer, 600000);
+    const encryptedPrivKey = await encryptPrivateKey(keyPair.privateKey, wrappingKey);
+    const publicKeyJwk = await exportPublicKey(keyPair.publicKey);
+
+    await uploadUserKeys({
+      publicKey: JSON.stringify(publicKeyJwk),
+      encryptedPrivateKey: encryptedPrivKey,
+      pbkdf2Salt: bufferToBase64(salt),
+      pbkdf2Iterations: 600000,
+    });
+    keyStore.setIdentityKeys(keyPair.privateKey, keyPair.publicKey);
+  }
+}
+
+export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [auth, setAuth] = useState<AuthState>(loadState);
 
   const isAuthenticated = !!auth.email;
@@ -123,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [auth.email]);
 
-  async function login(email: string, password: string): Promise<string | null> {
+  const login = useCallback(async (email: string, password: string): Promise<string | null> => {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -152,36 +179,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return data.lastPath ?? null;
-  }
+  }, []);
 
-  async function setupE2eKeys(password: string) {
-    const existing = await fetchUserKeys();
-    if (existing) {
-      // Decrypt existing private key
-      const salt = base64ToBuffer(existing.pbkdf2Salt);
-      const wrappingKey = await deriveWrappingKey(password, salt.buffer as ArrayBuffer, existing.pbkdf2Iterations);
-      const privateKey = await decryptPrivateKey(existing.encryptedPrivateKey, wrappingKey);
-      const publicKey = await importPublicKey(JSON.parse(existing.publicKey));
-      keyStore.setIdentityKeys(privateKey, publicKey);
-    } else {
-      // Generate new key pair
-      const keyPair = await generateIdentityKeyPair();
-      const salt = generateSalt();
-      const wrappingKey = await deriveWrappingKey(password, salt.buffer as ArrayBuffer, 600000);
-      const encryptedPrivKey = await encryptPrivateKey(keyPair.privateKey, wrappingKey);
-      const publicKeyJwk = await exportPublicKey(keyPair.publicKey);
-
-      await uploadUserKeys({
-        publicKey: JSON.stringify(publicKeyJwk),
-        encryptedPrivateKey: encryptedPrivKey,
-        pbkdf2Salt: bufferToBase64(salt),
-        pbkdf2Iterations: 600000,
-      });
-      keyStore.setIdentityKeys(keyPair.privateKey, keyPair.publicKey);
-    }
-  }
-
-  async function logout() {
+  const logout = useCallback(async () => {
     try {
       await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
@@ -192,10 +192,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     keyStore.clear();
     setAuth({ email: null, userId: null, permissions: [], groups: [] });
-  }
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    void logout();
+  }, [logout]);
+
+  const contextValue = useMemo(() => ({
+    ...auth, login, logout: handleLogout, isAuthenticated, hasPermission,
+  }), [auth, login, handleLogout, isAuthenticated, hasPermission]);
 
   return (
-    <AuthContext.Provider value={{ ...auth, login, logout, isAuthenticated, hasPermission }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

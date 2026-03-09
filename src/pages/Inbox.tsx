@@ -39,7 +39,7 @@ function formatFileSize(bytes: number): string {
 }
 
 function extractName(address: string): string {
-  const match = address.match(/^(.+?)\s*<.+>$/);
+  const match = /^(.+?)\s*<.+>$/.exec(address);
   if (match) return match[1].trim();
   return address;
 }
@@ -100,7 +100,7 @@ function Inbox() {
         <div className="card-header">
           <span className="card-title">Inbox</span>
           <span style={{ fontSize: '0.85rem', color: '#666' }}>
-            {data.totalElements} email{data.totalElements !== 1 ? 's' : ''}
+            {data.totalElements} email{data.totalElements === 1 ? '' : 's'}
           </span>
         </div>
 
@@ -133,16 +133,18 @@ function Inbox() {
                         <strong>To:</strong> {email.toAddresses}<br />
                         <strong>Date:</strong> {formatDate(email.receivedAt)}
                       </div>
-                      {email.bodyHtml ? (
+                      {email.bodyHtml && (
                         <iframe
                           srcDoc={email.bodyHtml}
                           sandbox=""
                           style={{ width: '100%', minHeight: '300px', border: '1px solid #ddd', background: '#fff' }}
                           title="Email body"
                         />
-                      ) : email.bodyText ? (
+                      )}
+                      {!email.bodyHtml && email.bodyText && (
                         <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{email.bodyText}</pre>
-                      ) : (
+                      )}
+                      {!email.bodyHtml && !email.bodyText && (
                         <p style={{ color: '#999' }}>No body content available.</p>
                       )}
                       {attachments[email.id] && attachments[email.id].length > 0 && (

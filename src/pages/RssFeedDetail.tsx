@@ -170,7 +170,7 @@ function RssFeedDetail() {
         )}
       </div>
 
-      {config && config.collections.map((collection) => {
+      {config?.collections.map((collection) => {
         const points = chartData[collection.name];
         if (!points || points.length === 0) return null;
         const metricNames = collection.metrics.map((m) => m.name);

@@ -21,7 +21,7 @@ function formatTimeAgo(dateString: string): string {
   return `${diffDays}d ago`;
 }
 
-function PageCard({ pageName, latestResult, editUrl }: PageCardProps) {
+function PageCard({ pageName, latestResult, editUrl }: Readonly<PageCardProps>) {
   return (
     <div className="card" data-testid="page-card">
       <div className="card-header">
@@ -41,12 +41,14 @@ function PageCard({ pageName, latestResult, editUrl }: PageCardProps) {
           )}
         </div>
       </div>
-      {latestResult ? (
+      {latestResult === null ? (
+        <div className="loading">No data yet</div>
+      ) : (
         <div>
           <div className="stat-value">
-            {latestResult.extractedValue !== null
-              ? latestResult.extractedValue.toLocaleString()
-              : 'N/A'}
+            {latestResult.extractedValue === null
+              ? 'N/A'
+              : latestResult.extractedValue.toLocaleString()}
           </div>
           <div className="stat-label">
             Last checked: {formatTimeAgo(latestResult.checkedAt)}
@@ -57,8 +59,6 @@ function PageCard({ pageName, latestResult, editUrl }: PageCardProps) {
             </div>
           )}
         </div>
-      ) : (
-        <div className="loading">No data yet</div>
       )}
     </div>
   );

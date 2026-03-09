@@ -6,7 +6,7 @@ interface ProtectedRouteProps {
   permission?: string;
 }
 
-function ProtectedRoute({ children, permission }: ProtectedRouteProps) {
+function ProtectedRoute({ children, permission }: Readonly<ProtectedRouteProps>) {
   const { isAuthenticated, hasPermission } = useAuth();
   const location = useLocation();
 

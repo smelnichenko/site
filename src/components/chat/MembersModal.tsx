@@ -17,7 +17,7 @@ interface MembersModalProps {
   onKicked: () => void;
 }
 
-function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: MembersModalProps) {
+function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: Readonly<MembersModalProps>) {
   const [members, setMembers] = useState<ChannelMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [kicking, setKicking] = useState<number | null>(null);
@@ -74,6 +74,8 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       style={{
         position: 'fixed',
         inset: 0,
@@ -85,6 +87,9 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) onClose();
       }}
     >
       <div className="card" style={{ width: '100%', maxWidth: '420px', margin: '0 20px' }}>
@@ -102,11 +107,13 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
         {error && <div className="error">{error}</div>}
 
         <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-          {loading ? (
+          {loading && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>Loading...</div>
-          ) : members.length === 0 ? (
+          )}
+          {!loading && members.length === 0 && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>No members</div>
-          ) : (
+          )}
+          {!loading && members.length > 0 &&
             members.map((member) => (
               <div
                 key={member.id}
@@ -131,7 +138,7 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
                 )}
               </div>
             ))
-          )}
+          }
         </div>
       </div>
     </div>

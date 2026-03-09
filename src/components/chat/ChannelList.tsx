@@ -20,7 +20,7 @@ function ChannelList({
   onInvite,
   onDeleteChannel,
   onManageMembers,
-}: ChannelListProps) {
+}: Readonly<ChannelListProps>) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{
@@ -45,7 +45,15 @@ function ChannelList({
           channels.map((channel) => (
             <div
               key={channel.id}
+              role="button"
+              tabIndex={0}
               onClick={() => onSelectChannel(channel.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelectChannel(channel.id);
+                }
+              }}
               style={{
                 padding: '8px 16px',
                 cursor: 'pointer',
@@ -77,7 +85,7 @@ function ChannelList({
                   {channel.encrypted ? '\uD83D\uDD12 ' : '# '}{channel.name}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#999' }}>
-                  {channel.memberCount} member{channel.memberCount !== 1 ? 's' : ''}
+                  {channel.memberCount} member{channel.memberCount === 1 ? '' : 's'}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>

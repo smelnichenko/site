@@ -20,7 +20,7 @@ interface InviteModalProps {
   onInvited: () => void;
 }
 
-function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onClose, onInvited }: InviteModalProps) {
+function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onClose, onInvited }: Readonly<InviteModalProps>) {
   const [users, setUsers] = useState<ChatUser[]>([]);
   const [memberIds, setMemberIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -81,6 +81,8 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       style={{
         position: 'fixed',
         inset: 0,
@@ -92,6 +94,9 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) onClose();
       }}
     >
       <div className="card" style={{ width: '100%', maxWidth: '420px', margin: '0 20px' }}>
@@ -119,13 +124,15 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
         </div>
 
         <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-          {loading ? (
+          {loading && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>Loading...</div>
-          ) : filtered.length === 0 ? (
+          )}
+          {!loading && filtered.length === 0 && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
               {search ? 'No matching users' : 'No users to invite'}
             </div>
-          ) : (
+          )}
+          {!loading && filtered.length > 0 &&
             filtered.map((user) => {
               const isMember = memberIds.has(user.id);
               return (
@@ -160,7 +167,7 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
                 </div>
               );
             })
-          )}
+          }
         </div>
       </div>
     </div>

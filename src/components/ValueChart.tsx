@@ -25,7 +25,7 @@ function formatDate(dateString: string): string {
   });
 }
 
-function ValueChart({ data, title }: ValueChartProps) {
+function ValueChart({ data, title }: Readonly<ValueChartProps>) {
   const chartData = useMemo(
     () =>
       data

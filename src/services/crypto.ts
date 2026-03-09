@@ -204,8 +204,8 @@ export async function decryptMessage(
 
 export function bufferToBase64(buffer: Uint8Array): string {
   let binary = '';
-  for (let i = 0; i < buffer.length; i++) {
-    binary += String.fromCharCode(buffer[i]);
+  for (const byte of buffer) {
+    binary += String.fromCodePoint(byte);
   }
   return btoa(binary);
 }
@@ -214,7 +214,7 @@ export function base64ToBuffer(base64: string): Uint8Array {
   const binary = atob(base64);
   const buffer = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
-    buffer[i] = binary.charCodeAt(i);
+    buffer[i] = binary.codePointAt(i)!;
   }
   return buffer;
 }

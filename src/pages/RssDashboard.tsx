@@ -24,6 +24,14 @@ function formatTimeAgo(dateString: string): string {
   return `${diffDays}d ago`;
 }
 
+function fetchRssLatestSafe(name: string, signal: AbortSignal): Promise<RssFeedResult | null> {
+  return fetchRssLatestResult(name, signal).catch(() => null);
+}
+
+function fetchRssChartSafe(name: string, signal: AbortSignal): Promise<ChartDataByCollection> {
+  return fetchRssChartData(name, 50, signal).catch(() => ({} as ChartDataByCollection));
+}
+
 function RssDashboard() {
   const [configs, setConfigs] = useState<RssFeedMonitorConfig[] | null>(null);
   const [latestResults, setLatestResults] = useState<Map<string, RssFeedResult | null>>(new Map());
@@ -40,12 +48,8 @@ function RssDashboard() {
         setConfigs(configList);
 
         const [latestArr, chartArr] = await Promise.all([
-          Promise.all(configList.map(c =>
-            fetchRssLatestResult(c.name, controller.signal).catch(() => null)
-          )),
-          Promise.all(configList.map(c =>
-            fetchRssChartData(c.name, 50, controller.signal).catch(() => ({} as ChartDataByCollection))
-          )),
+          Promise.all(configList.map(c => fetchRssLatestSafe(c.name, controller.signal))),
+          Promise.all(configList.map(c => fetchRssChartSafe(c.name, controller.signal))),
         ]);
         if (cancelled) return;
 

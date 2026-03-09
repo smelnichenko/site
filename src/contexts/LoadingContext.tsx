@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 
 interface LoadingContextType {
   loading: boolean;
@@ -12,7 +12,7 @@ const LoadingContext = createContext<LoadingContextType>({
   withLoading: async (fn) => fn(),
 });
 
-export function LoadingProvider({ children }: { children: React.ReactNode }) {
+export function LoadingProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const [loading, setLoading] = useState(false);
 
   const withLoading = useCallback(async <T,>(fn: () => Promise<T>): Promise<T> => {
@@ -24,8 +24,12 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const contextValue = useMemo(() => ({
+    loading, setLoading, withLoading,
+  }), [loading, withLoading]);
+
   return (
-    <LoadingContext.Provider value={{ loading, setLoading, withLoading }}>
+    <LoadingContext.Provider value={contextValue}>
       {children}
     </LoadingContext.Provider>
   );

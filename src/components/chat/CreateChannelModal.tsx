@@ -8,7 +8,7 @@ interface CreateChannelModalProps {
   onClose: () => void;
 }
 
-function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
+function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalProps>) {
   const [name, setName] = useState('');
   const [encrypted, setEncrypted] = useState(false);
   const [error, setError] = useState('');
@@ -16,7 +16,7 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
 
   const canEncrypt = keyStore.hasIdentityKeys();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -33,7 +33,7 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
         if (publicKey && uid) {
           const wrapped = await wrapChannelKeyForMember(channelKey, publicKey);
           await setChannelKeys(channel.id, [{
-            userId: parseInt(uid),
+            userId: Number.parseInt(uid, 10),
             encryptedChannelKey: wrapped.encryptedChannelKey,
             wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
           }]);
@@ -51,6 +51,8 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       style={{
         position: 'fixed',
         inset: 0,
@@ -62,6 +64,9 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) onClose();
       }}
     >
       <div className="card" style={{ width: '100%', maxWidth: '420px', margin: '0 20px' }}>
@@ -80,8 +85,9 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Channel Name</label>
+            <label htmlFor="channel-name">Channel Name</label>
             <input
+              id="channel-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -99,7 +105,7 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
                   type="checkbox"
                   checked={encrypted}
                   onChange={(e) => setEncrypted(e.target.checked)}
-                />
+                />{' '}
                 End-to-end encrypted
               </label>
               <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '4px' }}>
