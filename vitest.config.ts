@@ -6,6 +6,13 @@ export default defineConfig({
     globals: true,
     setupFiles: ['src/test/setup.ts'],
     exclude: ['tests/**', 'node_modules/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text'],
+      reportsDirectory: 'coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/test/**', 'src/**/*.test.*', 'src/vite-env.d.ts'],
+    },
   },
   define: {
     __GIT_HASH__: JSON.stringify('abc1234'),

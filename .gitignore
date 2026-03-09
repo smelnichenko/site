@@ -1,4 +1,7 @@
 
+# Coverage
+/coverage/
+
 # Playwright
 node_modules/
 /test-results/
