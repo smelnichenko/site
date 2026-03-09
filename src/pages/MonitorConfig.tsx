@@ -17,6 +17,48 @@ function isValidCron(cron: string): boolean {
   return CRON_PATTERN.test(cron.trim());
 }
 
+// --- Test Result Banners ---
+
+function PageTestResultBanner({ result: r }: Readonly<{ result: MonitorResult }>) {
+  let background = '#fff3cd';
+  if (r.errorMessage) background = '#f8d7da';
+  else if (r.matched) background = '#d4edda';
+  return (
+    <div style={{ padding: '8px 12px', borderRadius: 4, fontSize: '0.85rem', marginBottom: 8, background }}>
+      {r.errorMessage
+        ? <span style={{ color: '#721c24' }}>Error: {r.errorMessage}</span>
+        : <>
+            <span style={{ color: r.matched ? '#155724' : '#856404' }}>
+              {r.matched ? 'Matched' : 'No match'}{r.extractedValue != null && <> — Value: <strong>{r.extractedValue}</strong></>}
+              {r.rawMatch && <> (raw: <code>{r.rawMatch}</code>)</>}
+            </span>
+            <span style={{ color: '#666', marginLeft: 12 }}>HTTP {r.httpStatus} · {r.responseTimeMs}ms</span>
+          </>
+      }
+    </div>
+  );
+}
+
+function RssTestResultBanner({ result: r }: Readonly<{ result: RssFeedResult }>) {
+  return (
+    <div style={{ padding: '8px 12px', borderRadius: 4, fontSize: '0.85rem', marginBottom: 8, background: r.errorMessage ? '#f8d7da' : '#d4edda' }}>
+      {r.errorMessage
+        ? <span style={{ color: '#721c24' }}>Error: {r.errorMessage}</span>
+        : <>
+            <span style={{ color: '#155724' }}>
+              {r.articleCount} articles · HTTP {r.httpStatus} · {r.responseTimeMs}ms
+            </span>
+            {r.metricCounts.length > 0 && (
+              <span style={{ color: '#333', marginLeft: 12 }}>
+                {r.metricCounts.map(m => `${m.metricName}: ${m.count}`).join(', ')}
+              </span>
+            )}
+          </>
+      }
+    </div>
+  );
+}
+
 // --- Page Monitor Form ---
 
 interface PageFormState {
@@ -86,23 +128,7 @@ function PageMonitorForm({ initial, onSave, onCancel }: {
         <label>Pattern (regex) <span className="required">*</span></label>
         <input value={form.pattern} onChange={e => setForm({ ...form, pattern: e.target.value })} required />
       </div>
-      {formTestResult && (() => {
-        const r = formTestResult;
-        return (
-          <div style={{ padding: '8px 12px', borderRadius: 4, fontSize: '0.85rem', marginBottom: 8, background: r.errorMessage ? '#f8d7da' : r.matched ? '#d4edda' : '#fff3cd' }}>
-            {r.errorMessage
-              ? <span style={{ color: '#721c24' }}>Error: {r.errorMessage}</span>
-              : <>
-                  <span style={{ color: r.matched ? '#155724' : '#856404' }}>
-                    {r.matched ? 'Matched' : 'No match'}{r.extractedValue != null && <> — Value: <strong>{r.extractedValue}</strong></>}
-                    {r.rawMatch && <> (raw: <code>{r.rawMatch}</code>)</>}
-                  </span>
-                  <span style={{ color: '#666', marginLeft: 12 }}>HTTP {r.httpStatus} · {r.responseTimeMs}ms</span>
-                </>
-            }
-          </div>
-        );
-      })()}
+      {formTestResult && <PageTestResultBanner result={formTestResult} />}
       <div className="form-actions">
         <label className="toggle-label">
           <input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />
@@ -140,6 +166,16 @@ const emptyRssForm: RssFormState = {
   collections: [],
 };
 
+function toCollectionRequests(collections: CollectionFormState[]) {
+  return collections.map(c => ({
+    name: c.name,
+    metrics: c.metrics.map(m => ({
+      name: m.name,
+      keywords: m.keywords.split(',').map(k => k.trim()).filter(Boolean),
+    })),
+  }));
+}
+
 function RssFeedForm({ initial, onSave, onCancel }: {
   initial?: RssFormState;
   onSave: (data: RssFeedMonitorRequest) => Promise<void>;
@@ -163,10 +199,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
     try {
       await withLoading(() => onSave({
         ...form,
-        collections: form.collections.map(c => ({
-          name: c.name,
-          metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords.split(',').map(k => k.trim()).filter(Boolean) })),
-        })),
+        collections: toCollectionRequests(form.collections),
       }));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
@@ -185,10 +218,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
     try {
       setFormTestResult(await withLoading(() => testRssFeedMonitor({
         ...form,
-        collections: form.collections.map(c => ({
-          name: c.name,
-          metrics: c.metrics.map(m => ({ name: m.name, keywords: m.keywords.split(',').map(k => k.trim()).filter(Boolean) })),
-        })),
+        collections: toCollectionRequests(form.collections),
       })));
     } catch { /* ignore */ }
     setTestingForm(false);
@@ -323,26 +353,7 @@ function RssFeedForm({ initial, onSave, onCancel }: {
         ))}
       </div>
 
-      {formTestResult && (() => {
-        const r = formTestResult;
-        return (
-          <div style={{ padding: '8px 12px', borderRadius: 4, fontSize: '0.85rem', marginBottom: 8, background: r.errorMessage ? '#f8d7da' : '#d4edda' }}>
-            {r.errorMessage
-              ? <span style={{ color: '#721c24' }}>Error: {r.errorMessage}</span>
-              : <>
-                  <span style={{ color: '#155724' }}>
-                    {r.articleCount} articles · HTTP {r.httpStatus} · {r.responseTimeMs}ms
-                  </span>
-                  {r.metricCounts.length > 0 && (
-                    <span style={{ color: '#333', marginLeft: 12 }}>
-                      {r.metricCounts.map(m => `${m.metricName}: ${m.count}`).join(', ')}
-                    </span>
-                  )}
-                </>
-            }
-          </div>
-        );
-      })()}
+      {formTestResult && <RssTestResultBanner result={formTestResult} />}
       <div className="form-actions">
         <label className="toggle-label">
           <input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />
