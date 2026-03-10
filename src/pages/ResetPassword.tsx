@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type SyntheticEvent, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 function ResetPassword() {
@@ -10,7 +10,7 @@ function ResetPassword() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: SyntheticEvent) {
     e.preventDefault();
     setError(null);
     if (password !== confirmPassword) {

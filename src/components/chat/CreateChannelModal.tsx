@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type SyntheticEvent, useEffect, useRef, useState } from 'react';
 import { createChatChannel, setChannelKeys } from '../../services/api';
 import { generateChannelKey, wrapChannelKeyForMember } from '../../services/crypto';
 import * as keyStore from '../../services/keyStore';
@@ -13,10 +13,16 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
   const [encrypted, setEncrypted] = useState(false);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   const canEncrypt = keyStore.hasIdentityKeys();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+
+  const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -50,26 +56,18 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
   };
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <dialog
+      ref={dialogRef}
       style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
+        border: 'none',
+        padding: 0,
+        background: 'transparent',
+        maxWidth: '420px',
+        width: '100%',
       }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={(e) => {
-        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) onClose();
-      }}
+      onClose={onClose}
     >
-      <div className="card" style={{ width: '100%', maxWidth: '420px', margin: '0 20px' }}>
+      <div className="card" style={{ width: '100%', margin: 0 }}>
         <div className="card-header">
           <span className="card-title">Create Channel</span>
           <button
@@ -135,7 +133,7 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
           </div>
         </form>
       </div>
-    </div>
+    </dialog>
   );
 }
 

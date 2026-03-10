@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   ChatUser,
   ChannelMember,
@@ -27,6 +27,12 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
   const [inviting, setInviting] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -80,26 +86,18 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
   };
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <dialog
+      ref={dialogRef}
       style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
+        border: 'none',
+        padding: 0,
+        background: 'transparent',
+        maxWidth: '420px',
+        width: '100%',
       }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={(e) => {
-        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) onClose();
-      }}
+      onClose={onClose}
     >
-      <div className="card" style={{ width: '100%', maxWidth: '420px', margin: '0 20px' }}>
+      <div className="card" style={{ width: '100%', margin: 0 }}>
         <div className="card-header">
           <span className="card-title">Invite to #{channelName}</span>
           <button
@@ -170,7 +168,7 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
           }
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }
 

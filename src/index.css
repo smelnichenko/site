@@ -89,12 +89,12 @@ a.card-title {
 
 .header-username {
   font-size: 0.9rem;
-  color: #ccc;
+  color: #ddd;
 }
 
 .btn-logout {
   background: rgba(255, 255, 255, 0.1);
-  color: #ccc;
+  color: #ddd;
   border: none;
   padding: 6px 16px;
   font-size: 0.85rem;
@@ -120,7 +120,7 @@ a.card-title {
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 500;
-  color: #ccc;
+  color: #ddd;
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }

@@ -43,17 +43,10 @@ function ChannelList({
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
         {channels.length > 0 ? (
           channels.map((channel) => (
-            <div
+            <button
               key={channel.id}
-              role="button"
-              tabIndex={0}
+              type="button"
               onClick={() => onSelectChannel(channel.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onSelectChannel(channel.id);
-                }
-              }}
               style={{
                 padding: '8px 16px',
                 cursor: 'pointer',
@@ -62,6 +55,11 @@ function ChannelList({
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 transition: 'background 0.15s',
+                border: 'none',
+                width: '100%',
+                textAlign: 'left',
+                font: 'inherit',
+                color: 'inherit',
               }}
               onMouseEnter={(e) => {
                 if (activeChannelId !== channel.id) {
@@ -153,7 +151,7 @@ function ChannelList({
                   </button>
                 )}
               </div>
-            </div>
+            </button>
           ))
         ) : (
           <div style={{ padding: '20px 16px', color: '#999', textAlign: 'center', fontSize: '0.85rem' }}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { type SyntheticEvent, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   PageMonitorConfig, PageMonitorRequest, RssFeedMonitorConfig, RssFeedMonitorRequest,
@@ -83,7 +83,7 @@ function PageMonitorForm({ initial, onSave, onCancel }: Readonly<{
   const [formTestResult, setFormTestResult] = useState<MonitorResult | null>(null);
   const { withLoading } = useLoading();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault();
     setSaving(true);
     setError('');
@@ -104,7 +104,7 @@ function PageMonitorForm({ initial, onSave, onCancel }: Readonly<{
     setTestingForm(false);
   };
 
-  const formRef = React.useRef<HTMLFormElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const isValid = form.name.trim() !== '' && form.url.trim() !== '' && form.pattern.trim() !== '' && form.cron.trim() !== '' && isValidCron(form.cron);
 
   return (
@@ -199,7 +199,7 @@ function RssFeedForm({ initial, onSave, onCancel }: Readonly<{
   const [aiError, setAiError] = useState('');
   const { withLoading } = useLoading();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault();
     setSaving(true);
     setError('');
@@ -215,7 +215,7 @@ function RssFeedForm({ initial, onSave, onCancel }: Readonly<{
     }
   };
 
-  const formRef = React.useRef<HTMLFormElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const isValid = form.name.trim() !== '' && form.url.trim() !== '' && form.cron.trim() !== '';
 
   const handleTestRssForm = async () => {
