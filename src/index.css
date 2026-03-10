@@ -378,7 +378,7 @@ a.card-title {
 }
 
 .pagination li.disabled a {
-  color: #636363;
+  color: #525252;
   background: #e9ecef;
   cursor: not-allowed;
 }
