@@ -93,7 +93,7 @@ a.card-title {
 }
 
 .btn-logout {
-  background: rgba(255, 255, 255, 0.1);
+  background: #313143;
   color: #ddd;
   border: none;
   padding: 6px 16px;
@@ -106,7 +106,7 @@ a.card-title {
 }
 
 .btn-logout:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: #3c3c4d;
   color: white;
 }
 
@@ -126,12 +126,12 @@ a.card-title {
 }
 
 .nav a:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #313143;
   color: white;
 }
 
 .nav a.active {
-  background: rgba(255, 255, 255, 0.15);
+  background: #3c3c4d;
   color: white;
 }
 
