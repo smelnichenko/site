@@ -136,8 +136,8 @@ describe('ChannelList', () => {
 
   it('highlights active channel', () => {
     render(<ChannelList {...defaultProps} activeChannelId={1} />)
-    const buttons = screen.getAllByRole('button')
-    const generalButton = buttons.find(b => b.textContent?.includes('general'))
-    expect(generalButton?.style.background).toBe('rgb(232, 240, 254)')
+    const generalButton = screen.getAllByRole('button').find(b => b.textContent?.includes('general'))
+    // Background is on the parent div wrapper, not the button itself
+    expect(generalButton?.parentElement?.style.background).toBe('rgb(232, 240, 254)')
   })
 })

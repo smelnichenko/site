@@ -43,36 +43,32 @@ function ChannelList({
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
         {channels.length > 0 ? (
           channels.map((channel) => (
-            <button
+            <div
               key={channel.id}
-              type="button"
-              onClick={() => onSelectChannel(channel.id)}
               style={{
                 padding: '8px 16px',
-                cursor: 'pointer',
                 background: activeChannelId === channel.id ? '#e8f0fe' : 'transparent',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 transition: 'background 0.15s',
-                border: 'none',
-                width: '100%',
-                textAlign: 'left',
-                font: 'inherit',
-                color: 'inherit',
-              }}
-              onMouseEnter={(e) => {
-                if (activeChannelId !== channel.id) {
-                  e.currentTarget.style.background = '#f5f5f5';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeChannelId !== channel.id) {
-                  e.currentTarget.style.background = 'transparent';
-                }
               }}
             >
-              <div style={{ minWidth: 0 }}>
+              <button
+                type="button"
+                onClick={() => onSelectChannel(channel.id)}
+                style={{
+                  minWidth: 0,
+                  flex: 1,
+                  cursor: 'pointer',
+                  background: 'transparent',
+                  border: 'none',
+                  textAlign: 'left',
+                  font: 'inherit',
+                  color: 'inherit',
+                  padding: 0,
+                }}
+              >
                 <div style={{
                   fontWeight: activeChannelId === channel.id ? 600 : 400,
                   fontSize: '0.9rem',
@@ -85,7 +81,7 @@ function ChannelList({
                 <div style={{ fontSize: '0.75rem', color: '#999' }}>
                   {channel.memberCount} member{channel.memberCount === 1 ? '' : 's'}
                 </div>
-              </div>
+              </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                 {channel.unreadCount > 0 && (
                   <span style={{
@@ -104,10 +100,7 @@ function ChannelList({
                 {channel.isOwner && (
                   <button
                     className="status-badge action"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onManageMembers(channel.id);
-                    }}
+                    onClick={() => onManageMembers(channel.id)}
                     style={{ fontSize: '0.7rem', padding: '2px 8px' }}
                   >
                     Members
@@ -116,10 +109,7 @@ function ChannelList({
                 {channel.isOwner && (
                   <button
                     className="status-badge action"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onInvite(channel.id);
-                    }}
+                    onClick={() => onInvite(channel.id)}
                     style={{ fontSize: '0.7rem', padding: '2px 8px' }}
                   >
                     Invite
@@ -128,8 +118,7 @@ function ChannelList({
                 {channel.isOwner ? (
                   <button
                     className="status-badge danger"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={() => {
                       if (confirm(`Delete #${channel.name}? All messages will be permanently lost.`)) {
                         onDeleteChannel(channel.id);
                       }
@@ -141,17 +130,14 @@ function ChannelList({
                 ) : (
                   <button
                     className="status-badge danger"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLeaveChannel(channel.id);
-                    }}
+                    onClick={() => onLeaveChannel(channel.id)}
                     style={{ fontSize: '0.7rem', padding: '2px 8px' }}
                   >
                     Leave
                   </button>
                 )}
               </div>
-            </button>
+            </div>
           ))
         ) : (
           <div style={{ padding: '20px 16px', color: '#999', textAlign: 'center', fontSize: '0.85rem' }}>

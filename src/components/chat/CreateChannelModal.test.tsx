@@ -20,9 +20,18 @@ vi.mock('../../services/keyStore', () => ({
 }))
 
 const api = await import('../../services/api')
+const cryptoModule = await import('../../services/crypto')
+const keyStoreModule = await import('../../services/keyStore')
 
 beforeEach(() => {
   vi.mocked(api.createChatChannel).mockReset()
+  vi.mocked(api.setChannelKeys).mockReset()
+  vi.mocked(cryptoModule.generateChannelKey).mockReset()
+  vi.mocked(cryptoModule.wrapChannelKeyForMember).mockReset()
+  vi.mocked(keyStoreModule.hasIdentityKeys).mockReturnValue(false)
+  vi.mocked(keyStoreModule.getIdentityPublicKey).mockReturnValue(null)
+  vi.mocked(keyStoreModule.setChannelKey).mockReset()
+  localStorage.clear()
   // Mock HTMLDialogElement.showModal since jsdom doesn't support it
   HTMLDialogElement.prototype.showModal = vi.fn()
   HTMLDialogElement.prototype.close = vi.fn()
