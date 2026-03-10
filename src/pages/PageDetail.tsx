@@ -178,9 +178,9 @@ function PageDetail() {
               <tr key={result.id}>
                 <td>{formatDate(result.checkedAt)}</td>
                 <td>
-                  {result.extractedValue !== null
-                    ? result.extractedValue.toLocaleString()
-                    : '-'}
+                  {result.extractedValue === null
+                    ? '-'
+                    : result.extractedValue.toLocaleString()}
                 </td>
                 <td>
                   <span

@@ -22,4 +22,19 @@ describe('LoadingButton', () => {
     render(<LoadingButton label="Save" />)
     expect(screen.getByRole('button')).toBeEnabled()
   })
+
+  it('is disabled when disabled prop is true', () => {
+    render(<LoadingButton label="Save" disabled />)
+    expect(screen.getByRole('button')).toBeDisabled()
+  })
+
+  it('shows spinner element when loading', () => {
+    const { container } = render(<LoadingButton label="Save" loading />)
+    expect(container.querySelector('.spinner')).toBeInTheDocument()
+  })
+
+  it('falls back to label when loading without loadingLabel', () => {
+    render(<LoadingButton label="Save" loading />)
+    expect(screen.getByText('Save')).toBeInTheDocument()
+  })
 })

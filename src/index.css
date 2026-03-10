@@ -89,12 +89,12 @@ a.card-title {
 
 .header-username {
   font-size: 0.9rem;
-  color: #aaa;
+  color: #ddd;
 }
 
 .btn-logout {
-  background: rgba(255, 255, 255, 0.1);
-  color: #aaa;
+  background: #313143;
+  color: #ddd;
   border: none;
   padding: 6px 16px;
   font-size: 0.85rem;
@@ -106,7 +106,7 @@ a.card-title {
 }
 
 .btn-logout:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: #3c3c4d;
   color: white;
 }
 
@@ -120,18 +120,18 @@ a.card-title {
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 500;
-  color: #aaa;
+  color: #ddd;
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }
 
 .nav a:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #313143;
   color: white;
 }
 
 .nav a.active {
-  background: rgba(255, 255, 255, 0.15);
+  background: #3c3c4d;
   color: white;
 }
 
@@ -378,7 +378,7 @@ a.card-title {
 }
 
 .pagination li.disabled a {
-  color: #999;
+  color: #636363;
   background: #e9ecef;
   cursor: not-allowed;
 }

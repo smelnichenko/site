@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type SyntheticEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 function ForgotPassword() {
@@ -7,7 +7,7 @@ function ForgotPassword() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: SyntheticEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);

@@ -6,6 +6,7 @@ import Login from './Login'
 
 const mockLogin = vi.fn()
 const mockNavigate = vi.fn()
+let mockLocationState: unknown = null
 
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
@@ -24,14 +25,23 @@ vi.mock('react-router-dom', async () => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
-    useLocation: () => ({ state: null, pathname: '/login', search: '', hash: '', key: '' }),
+    useLocation: () => ({ state: mockLocationState, pathname: '/login', search: '', hash: '', key: '' }),
   }
 })
 
 beforeEach(() => {
   mockLogin.mockReset()
   mockNavigate.mockReset()
+  mockLocationState = null
 })
+
+async function submitLogin() {
+  const user = userEvent.setup()
+  renderLogin()
+  await user.type(screen.getByLabelText('Email'), 'test@example.com')
+  await user.type(screen.getByLabelText('Password'), 'password123')
+  await user.click(screen.getByRole('button', { name: 'Login' }))
+}
 
 function renderLogin() {
   return render(
@@ -88,5 +98,77 @@ describe('Login', () => {
   it('has link to register page', () => {
     renderLogin()
     expect(screen.getByText('Register')).toHaveAttribute('href', '/register')
+  })
+
+  describe('redirect logic', () => {
+    it('redirects to from location state when valid', async () => {
+      mockLogin.mockResolvedValueOnce(undefined)
+      mockLocationState = { from: '/dashboard' }
+      await submitLogin()
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true })
+    })
+
+    it('redirects to lastPath when no from state', async () => {
+      mockLogin.mockResolvedValueOnce('/rss')
+      mockLocationState = null
+      await submitLogin()
+      expect(mockNavigate).toHaveBeenCalledWith('/rss', { replace: true })
+    })
+
+    it('prefers from over lastPath when both are available', async () => {
+      mockLogin.mockResolvedValueOnce('/rss')
+      mockLocationState = { from: '/dashboard' }
+      await submitLogin()
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true })
+    })
+
+    it('redirects to / when neither from nor lastPath are available', async () => {
+      mockLogin.mockResolvedValueOnce(undefined)
+      mockLocationState = null
+      await submitLogin()
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
+
+    it('redirects to / when from is /', async () => {
+      mockLogin.mockResolvedValueOnce(undefined)
+      mockLocationState = { from: '/' }
+      await submitLogin()
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
+
+    it('ignores from that does not start with /', async () => {
+      mockLogin.mockResolvedValueOnce(undefined)
+      mockLocationState = { from: 'http://evil.com' }
+      await submitLogin()
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
+
+    it('ignores from that starts with //', async () => {
+      mockLogin.mockResolvedValueOnce(undefined)
+      mockLocationState = { from: '//evil.com' }
+      await submitLogin()
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
+
+    it('ignores lastPath that does not start with /', async () => {
+      mockLogin.mockResolvedValueOnce('http://evil.com')
+      mockLocationState = null
+      await submitLogin()
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
+
+    it('ignores lastPath that starts with //', async () => {
+      mockLogin.mockResolvedValueOnce('//evil.com')
+      mockLocationState = null
+      await submitLogin()
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
+    })
+
+    it('falls back to lastPath when from is invalid', async () => {
+      mockLogin.mockResolvedValueOnce('/chat')
+      mockLocationState = { from: '//evil.com' }
+      await submitLogin()
+      expect(mockNavigate).toHaveBeenCalledWith('/chat', { replace: true })
+    })
   })
 })

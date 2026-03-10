@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type SyntheticEvent, useEffect, useRef, useState } from 'react';
 import { createChatChannel, setChannelKeys } from '../../services/api';
 import { generateChannelKey, wrapChannelKeyForMember } from '../../services/crypto';
 import * as keyStore from '../../services/keyStore';
@@ -8,15 +8,21 @@ interface CreateChannelModalProps {
   onClose: () => void;
 }
 
-function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
+function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalProps>) {
   const [name, setName] = useState('');
   const [encrypted, setEncrypted] = useState(false);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   const canEncrypt = keyStore.hasIdentityKeys();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+
+  const handleSubmit = async (e: SyntheticEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -33,7 +39,7 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
         if (publicKey && uid) {
           const wrapped = await wrapChannelKeyForMember(channelKey, publicKey);
           await setChannelKeys(channel.id, [{
-            userId: parseInt(uid),
+            userId: Number.parseInt(uid, 10),
             encryptedChannelKey: wrapped.encryptedChannelKey,
             wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
           }]);
@@ -50,21 +56,18 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
   };
 
   return (
-    <div
+    <dialog
+      ref={dialogRef}
       style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
+        border: 'none',
+        padding: 0,
+        background: 'transparent',
+        maxWidth: '420px',
+        width: '100%',
       }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClose={onClose}
     >
-      <div className="card" style={{ width: '100%', maxWidth: '420px', margin: '0 20px' }}>
+      <div className="card" style={{ width: '100%', margin: 0 }}>
         <div className="card-header">
           <span className="card-title">Create Channel</span>
           <button
@@ -80,8 +83,9 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Channel Name</label>
+            <label htmlFor="channel-name">Channel Name</label>
             <input
+              id="channel-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -99,7 +103,7 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
                   type="checkbox"
                   checked={encrypted}
                   onChange={(e) => setEncrypted(e.target.checked)}
-                />
+                />{' '}
                 End-to-end encrypted
               </label>
               <div style={{ fontSize: '0.75rem', color: '#999', marginTop: '4px' }}>
@@ -129,7 +133,7 @@ function CreateChannelModal({ onCreated, onClose }: CreateChannelModalProps) {
           </div>
         </form>
       </div>
-    </div>
+    </dialog>
   );
 }
 

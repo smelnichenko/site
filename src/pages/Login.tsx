@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type SyntheticEvent, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -12,14 +12,19 @@ function Login() {
   const location = useLocation();
   const from = (location.state as { from?: string })?.from;
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: SyntheticEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
       const lastPath = await login(email, password);
       const isValidPath = (p: string) => p.startsWith('/') && !p.startsWith('//');
-      const redirectTo = from && from !== '/' && isValidPath(from) ? from : (lastPath && isValidPath(lastPath) ? lastPath : '/');
+      let redirectTo = '/';
+      if (from && from !== '/' && isValidPath(from)) {
+        redirectTo = from;
+      } else if (lastPath && isValidPath(lastPath)) {
+        redirectTo = lastPath;
+      }
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');

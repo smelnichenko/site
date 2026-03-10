@@ -17,7 +17,7 @@ function makeResult(overrides: Partial<MonitorResult> = {}): MonitorResult {
     id: 1,
     pageName: 'Test Page',
     url: 'http://example.com',
-    pattern: '\\d+',
+    pattern: String.raw`\d+`,
     extractedValue: 42,
     matched: true,
     rawMatch: '42',
@@ -66,5 +66,15 @@ describe('PageCard', () => {
     renderCard('My Page', null)
     const link = screen.getByText('My Page')
     expect(link.closest('a')).toHaveAttribute('href', '/page/My%20Page')
+  })
+
+  it('renders edit link when editUrl provided', () => {
+    render(
+      <MemoryRouter>
+        <PageCard pageName="Test" latestResult={null} editUrl="/monitors?editPage=1" />
+      </MemoryRouter>,
+    )
+    const editLink = screen.getByText('Edit')
+    expect(editLink.closest('a')).toHaveAttribute('href', '/monitors?editPage=1')
   })
 })

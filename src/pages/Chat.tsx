@@ -22,7 +22,7 @@ function Chat() {
   const [membersChannelId, setMembersChannelId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
-  const activeChannelId = channelIdParam ? parseInt(channelIdParam, 10) : null;
+  const activeChannelId = channelIdParam ? Number.parseInt(channelIdParam, 10) : null;
   const activeChannel = channels.find((c) => c.id === activeChannelId) || null;
   const inviteChannel = inviteChannelId ? channels.find((c) => c.id === inviteChannelId) : null;
   const membersChannel = membersChannelId ? channels.find((c) => c.id === membersChannelId) : null;

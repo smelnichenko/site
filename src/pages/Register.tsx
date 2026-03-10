@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type SyntheticEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 function Register() {
@@ -9,7 +9,7 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: SyntheticEvent) {
     e.preventDefault();
     setError(null);
     if (password !== confirmPassword) {

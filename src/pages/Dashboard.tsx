@@ -3,6 +3,10 @@ import { fetchLatestResult, fetchResults, fetchPageMonitorConfigs, MonitorResult
 import PageCard from '../components/PageCard';
 import ValueChart from '../components/ValueChart';
 
+function fetchLatestSafe(name: string, signal: AbortSignal): Promise<MonitorResult | null> {
+  return fetchLatestResult(name, signal).catch(() => null);
+}
+
 function Dashboard() {
   const [configs, setConfigs] = useState<PageMonitorConfig[] | null>(null);
   const [latestResults, setLatestResults] = useState<Map<string, MonitorResult | null>>(new Map());
@@ -21,9 +25,7 @@ function Dashboard() {
         const pageNames = configList.map(c => c.name);
 
         const [latestArr, allResultsResponse] = await Promise.all([
-          Promise.all(pageNames.map(name =>
-            fetchLatestResult(name, controller.signal).catch(() => null)
-          )),
+          Promise.all(pageNames.map(name => fetchLatestSafe(name, controller.signal))),
           fetchResults(undefined, 0, 50, controller.signal),
         ]);
         if (cancelled) return;

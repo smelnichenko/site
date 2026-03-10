@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   ChannelMember,
   fetchChannelMembers,
@@ -17,11 +17,17 @@ interface MembersModalProps {
   onKicked: () => void;
 }
 
-function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: MembersModalProps) {
+function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: Readonly<MembersModalProps>) {
   const [members, setMembers] = useState<ChannelMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [kicking, setKicking] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -73,21 +79,18 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
   };
 
   return (
-    <div
+    <dialog
+      ref={dialogRef}
       style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
+        border: 'none',
+        padding: 0,
+        background: 'transparent',
+        maxWidth: '420px',
+        width: '100%',
       }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClose={onClose}
     >
-      <div className="card" style={{ width: '100%', maxWidth: '420px', margin: '0 20px' }}>
+      <div className="card" style={{ width: '100%', margin: 0 }}>
         <div className="card-header">
           <span className="card-title">Members of #{channelName}</span>
           <button
@@ -102,11 +105,13 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
         {error && <div className="error">{error}</div>}
 
         <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-          {loading ? (
+          {loading && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>Loading...</div>
-          ) : members.length === 0 ? (
+          )}
+          {!loading && members.length === 0 && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>No members</div>
-          ) : (
+          )}
+          {!loading && members.length > 0 &&
             members.map((member) => (
               <div
                 key={member.id}
@@ -131,10 +136,10 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
                 )}
               </div>
             ))
-          )}
+          }
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }
 

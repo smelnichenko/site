@@ -57,7 +57,7 @@ function App() {
   useEffect(() => {
     fetch('/api/build-info')
       .then((res) => {
-        if (!res.ok) throw new Error();
+        if (!res.ok) throw new Error('Failed to fetch build info');
         return res.json();
       })
       .then((data: { gitHash: string; buildTime: string }) => {

@@ -89,7 +89,7 @@ export function setPermissionsChangedCallback(cb: (() => Promise<void>) | null) 
 }
 
 function getCsrfToken(): string | null {
-  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+  const match = /(?:^|;\s*)XSRF-TOKEN=([^;]*)/.exec(document.cookie);
   return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -97,7 +97,7 @@ let _refreshPromise: Promise<void> | null = null;
 
 async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string> || {}),
+    ...(options.headers as Record<string, string>),
   };
 
   // Add CSRF token for state-changing requests
@@ -115,7 +115,7 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
     localStorage.removeItem('email');
     localStorage.removeItem('permissions');
     localStorage.removeItem('groups');
-    window.location.href = '/login';
+    globalThis.location.href = '/login';
     throw new Error('Unauthorized');
   }
 
@@ -124,9 +124,7 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
     const body = await response.clone().json().catch(() => null);
     if (body?.error === 'permissions_changed') {
       // Deduplicate concurrent refresh calls
-      if (!_refreshPromise) {
-        _refreshPromise = _onPermissionsChanged().finally(() => { _refreshPromise = null; });
-      }
+      _refreshPromise ??= _onPermissionsChanged().finally(() => { _refreshPromise = null; });
       await _refreshPromise;
       // Retry the original request once
       return fetch(url, { ...options, headers, credentials: 'include' });
@@ -731,7 +729,7 @@ export async function fetchChannelKeys(
   keyVersion?: number,
   signal?: AbortSignal
 ): Promise<ChannelKeyBundleResponse[]> {
-  const params = keyVersion != null ? `?keyVersion=${keyVersion}` : '';
+  const params = keyVersion == null ? '' : `?keyVersion=${keyVersion}`;
   const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/keys${params}`, { signal });
   if (!response.ok) throw new Error('Failed to fetch channel keys');
   return response.json();

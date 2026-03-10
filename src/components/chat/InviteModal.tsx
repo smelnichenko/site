@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   ChatUser,
   ChannelMember,
@@ -20,13 +20,19 @@ interface InviteModalProps {
   onInvited: () => void;
 }
 
-function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onClose, onInvited }: InviteModalProps) {
+function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onClose, onInvited }: Readonly<InviteModalProps>) {
   const [users, setUsers] = useState<ChatUser[]>([]);
   const [memberIds, setMemberIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -80,21 +86,18 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
   };
 
   return (
-    <div
+    <dialog
+      ref={dialogRef}
       style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
+        border: 'none',
+        padding: 0,
+        background: 'transparent',
+        maxWidth: '420px',
+        width: '100%',
       }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClose={onClose}
     >
-      <div className="card" style={{ width: '100%', maxWidth: '420px', margin: '0 20px' }}>
+      <div className="card" style={{ width: '100%', margin: 0 }}>
         <div className="card-header">
           <span className="card-title">Invite to #{channelName}</span>
           <button
@@ -119,13 +122,15 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
         </div>
 
         <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-          {loading ? (
+          {loading && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>Loading...</div>
-          ) : filtered.length === 0 ? (
+          )}
+          {!loading && filtered.length === 0 && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
               {search ? 'No matching users' : 'No users to invite'}
             </div>
-          ) : (
+          )}
+          {!loading && filtered.length > 0 &&
             filtered.map((user) => {
               const isMember = memberIds.has(user.id);
               return (
@@ -160,10 +165,10 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
                 </div>
               );
             })
-          )}
+          }
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }
 
