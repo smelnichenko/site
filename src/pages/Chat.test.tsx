@@ -84,7 +84,7 @@ const mockChannels = [
 ]
 
 beforeEach(() => {
-  vi.useFakeTimers()
+  vi.useFakeTimers({ shouldAdvanceTime: true })
   vi.mocked(api.fetchChatChannels).mockReset()
   vi.mocked(api.leaveChatChannel).mockReset()
   vi.mocked(api.deleteChatChannel).mockReset()

@@ -196,8 +196,8 @@ describe('Admin', () => {
       expect(screen.getByText('admin@test.com')).toBeInTheDocument()
     })
 
-    // Click the groups button for user with groups (shows "Admins")
-    await user.click(screen.getByTitle('Click to edit groups', { exact: false }))
+    // Click the groups button for the first user (admin, shows "Admins")
+    await user.click(screen.getAllByTitle('Click to edit groups')[0])
 
     // Group checkboxes should appear
     await waitFor(() => {
@@ -227,7 +227,7 @@ describe('Admin', () => {
     })
 
     // Open group editing
-    await user.click(screen.getByTitle('Click to edit groups', { exact: false }))
+    await user.click(screen.getAllByTitle('Click to edit groups')[0])
     await waitFor(() => {
       expect(screen.getByLabelText('Admins')).toBeInTheDocument()
     })
@@ -250,7 +250,7 @@ describe('Admin', () => {
       expect(screen.getByText('admin@test.com')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByTitle('Click to edit groups', { exact: false }))
+    await user.click(screen.getAllByTitle('Click to edit groups')[0])
     await waitFor(() => {
       expect(screen.getByLabelText('Admins')).toBeChecked()
     })
@@ -274,7 +274,7 @@ describe('Admin', () => {
       expect(screen.getByText('admin@test.com')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByTitle('Click to edit groups', { exact: false }))
+    await user.click(screen.getAllByTitle('Click to edit groups')[0])
     await waitFor(() => {
       expect(screen.getByLabelText('Admins')).toBeInTheDocument()
     })

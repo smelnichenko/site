@@ -200,6 +200,7 @@ describe('AuthContext', () => {
       encryptedPrivateKey: 'encrypted-privkey-base64',
       pbkdf2Salt: 'c2FsdA==',
       pbkdf2Iterations: 600000,
+      keyVersion: 1,
     })
     vi.mocked(base64ToBuffer).mockReturnValue(mockSaltBuffer)
     vi.mocked(deriveWrappingKey).mockResolvedValue(mockWrappingKey)
@@ -246,7 +247,13 @@ describe('AuthContext', () => {
     vi.mocked(encryptPrivateKey).mockResolvedValue('new-encrypted-privkey')
     vi.mocked(exportPublicKey).mockResolvedValue(mockPublicKeyJwk)
     vi.mocked(bufferToBase64).mockReturnValue('BQYHCA==')
-    vi.mocked(uploadUserKeys).mockResolvedValue(undefined)
+    vi.mocked(uploadUserKeys).mockResolvedValue({
+      publicKey: JSON.stringify(mockPublicKeyJwk),
+      encryptedPrivateKey: 'new-encrypted-privkey',
+      pbkdf2Salt: 'BQYHCA==',
+      pbkdf2Iterations: 600000,
+      keyVersion: 1,
+    })
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
