@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Register from './Register'
 
+vi.mock('../hooks/useHashcash', () => ({
+  useHashcash: () => ({
+    enabled: false,
+    solving: false,
+    solve: vi.fn().mockResolvedValue({ challenge: '', nonce: '' }),
+  }),
+}))
+
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 

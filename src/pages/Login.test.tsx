@@ -8,6 +8,14 @@ const mockLogin = vi.fn()
 const mockNavigate = vi.fn()
 let mockLocationState: unknown = null
 
+vi.mock('../hooks/useHashcash', () => ({
+  useHashcash: () => ({
+    enabled: false,
+    solving: false,
+    solve: vi.fn().mockResolvedValue({ challenge: '', nonce: '' }),
+  }),
+}))
+
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
     login: mockLogin,
@@ -68,7 +76,7 @@ describe('Login', () => {
     await user.type(screen.getByLabelText('Password'), 'password123')
     await user.click(screen.getByRole('button', { name: 'Login' }))
 
-    expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123')
+    expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123', undefined)
   })
 
   it('navigates to / on successful login', async () => {
