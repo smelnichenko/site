@@ -52,8 +52,8 @@ async function solve(challenge: string, difficulty: number): Promise<SolveRespon
   }
 }
 
-self.onmessage = async (event: MessageEvent<SolveRequest>) => {
+globalThis.onmessage = async (event: MessageEvent<SolveRequest>) => {
   const { challenge, difficulty } = event.data;
   const result = await solve(challenge, difficulty);
-  self.postMessage(result);
+  globalThis.postMessage(result);
 };
