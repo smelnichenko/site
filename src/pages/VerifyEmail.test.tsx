@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import VerifyEmail from './VerifyEmail'
 
@@ -40,6 +40,7 @@ describe('VerifyEmail', () => {
       method: 'POST',
       body: JSON.stringify({ token: 'valid-token' }),
     }))
+    await waitFor(() => expect(screen.queryByText('Verifying your email...')).not.toBeInTheDocument())
   })
 
   it('shows success message after verification', async () => {

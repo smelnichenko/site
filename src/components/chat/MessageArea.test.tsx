@@ -78,9 +78,10 @@ beforeEach(() => {
 })
 
 describe('MessageArea', () => {
-  it('renders channel header with name and member count', () => {
+  it('renders channel header with name and member count', async () => {
     vi.mocked(api.fetchChatMessages).mockResolvedValue([])
     render(<MessageArea channel={baseChannel} />)
+    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled())
     expect(screen.getByText('# general')).toBeInTheDocument()
     expect(screen.getByText('3 members')).toBeInTheDocument()
   })
@@ -107,9 +108,10 @@ describe('MessageArea', () => {
     })
   })
 
-  it('shows input placeholder with channel name', () => {
+  it('shows input placeholder with channel name', async () => {
     vi.mocked(api.fetchChatMessages).mockResolvedValue([])
     render(<MessageArea channel={baseChannel} />)
+    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled())
     expect(screen.getByPlaceholderText('Message #general')).toBeInTheDocument()
   })
 
@@ -141,9 +143,10 @@ describe('MessageArea', () => {
     expect(api.sendChatMessage).toHaveBeenCalledWith(1, 'Enter msg', undefined, undefined)
   })
 
-  it('disables Send button when input is empty', () => {
+  it('disables Send button when input is empty', async () => {
     vi.mocked(api.fetchChatMessages).mockResolvedValue([])
     render(<MessageArea channel={baseChannel} />)
+    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled())
     expect(screen.getByText('Send')).toBeDisabled()
   })
 
@@ -275,17 +278,19 @@ describe('MessageArea', () => {
     })
   })
 
-  it('shows lock icon for encrypted channel', () => {
+  it('shows lock icon for encrypted channel', async () => {
     vi.mocked(api.fetchChatMessages).mockResolvedValue([])
     vi.mocked(api.fetchChannelKeys).mockResolvedValue([])
     const encryptedChannel = { ...baseChannel, encrypted: true, currentKeyVersion: 1 }
     render(<MessageArea channel={encryptedChannel} />)
+    await waitFor(() => expect(api.fetchChannelKeys).toHaveBeenCalled())
     expect(screen.getByText(/general/)).toBeInTheDocument()
   })
 
-  it('shows singular member for count of 1', () => {
+  it('shows singular member for count of 1', async () => {
     vi.mocked(api.fetchChatMessages).mockResolvedValue([])
     render(<MessageArea channel={{ ...baseChannel, memberCount: 1 }} />)
+    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled())
     expect(screen.getByText('1 member')).toBeInTheDocument()
   })
 
