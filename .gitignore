@@ -9,4 +9,4 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
-/tests/.auth.json
+../tests/e2e/.auth.json

@@ -31,10 +31,11 @@ beforeEach(() => {
 })
 
 describe('InviteModal', () => {
-  it('renders modal with channel name', () => {
+  it('renders modal with channel name', async () => {
     vi.mocked(api.fetchChatUsers).mockResolvedValue([])
     vi.mocked(api.fetchChannelMembers).mockResolvedValue([])
     render(<InviteModal channelId={1} channelName="general" onClose={vi.fn()} onInvited={vi.fn()} />)
+    await waitFor(() => expect(api.fetchChatUsers).toHaveBeenCalled())
     expect(screen.getByText('Invite to #general')).toBeInTheDocument()
   })
 
@@ -99,6 +100,7 @@ describe('InviteModal', () => {
     const onClose = vi.fn()
     const user = userEvent.setup()
     render(<InviteModal channelId={1} channelName="general" onClose={onClose} onInvited={vi.fn()} />)
+    await waitFor(() => expect(api.fetchChatUsers).toHaveBeenCalled())
     await user.click(screen.getByText('Close'))
     expect(onClose).toHaveBeenCalled()
   })

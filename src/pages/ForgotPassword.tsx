@@ -1,21 +1,33 @@
 import { type SyntheticEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useHashcash } from '../hooks/useHashcash';
+
+function buttonLabel(solving: boolean, loading: boolean) {
+  if (solving) return 'Verifying...';
+  if (loading) return 'Sending...';
+  return 'Send Reset Link';
+}
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { enabled: captchaEnabled, solving, solve: solveCaptcha } = useHashcash();
 
   async function handleSubmit(e: SyntheticEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
+      const captcha = captchaEnabled ? await solveCaptcha() : null;
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({
+          email,
+          ...(captcha && { captchaChallenge: captcha.challenge, captchaNonce: captcha.nonce }),
+        }),
       });
       if (!response.ok) {
         throw new Error('Request failed');
@@ -27,6 +39,8 @@ function ForgotPassword() {
       setLoading(false);
     }
   }
+
+  const busy = loading || solving;
 
   return (
     <div className="auth-container">
@@ -60,8 +74,8 @@ function ForgotPassword() {
                   autoFocus
                 />
               </div>
-              <button className="status-badge add full" type="submit" disabled={loading}>
-                {loading ? 'Sending...' : 'Send Reset Link'}
+              <button className="status-badge add full" type="submit" disabled={busy}>
+                {buttonLabel(solving, loading)}
               </button>
             </form>
             <p className="auth-link">

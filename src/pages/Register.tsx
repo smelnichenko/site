@@ -1,5 +1,12 @@
 import { type SyntheticEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useHashcash } from '../hooks/useHashcash';
+
+function buttonLabel(solving: boolean, loading: boolean) {
+  if (solving) return 'Verifying...';
+  if (loading) return 'Registering...';
+  return 'Register';
+}
 
 function Register() {
   const [email, setEmail] = useState('');
@@ -8,6 +15,7 @@ function Register() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const { enabled: captchaEnabled, solving, solve: solveCaptcha } = useHashcash();
 
   async function handleSubmit(e: SyntheticEvent) {
     e.preventDefault();
@@ -18,10 +26,15 @@ function Register() {
     }
     setLoading(true);
     try {
+      const captcha = captchaEnabled ? await solveCaptcha() : null;
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          password,
+          ...(captcha && { captchaChallenge: captcha.challenge, captchaNonce: captcha.nonce }),
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -34,6 +47,8 @@ function Register() {
       setLoading(false);
     }
   }
+
+  const busy = loading || solving;
 
   return (
     <div className="auth-container">
@@ -86,8 +101,8 @@ function Register() {
                   minLength={8}
                 />
               </div>
-              <button className="status-badge add full" type="submit" disabled={loading}>
-                {loading ? 'Registering...' : 'Register'}
+              <button className="status-badge add full" type="submit" disabled={busy}>
+                {buttonLabel(solving, loading)}
               </button>
             </form>
             <p className="auth-link">

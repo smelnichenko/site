@@ -31,9 +31,10 @@ beforeEach(() => {
 })
 
 describe('MembersModal', () => {
-  it('renders modal with channel name', () => {
+  it('renders modal with channel name', async () => {
     vi.mocked(api.fetchChannelMembers).mockResolvedValue([])
     render(<MembersModal channelId={1} channelName="general" onClose={vi.fn()} onKicked={vi.fn()} />)
+    await waitFor(() => expect(api.fetchChannelMembers).toHaveBeenCalled())
     expect(screen.getByText('Members of #general')).toBeInTheDocument()
   })
 
@@ -97,6 +98,7 @@ describe('MembersModal', () => {
     const onClose = vi.fn()
     const user = userEvent.setup()
     render(<MembersModal channelId={1} channelName="general" onClose={onClose} onKicked={vi.fn()} />)
+    await waitFor(() => expect(api.fetchChannelMembers).toHaveBeenCalled())
     await user.click(screen.getByText('Close'))
     expect(onClose).toHaveBeenCalled()
   })

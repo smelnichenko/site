@@ -5,6 +5,14 @@ import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import { LoadingProvider } from './contexts/LoadingContext'
 
+vi.mock('./hooks/useHashcash', () => ({
+  useHashcash: () => ({
+    enabled: false,
+    solving: false,
+    solve: vi.fn().mockResolvedValue({ challenge: '', nonce: '' }),
+  }),
+}))
+
 // Mock fetch to prevent network calls
 vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
   ok: false,

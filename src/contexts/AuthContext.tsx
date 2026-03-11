@@ -20,8 +20,13 @@ interface AuthState {
   groups: string[];
 }
 
+export interface CaptchaData {
+  captchaChallenge: string;
+  captchaNonce: string;
+}
+
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<string | null>;
+  login: (email: string, password: string, captcha?: CaptchaData) => Promise<string | null>;
   logout: () => void;
   isAuthenticated: boolean;
   hasPermission: (permission: string) => boolean;
@@ -150,12 +155,12 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     return () => clearInterval(interval);
   }, [auth.email]);
 
-  const login = useCallback(async (email: string, password: string): Promise<string | null> => {
+  const login = useCallback(async (email: string, password: string, captcha?: CaptchaData): Promise<string | null> => {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, ...captcha }),
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));

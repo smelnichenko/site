@@ -688,10 +688,10 @@ describe('api - admin', () => {
 })
 
 describe('api - setPermissionsChangedCallback', () => {
-  it('sets and clears callback', async () => {
+  it('sets and clears callback without throwing', async () => {
     const { setPermissionsChangedCallback } = await import('./api')
     const cb = vi.fn()
-    setPermissionsChangedCallback(cb)
-    setPermissionsChangedCallback(null)
+    expect(() => setPermissionsChangedCallback(cb)).not.toThrow()
+    expect(() => setPermissionsChangedCallback(null)).not.toThrow()
   })
 })

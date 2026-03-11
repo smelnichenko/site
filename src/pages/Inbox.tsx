@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   fetchInboxEmails,
   fetchEmailAttachments,
@@ -114,9 +114,8 @@ function Inbox() {
           </thead>
           <tbody>
             {data.content.map((email) => (
-              <>
+              <Fragment key={email.id}>
                 <tr
-                  key={email.id}
                   onClick={() => setExpandedId(expandedId === email.id ? null : email.id)}
                   style={{ cursor: 'pointer' }}
                   className={expandedId === email.id ? 'active' : ''}
@@ -126,7 +125,7 @@ function Inbox() {
                   <td title={formatDate(email.receivedAt)}>{formatTimeAgo(email.receivedAt)}</td>
                 </tr>
                 {expandedId === email.id && (
-                  <tr key={`${email.id}-body`}>
+                  <tr>
                     <td colSpan={3} style={{ padding: '1rem', background: '#f8f9fa' }}>
                       <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
                         <strong>From:</strong> {email.fromAddress}<br />
@@ -172,7 +171,7 @@ function Inbox() {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>
