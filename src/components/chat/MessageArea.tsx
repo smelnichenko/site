@@ -373,14 +373,14 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                       <button
                         className="status-badge add"
-                        onClick={() => handleApprove(approvalMeta!.approvalId!)}
+                        onClick={() => handleApprove(approvalMeta.approvalId!)}
                         style={{ fontSize: '0.75rem', padding: '3px 12px' }}
                       >
                         Accept
                       </button>
                       <button
                         className="status-badge danger"
-                        onClick={() => handleDecline(approvalMeta!.approvalId!)}
+                        onClick={() => handleDecline(approvalMeta.approvalId!)}
                         style={{ fontSize: '0.75rem', padding: '3px 12px' }}
                       >
                         Decline
