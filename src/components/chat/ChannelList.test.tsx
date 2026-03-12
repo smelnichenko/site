@@ -4,9 +4,9 @@ import userEvent from '@testing-library/user-event'
 import ChannelList from './ChannelList'
 
 const mockChannels = [
-  { id: 1, name: 'general', createdAt: '2026-01-01T00:00:00Z', memberCount: 3, joined: true, isOwner: true, unreadCount: 0, encrypted: false, currentKeyVersion: 0 },
-  { id: 2, name: 'random', createdAt: '2026-01-01T00:00:00Z', memberCount: 2, joined: true, isOwner: false, unreadCount: 5, encrypted: false, currentKeyVersion: 0 },
-  { id: 3, name: 'secret', createdAt: '2026-01-01T00:00:00Z', memberCount: 1, joined: true, isOwner: true, unreadCount: 0, encrypted: true, currentKeyVersion: 1 },
+  { id: 1, name: 'general', createdAt: '2026-01-01T00:00:00Z', memberCount: 3, joined: true, isOwner: true, isSystem: false, unreadCount: 0, encrypted: false, currentKeyVersion: 0 },
+  { id: 2, name: 'random', createdAt: '2026-01-01T00:00:00Z', memberCount: 2, joined: true, isOwner: false, isSystem: false, unreadCount: 5, encrypted: false, currentKeyVersion: 0 },
+  { id: 3, name: 'secret', createdAt: '2026-01-01T00:00:00Z', memberCount: 1, joined: true, isOwner: true, isSystem: false, unreadCount: 0, encrypted: true, currentKeyVersion: 1 },
 ]
 
 const defaultProps = {

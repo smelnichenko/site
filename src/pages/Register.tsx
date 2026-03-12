@@ -1,6 +1,7 @@
-import { type SyntheticEvent, useState } from 'react';
+import { type SyntheticEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useHashcash } from '../hooks/useHashcash';
+import { fetchApprovalMode } from '../services/api';
 
 function buttonLabel(solving: boolean, loading: boolean) {
   if (solving) return 'Verifying...';
@@ -15,7 +16,12 @@ function Register() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [approvalMode, setApprovalMode] = useState<string>('skip');
   const { enabled: captchaEnabled, solving, solve: solveCaptcha } = useHashcash();
+
+  useEffect(() => {
+    fetchApprovalMode().then(data => setApprovalMode(data.mode)).catch(() => {});
+  }, []);
 
   async function handleSubmit(e: SyntheticEvent) {
     e.preventDefault();
@@ -60,6 +66,11 @@ function Register() {
         {success ? (
           <>
             <p>Check your email to verify your account.</p>
+            {approvalMode !== 'skip' && (
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                Once verified, your registration will be reviewed and you'll receive an email when approved.
+              </p>
+            )}
             <p className="auth-link">
               <Link to="/login">Go to Login</Link>
             </p>

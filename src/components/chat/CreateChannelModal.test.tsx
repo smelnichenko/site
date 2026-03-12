@@ -53,7 +53,7 @@ describe('CreateChannelModal', () => {
     const onCreated = vi.fn()
     vi.mocked(api.createChatChannel).mockResolvedValue({
       id: 1, name: 'test', createdAt: '', memberCount: 1,
-      joined: true, isOwner: true, unreadCount: 0, encrypted: false, currentKeyVersion: 0,
+      joined: true, isOwner: true, unreadCount: 0, encrypted: false, currentKeyVersion: 0, isSystem: false,
     })
 
     const user = userEvent.setup()

@@ -79,8 +79,8 @@ vi.mock('../components/chat/MembersModal', () => ({
 const api = await import('../services/api')
 
 const mockChannels = [
-  { id: 1, name: 'general', createdAt: '2026-01-01T00:00:00Z', memberCount: 3, joined: true, isOwner: true, unreadCount: 0, encrypted: false, currentKeyVersion: 0 },
-  { id: 2, name: 'random', createdAt: '2026-01-01T00:00:00Z', memberCount: 2, joined: true, isOwner: false, unreadCount: 1, encrypted: false, currentKeyVersion: 0 },
+  { id: 1, name: 'general', createdAt: '2026-01-01T00:00:00Z', memberCount: 3, joined: true, isOwner: true, isSystem: false, unreadCount: 0, encrypted: false, currentKeyVersion: 0 },
+  { id: 2, name: 'random', createdAt: '2026-01-01T00:00:00Z', memberCount: 2, joined: true, isOwner: false, isSystem: false, unreadCount: 1, encrypted: false, currentKeyVersion: 0 },
 ]
 
 beforeEach(() => {
@@ -173,7 +173,7 @@ describe('Chat', () => {
     await user.click(screen.getByText('+ New'))
     expect(screen.getByTestId('create-modal')).toBeInTheDocument()
 
-    vi.mocked(api.fetchChatChannels).mockResolvedValue([...mockChannels, { id: 3, name: 'new-channel', createdAt: '2026-01-02T00:00:00Z', memberCount: 1, joined: true, isOwner: true, unreadCount: 0, encrypted: false, currentKeyVersion: 0 }])
+    vi.mocked(api.fetchChatChannels).mockResolvedValue([...mockChannels, { id: 3, name: 'new-channel', createdAt: '2026-01-02T00:00:00Z', memberCount: 1, joined: true, isOwner: true, isSystem: false, unreadCount: 0, encrypted: false, currentKeyVersion: 0 }])
 
     await user.click(screen.getByText('Created'))
 

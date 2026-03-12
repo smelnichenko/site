@@ -489,6 +489,7 @@ export interface ChatChannel {
   memberCount: number;
   joined: boolean;
   isOwner: boolean;
+  isSystem: boolean;
   unreadCount: number;
   encrypted: boolean;
   currentKeyVersion: number;
@@ -511,6 +512,8 @@ export interface ChatMessage {
   prevHash?: string;
   editedContent?: string;
   keyVersion?: number;
+  messageType?: string;
+  metadata?: string;
 }
 
 export interface MessageEdit {
@@ -866,5 +869,60 @@ export async function deleteGroup(id: number): Promise<void> {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     throw new Error(data.error || 'Failed to delete group');
+  }
+}
+
+// Registration Approval API
+
+export interface ApprovalStatus {
+  status: string;
+  reason?: string;
+}
+
+export interface PendingApprovalItem {
+  id: number;
+  userId: number;
+  status: string;
+  decidedBy: string | null;
+  decisionReason: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export async function fetchApprovalStatus(signal?: AbortSignal): Promise<ApprovalStatus> {
+  const response = await apiFetch(`${API_BASE}/auth/approval-status`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch approval status');
+  return response.json();
+}
+
+export async function fetchApprovalMode(): Promise<{ mode: string }> {
+  const response = await fetch(`${API_BASE}/auth/approval-mode`);
+  if (!response.ok) throw new Error('Failed to fetch approval mode');
+  return response.json();
+}
+
+export async function fetchPendingApprovals(signal?: AbortSignal): Promise<PendingApprovalItem[]> {
+  const response = await apiFetch(`${API_BASE}/admin/approvals`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch pending approvals');
+  return response.json();
+}
+
+export async function approveRegistration(id: number): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/admin/approvals/${id}/approve`, { method: 'POST' });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to approve');
+  }
+}
+
+export async function declineRegistration(id: number, reason?: string): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/admin/approvals/${id}/decline`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to decline');
   }
 }

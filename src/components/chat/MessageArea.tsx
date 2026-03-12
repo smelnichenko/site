@@ -9,6 +9,8 @@ import {
   markChannelRead,
   verifyChannelChain,
   fetchChannelKeys,
+  approveRegistration,
+  declineRegistration,
 } from '../../services/api';
 import { encryptMessage, decryptMessage, unwrapChannelKey } from '../../services/crypto';
 import * as keyStore from '../../services/keyStore';
@@ -250,6 +252,23 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
     }
   };
 
+  const handleApprove = async (approvalId: number) => {
+    try {
+      await approveRegistration(approvalId);
+    } catch {
+      setError('Failed to approve registration');
+    }
+  };
+
+  const handleDecline = async (approvalId: number) => {
+    const reason = prompt('Reason for declining (optional):');
+    try {
+      await declineRegistration(approvalId, reason || undefined);
+    } catch {
+      setError('Failed to decline registration');
+    }
+  };
+
   let lastDate = '';
 
   return (
@@ -316,9 +335,15 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
             showDateSeparator = true;
             lastDate = msgDate;
           }
+          const isSystemMessage = msg.messageType === 'SYSTEM';
           const isOwnMessage = msg.username === currentUserEmail;
           const isEdited = msg.editedContent != null;
           const displayContent = msg.editedContent || msg.content;
+
+          let approvalMeta: { type?: string; approvalId?: number; status?: string } | null = null;
+          if (isSystemMessage && msg.metadata) {
+            try { approvalMeta = JSON.parse(msg.metadata); } catch { /* ignore */ }
+          }
 
           return (
             <div key={msg.messageId}>
@@ -333,6 +358,50 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
                   {formatDateSeparator(msg.createdAt)}
                 </div>
               )}
+              {isSystemMessage ? (
+                <div style={{
+                  padding: '8px 16px',
+                  margin: '4px 0',
+                  background: '#f8f9fa',
+                  borderRadius: '6px',
+                  borderLeft: '3px solid #6c757d',
+                  fontSize: '0.85rem',
+                  color: '#555',
+                }}>
+                  <div style={{ lineHeight: 1.5 }}>{displayContent}</div>
+                  {approvalMeta?.type === 'approval' && approvalMeta.status === 'PENDING' && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button
+                        className="status-badge add"
+                        onClick={() => handleApprove(approvalMeta.approvalId!)}
+                        style={{ fontSize: '0.75rem', padding: '3px 12px' }}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        className="status-badge danger"
+                        onClick={() => handleDecline(approvalMeta.approvalId!)}
+                        style={{ fontSize: '0.75rem', padding: '3px 12px' }}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  )}
+                  {approvalMeta?.type === 'approval' && approvalMeta.status !== 'PENDING' && (
+                    <div style={{
+                      marginTop: '4px',
+                      fontSize: '0.75rem',
+                      color: approvalMeta.status === 'APPROVED' ? '#28a745' : '#dc3545',
+                      fontWeight: 600,
+                    }}>
+                      {approvalMeta.status === 'APPROVED' ? 'Approved' : 'Declined'}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.7rem', color: '#999', marginTop: '4px' }}>
+                    {formatTime(msg.createdAt)}
+                  </div>
+                </div>
+              ) : (
               <div
                 style={{ padding: '4px 0', position: 'relative' }}
                 className="chat-message"
@@ -422,6 +491,7 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
                   </div>
                 )}
               </div>
+              )}
             </div>
           );
         })}

@@ -1,5 +1,11 @@
 import { ChatChannel } from '../../services/api';
 
+function channelIcon(channel: ChatChannel): string {
+  if (channel.isSystem) return '\uD83D\uDD14 ';
+  if (channel.encrypted) return '\uD83D\uDD12 ';
+  return '# ';
+}
+
 interface ChannelListProps {
   channels: ChatChannel[];
   activeChannelId: number | null;
@@ -76,7 +82,7 @@ function ChannelList({
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                 }}>
-                  {channel.encrypted ? '\uD83D\uDD12 ' : '# '}{channel.name}
+                  {channelIcon(channel)}{channel.name}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#999' }}>
                   {channel.memberCount} member{channel.memberCount === 1 ? '' : 's'}
@@ -97,7 +103,7 @@ function ChannelList({
                     {channel.unreadCount}
                   </span>
                 )}
-                {channel.isOwner && (
+                {!channel.isSystem && channel.isOwner && (
                   <button
                     className="status-badge action"
                     onClick={() => onManageMembers(channel.id)}
@@ -106,7 +112,7 @@ function ChannelList({
                     Members
                   </button>
                 )}
-                {channel.isOwner && (
+                {!channel.isSystem && channel.isOwner && (
                   <button
                     className="status-badge action"
                     onClick={() => onInvite(channel.id)}
@@ -115,7 +121,7 @@ function ChannelList({
                     Invite
                   </button>
                 )}
-                {channel.isOwner ? (
+                {!channel.isSystem && (channel.isOwner ? (
                   <button
                     className="status-badge danger"
                     onClick={() => {
@@ -135,7 +141,7 @@ function ChannelList({
                   >
                     Leave
                   </button>
-                )}
+                ))}
               </div>
             </div>
           ))
