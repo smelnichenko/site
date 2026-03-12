@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import PendingApproval from './PendingApproval'
+import { fetchApprovalStatus } from '../services/api'
 
 const mockLogout = vi.fn()
 const mockRefreshPermissions = vi.fn()
@@ -22,6 +23,15 @@ vi.mock('../services/api', () => ({
   fetchApprovalStatus: vi.fn().mockResolvedValue({ status: 'PENDING', reason: null }),
 }))
 
+const mockFetchApprovalStatus = vi.mocked(fetchApprovalStatus)
+
+beforeEach(() => {
+  mockLogout.mockReset()
+  mockRefreshPermissions.mockReset()
+  mockFetchApprovalStatus.mockReset()
+  mockFetchApprovalStatus.mockResolvedValue({ status: 'PENDING', reason: null, decidedBy: null, decidedAt: null })
+})
+
 describe('PendingApproval', () => {
   it('shows pending approval message', () => {
     render(<PendingApproval />)
@@ -34,5 +44,28 @@ describe('PendingApproval', () => {
     render(<PendingApproval />)
     await user.click(screen.getByText('Logout'))
     expect(mockLogout).toHaveBeenCalled()
+  })
+
+  it('shows declined status without reason', async () => {
+    mockFetchApprovalStatus.mockResolvedValue({ status: 'DECLINED', reason: null, decidedBy: null, decidedAt: null })
+    render(<PendingApproval />)
+    expect(await screen.findByText('Registration Declined')).toBeInTheDocument()
+    expect(screen.getByText(/could not be approved/)).toBeInTheDocument()
+  })
+
+  it('shows declined status with reason', async () => {
+    mockFetchApprovalStatus.mockResolvedValue({ status: 'DECLINED', reason: 'Suspicious activity', decidedBy: 'admin', decidedAt: '2026-03-12' })
+    render(<PendingApproval />)
+    expect(await screen.findByText('Registration Declined')).toBeInTheDocument()
+    expect(screen.getByText(/Suspicious activity/)).toBeInTheDocument()
+  })
+
+  it('calls refreshPermissions when status is APPROVED', async () => {
+    mockRefreshPermissions.mockResolvedValue(undefined)
+    mockFetchApprovalStatus.mockResolvedValue({ status: 'APPROVED', reason: null, decidedBy: 'ai', decidedAt: '2026-03-12' })
+    render(<PendingApproval />)
+    await waitFor(() => {
+      expect(mockRefreshPermissions).toHaveBeenCalled()
+    })
   })
 })

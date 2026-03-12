@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Register from './Register'
+import { fetchApprovalMode } from '../services/api'
 
 vi.mock('../hooks/useHashcash', () => ({
   useHashcash: () => ({
@@ -16,11 +17,15 @@ vi.mock('../services/api', () => ({
   fetchApprovalMode: vi.fn().mockResolvedValue({ mode: 'skip' }),
 }))
 
+const mockFetchApprovalMode = vi.mocked(fetchApprovalMode)
+
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
 beforeEach(() => {
   mockFetch.mockReset()
+  mockFetchApprovalMode.mockReset()
+  mockFetchApprovalMode.mockResolvedValue({ mode: 'skip' })
 })
 
 function renderRegister() {
@@ -91,5 +96,23 @@ describe('Register', () => {
   it('has link to login page', () => {
     renderRegister()
     expect(screen.getByText('Login')).toHaveAttribute('href', '/login')
+  })
+
+  it('shows approval message after registration when mode is not skip', async () => {
+    mockFetchApprovalMode.mockResolvedValue({ mode: 'admin' })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ email: 'new@test.com' }),
+    })
+    const user = userEvent.setup()
+    renderRegister()
+
+    await user.type(screen.getByLabelText('Email'), 'new@test.com')
+    await user.type(screen.getByLabelText('Password'), 'password123')
+    await user.type(screen.getByLabelText('Confirm Password'), 'password123')
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+
+    expect(await screen.findByText(/reviewed/)).toBeInTheDocument()
+    expect(screen.getByText('Go to Login')).toBeInTheDocument()
   })
 })
