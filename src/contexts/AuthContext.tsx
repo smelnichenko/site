@@ -28,6 +28,7 @@ export interface CaptchaData {
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, captcha?: CaptchaData) => Promise<string | null>;
   logout: () => void;
+  refreshPermissions: () => Promise<void>;
   isAuthenticated: boolean;
   hasPermission: (permission: string) => boolean;
 }
@@ -204,8 +205,8 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, [logout]);
 
   const contextValue = useMemo(() => ({
-    ...auth, login, logout: handleLogout, isAuthenticated, hasPermission,
-  }), [auth, login, handleLogout, isAuthenticated, hasPermission]);
+    ...auth, login, logout: handleLogout, refreshPermissions, isAuthenticated, hasPermission,
+  }), [auth, login, handleLogout, refreshPermissions, isAuthenticated, hasPermission]);
 
   return (
     <AuthContext.Provider value={contextValue}>

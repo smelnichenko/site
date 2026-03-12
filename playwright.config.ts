@@ -5,8 +5,8 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright configuration for Monitor Frontend E2E tests
  */
 export default defineConfig({
-  globalSetup: '../tests/e2e/globalSetup.ts',
-  testDir: '../tests/e2e',
+  globalSetup: './tests/e2e/globalSetup.ts',
+  testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

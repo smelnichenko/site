@@ -12,6 +12,10 @@ vi.mock('../hooks/useHashcash', () => ({
   }),
 }))
 
+vi.mock('../services/api', () => ({
+  fetchApprovalMode: vi.fn().mockResolvedValue({ mode: 'skip' }),
+}))
+
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 

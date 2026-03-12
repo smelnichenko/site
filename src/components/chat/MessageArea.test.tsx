@@ -41,6 +41,7 @@ const baseChannel = {
   currentKeyVersion: 0,
   joined: true,
   isOwner: false,
+  isSystem: false,
 }
 
 const makeMsg = (id: string, username: string, content: string, createdAt = '2026-01-15T10:30:00Z') => ({
