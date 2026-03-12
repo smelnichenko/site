@@ -20,7 +20,7 @@ vi.mock('../contexts/AuthContext', () => ({
 }))
 
 vi.mock('../services/api', () => ({
-  fetchApprovalStatus: vi.fn().mockResolvedValue({ status: 'PENDING', reason: null }),
+  fetchApprovalStatus: vi.fn().mockResolvedValue({ status: 'PENDING' }),
 }))
 
 const mockFetchApprovalStatus = vi.mocked(fetchApprovalStatus)
@@ -29,7 +29,7 @@ beforeEach(() => {
   mockLogout.mockReset()
   mockRefreshPermissions.mockReset()
   mockFetchApprovalStatus.mockReset()
-  mockFetchApprovalStatus.mockResolvedValue({ status: 'PENDING', reason: null, decidedBy: null, decidedAt: null })
+  mockFetchApprovalStatus.mockResolvedValue({ status: 'PENDING' })
 })
 
 describe('PendingApproval', () => {
@@ -47,14 +47,14 @@ describe('PendingApproval', () => {
   })
 
   it('shows declined status without reason', async () => {
-    mockFetchApprovalStatus.mockResolvedValue({ status: 'DECLINED', reason: null, decidedBy: null, decidedAt: null })
+    mockFetchApprovalStatus.mockResolvedValue({ status: 'DECLINED' })
     render(<PendingApproval />)
     expect(await screen.findByText('Registration Declined')).toBeInTheDocument()
     expect(screen.getByText(/could not be approved/)).toBeInTheDocument()
   })
 
   it('shows declined status with reason', async () => {
-    mockFetchApprovalStatus.mockResolvedValue({ status: 'DECLINED', reason: 'Suspicious activity', decidedBy: 'admin', decidedAt: '2026-03-12' })
+    mockFetchApprovalStatus.mockResolvedValue({ status: 'DECLINED', reason: 'Suspicious activity' })
     render(<PendingApproval />)
     expect(await screen.findByText('Registration Declined')).toBeInTheDocument()
     expect(screen.getByText(/Suspicious activity/)).toBeInTheDocument()
@@ -62,7 +62,7 @@ describe('PendingApproval', () => {
 
   it('calls refreshPermissions when status is APPROVED', async () => {
     mockRefreshPermissions.mockResolvedValue(undefined)
-    mockFetchApprovalStatus.mockResolvedValue({ status: 'APPROVED', reason: null, decidedBy: 'ai', decidedAt: '2026-03-12' })
+    mockFetchApprovalStatus.mockResolvedValue({ status: 'APPROVED' })
     render(<PendingApproval />)
     await waitFor(() => {
       expect(mockRefreshPermissions).toHaveBeenCalled()
