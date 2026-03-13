@@ -1,4 +1,3 @@
-// CI log shipping test trigger
 import { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
