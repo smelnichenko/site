@@ -1,24 +1,26 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { useLoading } from './contexts/LoadingContext';
 import { saveLastPath } from './services/api';
 import ProtectedRoute from './components/ProtectedRoute';
 import PendingApproval from './components/PendingApproval';
-import Dashboard from './pages/Dashboard';
-import PageDetail from './pages/PageDetail';
-import RssDashboard from './pages/RssDashboard';
-import RssFeedDetail from './pages/RssFeedDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
-import MonitorConfig from './pages/MonitorConfig';
-import Game from './pages/Game';
-import Inbox from './pages/Inbox';
-import Chat from './pages/Chat';
-import Admin from './pages/Admin';
+
+// Lazy-load pages that pull in heavy dependencies (recharts/d3)
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PageDetail = lazy(() => import('./pages/PageDetail'));
+const RssDashboard = lazy(() => import('./pages/RssDashboard'));
+const RssFeedDetail = lazy(() => import('./pages/RssFeedDetail'));
+const MonitorConfig = lazy(() => import('./pages/MonitorConfig'));
+const Chat = lazy(() => import('./pages/Chat'));
+const Game = lazy(() => import('./pages/Game'));
+const Inbox = lazy(() => import('./pages/Inbox'));
+const Admin = lazy(() => import('./pages/Admin'));
 
 function formatBuildTime(isoString: string): string {
   try {
@@ -131,6 +133,7 @@ function App() {
         {hasPendingApproval ? (
           <PendingApproval />
         ) : (
+          <Suspense fallback={<div className="loading-overlay"><div className="loading-spinner" /></div>}>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -148,6 +151,7 @@ function App() {
             <Route path="/game" element={<ProtectedRoute permission="PLAY"><Game /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute permission="MANAGE_USERS"><Admin /></ProtectedRoute>} />
           </Routes>
+          </Suspense>
         )}
       </main>
     </div>
