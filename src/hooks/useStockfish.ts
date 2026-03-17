@@ -10,7 +10,7 @@ export function useStockfish({ skillLevel, moveTimeMs = 1000 }: StockfishOptions
   const resolveRef = useRef<((move: string) => void) | null>(null);
 
   useEffect(() => {
-    const worker = new Worker(new URL('stockfish.js/stockfish.wasm.js', import.meta.url), { type: 'classic' });
+    const worker = new Worker('/stockfish.wasm.js');
     workerRef.current = worker;
 
     worker.onmessage = (e: MessageEvent) => {
