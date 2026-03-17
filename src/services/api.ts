@@ -763,6 +763,124 @@ export async function rotateChannelKeys(
   return response.json();
 }
 
+// Chess API
+
+export interface ChessGameDto {
+  gameUuid: string;
+  fen: string;
+  pgn: string | null;
+  status: 'WAITING_FOR_OPPONENT' | 'IN_PROGRESS' | 'FINISHED' | 'ABANDONED';
+  result: 'WHITE_WINS' | 'BLACK_WINS' | 'DRAW' | null;
+  resultReason: 'CHECKMATE' | 'RESIGNATION' | 'STALEMATE' | 'AGREEMENT' | 'INSUFFICIENT_MATERIAL' | null;
+  gameType: 'AI' | 'PVP';
+  moveCount: number;
+  lastMove: string | null;
+  whitePlayerId: number;
+  blackPlayerId: number | null;
+  drawOfferedBy: number | null;
+  aiDifficulty: number | null;
+  updatedAt: string;
+}
+
+export async function createChessGame(type: 'AI' | 'PVP', difficulty?: number): Promise<ChessGameDto> {
+  const response = await apiFetch(`${API_BASE}/chess/games`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, difficulty }),
+  });
+  if (!response.ok) throw new Error('Failed to create game');
+  return response.json();
+}
+
+export async function fetchChessGame(uuid: string, signal?: AbortSignal): Promise<ChessGameDto> {
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch game');
+  return response.json();
+}
+
+export async function fetchActiveChessGames(signal?: AbortSignal): Promise<ChessGameDto[]> {
+  const response = await apiFetch(`${API_BASE}/chess/games`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch games');
+  return response.json();
+}
+
+export async function fetchOpenChessGames(signal?: AbortSignal): Promise<ChessGameDto[]> {
+  const response = await apiFetch(`${API_BASE}/chess/games/open`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch open games');
+  return response.json();
+}
+
+export async function fetchChessHistory(
+  page = 0,
+  size = 20,
+  signal?: AbortSignal
+): Promise<PagedResponse<ChessGameDto>> {
+  const response = await apiFetch(`${API_BASE}/chess/games/history?page=${page}&size=${size}`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch history');
+  return response.json();
+}
+
+export async function joinChessGame(uuid: string): Promise<ChessGameDto> {
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/join`, { method: 'POST' });
+  if (!response.ok) throw new Error('Failed to join game');
+  return response.json();
+}
+
+export async function makeChessMove(uuid: string, move: string): Promise<ChessGameDto> {
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/move`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ move }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Invalid move');
+  }
+  return response.json();
+}
+
+export async function makeChessAiMove(uuid: string, move: string): Promise<ChessGameDto> {
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/ai-move`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ move }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Invalid AI move');
+  }
+  return response.json();
+}
+
+export async function resignChessGame(uuid: string): Promise<ChessGameDto> {
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/resign`, { method: 'POST' });
+  if (!response.ok) throw new Error('Failed to resign');
+  return response.json();
+}
+
+export async function offerChessDraw(uuid: string): Promise<ChessGameDto> {
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/draw`, { method: 'POST' });
+  if (!response.ok) throw new Error('Failed to offer draw');
+  return response.json();
+}
+
+export async function acceptChessDraw(uuid: string): Promise<ChessGameDto> {
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/draw/accept`, { method: 'POST' });
+  if (!response.ok) throw new Error('Failed to accept draw');
+  return response.json();
+}
+
+export async function declineChessDraw(uuid: string): Promise<ChessGameDto> {
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/draw/decline`, { method: 'POST' });
+  if (!response.ok) throw new Error('Failed to decline draw');
+  return response.json();
+}
+
+export async function abandonChessGame(uuid: string): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to abandon game');
+}
+
 // Test endpoints (run check with inline config, no save)
 
 export async function testPageMonitor(request: PageMonitorRequest): Promise<MonitorResult> {

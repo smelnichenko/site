@@ -19,6 +19,7 @@ const RssFeedDetail = lazy(() => import('./pages/RssFeedDetail'));
 const MonitorConfig = lazy(() => import('./pages/MonitorConfig'));
 const Chat = lazy(() => import('./pages/Chat'));
 const Game = lazy(() => import('./pages/Game'));
+const Chess = lazy(() => import('./pages/Chess'));
 const Inbox = lazy(() => import('./pages/Inbox'));
 const Admin = lazy(() => import('./pages/Admin'));
 
@@ -101,9 +102,14 @@ function App() {
                   </Link>
                 )}
                 {hasPermission('PLAY') && (
-                  <Link to="/game" className={location.pathname === '/game' ? 'active' : ''}>
-                    Game
-                  </Link>
+                  <>
+                    <Link to="/chess" className={location.pathname === '/chess' ? 'active' : ''}>
+                      Chess
+                    </Link>
+                    <Link to="/game" className={location.pathname === '/game' ? 'active' : ''}>
+                      Game
+                    </Link>
+                  </>
                 )}
                 {hasPermission('MANAGE_USERS') && (
                   <Link to="/admin" className={location.pathname === '/admin' ? 'active' : ''}>
@@ -148,6 +154,7 @@ function App() {
             <Route path="/chat" element={<ProtectedRoute permission="CHAT"><Chat /></ProtectedRoute>} />
             <Route path="/chat/:channelId" element={<ProtectedRoute permission="CHAT"><Chat /></ProtectedRoute>} />
             <Route path="/inbox" element={<ProtectedRoute permission="EMAIL"><Inbox /></ProtectedRoute>} />
+            <Route path="/chess" element={<ProtectedRoute permission="PLAY"><Chess /></ProtectedRoute>} />
             <Route path="/game" element={<ProtectedRoute permission="PLAY"><Game /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute permission="MANAGE_USERS"><Admin /></ProtectedRoute>} />
           </Routes>
