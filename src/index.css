@@ -720,6 +720,7 @@ a.card-title {
 
 .chess-board-panel {
   flex-shrink: 0;
+  width: min(560px, calc(100vh - 200px));
 }
 
 .chess-side-panel {
@@ -852,6 +853,9 @@ a.card-title {
 @media (max-width: 700px) {
   .chess-game-layout {
     flex-direction: column;
+  }
+  .chess-board-panel {
+    width: 100%;
   }
   .chess-side-panel {
     min-width: 0;
