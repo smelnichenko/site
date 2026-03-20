@@ -41,6 +41,7 @@ steps:
           wget -q --spider --timeout=2 "$SONAR_HOST_URL/api/system/status" 2>/dev/null && break
           sleep 1
         done
+      - apt-get update -qq && apt-get install -y -qq git > /dev/null
       - git fetch --unshallow || true
       - npx sonarqube-scanner
     backend_options:
