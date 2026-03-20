@@ -40,7 +40,7 @@ steps:
           sleep 1
         done
       - apt-get update -qq && apt-get install -y -qq git > /dev/null
-      - git config credential.helper '!f() { echo "username=woodpecker"; echo "password='$REGISTRY_TOKEN'"; }; f'
+      - git config credential.helper '!f() { echo "username=woodpecker"; echo "password='$INFRA_TOKEN'"; }; f'
       - git fetch --unshallow
       - npx sonarqube-scanner -Dsonar.qualitygate.wait=false
     backend_options:
@@ -59,9 +59,9 @@ steps:
             target:
               env: NPM_CONFIG_REGISTRY
           - name: woodpecker-ci-secrets
-            key: registry_token
+            key: infra_repo_token
             target:
-              env: REGISTRY_TOKEN
+              env: INFRA_TOKEN
 
   # ============== BUILD + PUSH IMAGE (Kaniko) ==============
   - name: build-dist
