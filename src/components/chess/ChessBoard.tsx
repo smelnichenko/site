@@ -134,7 +134,7 @@ export default function ChessBoard({ game, userId, onMove, disabled }: Readonly<
       <Chessboard
         options={{
           position,
-          onSquareClick: handleSquareClick,
+          onSquareClick: (args: { square: string }) => { void handleSquareClick(args); },
           onPieceDrop: handlePieceDrop,
           boardOrientation: orientation,
           squareStyles: optionSquares,
