@@ -92,8 +92,10 @@ steps:
         echo "{\"auths\":{\"git.pmon.dev\":{\"username\":\"$REGISTRY_USER\",\"password\":\"$REGISTRY_TOKEN\"}}}" > /kaniko/.docker/config.json
       - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
       - |
+        ls -la .docker-context/
         /kaniko/executor \
           --context=.docker-context \
+          --dockerfile=.docker-context/Dockerfile \
           --destination=git.pmon.dev/schnappy/frontend:$GIT_HASH \
           --skip-tls-verify-registry=git.pmon.dev \
           --cache=true \
