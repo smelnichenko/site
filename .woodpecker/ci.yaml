@@ -41,9 +41,6 @@ steps:
           wget -q --spider --timeout=2 "$SONAR_HOST_URL/api/system/status" 2>/dev/null && break
           sleep 1
         done
-      - apt-get update -qq && apt-get install -y -qq git > /dev/null
-      - git config credential.helper '!f() { echo "username=woodpecker"; echo "password='$INFRA_TOKEN'"; }; f'
-      - git fetch --unshallow
       - npx sonarqube-scanner
     backend_options:
       kubernetes:
@@ -60,7 +57,3 @@ steps:
             key: nexus_npm_registry
             target:
               env: NPM_CONFIG_REGISTRY
-          - name: woodpecker-ci-secrets
-            key: infra_repo_token
-            target:
-              env: INFRA_TOKEN
