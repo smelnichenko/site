@@ -43,7 +43,7 @@ steps:
         done
       - apt-get update -qq && apt-get install -y -qq git > /dev/null
       - git config credential.helper '!f() { echo "username=woodpecker"; echo "password='$REGISTRY_TOKEN'"; }; f'
-      - git fetch --unshallow || true
+      - git fetch --unshallow
       - npx sonarqube-scanner
     backend_options:
       kubernetes:
