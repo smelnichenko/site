@@ -10,7 +10,7 @@ interface ChessBoardProps {
   disabled?: boolean;
 }
 
-export default function ChessBoard({ game, userId, onMove, disabled }: ChessBoardProps) {
+export default function ChessBoard({ game, userId, onMove, disabled }: Readonly<ChessBoardProps>) {
   const [chess] = useState(() => new Chess(game.fen));
   const [position, setPosition] = useState(game.fen);
   const [moveFrom, setMoveFrom] = useState<Square | null>(null);
@@ -43,9 +43,9 @@ export default function ChessBoard({ game, userId, onMove, disabled }: ChessBoar
       moves.forEach((move) => {
         options[move.to] = {
           background:
-            chess.get(move.to) !== null
-              ? 'radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)'
-              : 'radial-gradient(circle, rgba(0,0,0,.1) 25%, transparent 25%)',
+            chess.get(move.to) === null
+              ? 'radial-gradient(circle, rgba(0,0,0,.1) 25%, transparent 25%)'
+              : 'radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)',
           borderRadius: '50%',
         };
       });
@@ -54,46 +54,55 @@ export default function ChessBoard({ game, userId, onMove, disabled }: ChessBoar
     [chess]
   );
 
+  const isPromotion = (piece: { type: string; color: string } | null | undefined, targetSquare: string): boolean => {
+    return (
+      piece?.type === 'p' &&
+      ((piece.color === 'w' && targetSquare[1] === '8') || (piece.color === 'b' && targetSquare[1] === '1'))
+    ) ?? false;
+  };
+
+  const selectSquare = (sq: Square) => {
+    if (chess.get(sq)?.color === chess.turn()) {
+      setMoveFrom(sq);
+      setOptionSquares(getMoveOptions(sq));
+    } else {
+      setMoveFrom(null);
+      setOptionSquares({});
+    }
+  };
+
   const handleSquareClick = useCallback(
     async ({ square }: { square: string }) => {
       const sq = square as Square;
       if (disabled || pendingMove || !isMyTurn) return;
 
-      if (moveFrom) {
-        const moveStr = moveFrom + sq;
-        const piece = chess.get(moveFrom);
-        const isPromotion =
-          piece?.type === 'p' &&
-          ((piece.color === 'w' && sq[1] === '8') || (piece.color === 'b' && sq[1] === '1'));
-        const fullMove = isPromotion ? moveStr + 'q' : moveStr;
-
-        try {
-          const result = chess.move({ from: moveFrom, to: sq, promotion: 'q' });
-          if (result) {
-            setPosition(chess.fen());
-            setMoveFrom(null);
-            setOptionSquares({});
-            setPendingMove(true);
-            chess.undo();
-            setPosition(prevFenRef.current);
-            await onMove(fullMove);
-          }
-        } catch {
-          if (chess.get(sq)?.color === chess.turn()) {
-            setMoveFrom(sq);
-            setOptionSquares(getMoveOptions(sq));
-          } else {
-            setMoveFrom(null);
-            setOptionSquares({});
-          }
-        } finally {
-          setPendingMove(false);
-        }
-      } else {
+      if (!moveFrom) {
         if (chess.get(sq)?.color === chess.turn()) {
           setMoveFrom(sq);
           setOptionSquares(getMoveOptions(sq));
         }
+        return;
+      }
+
+      const moveStr = moveFrom + sq;
+      const piece = chess.get(moveFrom);
+      const fullMove = isPromotion(piece, sq) ? moveStr + 'q' : moveStr;
+
+      try {
+        const result = chess.move({ from: moveFrom, to: sq, promotion: 'q' });
+        if (result) {
+          setPosition(chess.fen());
+          setMoveFrom(null);
+          setOptionSquares({});
+          setPendingMove(true);
+          chess.undo();
+          setPosition(prevFenRef.current);
+          await onMove(fullMove);
+        }
+      } catch {
+        selectSquare(sq);
+      } finally {
+        setPendingMove(false);
       }
     },
     [chess, disabled, pendingMove, isMyTurn, moveFrom, getMoveOptions, onMove]
@@ -104,17 +113,14 @@ export default function ChessBoard({ game, userId, onMove, disabled }: ChessBoar
       if (disabled || pendingMove || !isMyTurn || !targetSquare) return false;
 
       const piece = chess.get(sourceSquare as Square);
-      const isPromotion =
-        piece?.type === 'p' &&
-        ((piece.color === 'w' && targetSquare[1] === '8') || (piece.color === 'b' && targetSquare[1] === '1'));
-      const moveStr = sourceSquare + targetSquare + (isPromotion ? 'q' : '');
+      const moveStr = sourceSquare + targetSquare + (isPromotion(piece, targetSquare) ? 'q' : '');
 
       try {
         const result = chess.move({ from: sourceSquare as Square, to: targetSquare as Square, promotion: 'q' });
         if (!result) return false;
         chess.undo();
         setPendingMove(true);
-        onMove(moveStr).finally(() => setPendingMove(false));
+        void onMove(moveStr).finally(() => setPendingMove(false));
         return true;
       } catch {
         return false;

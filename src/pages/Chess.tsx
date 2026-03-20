@@ -31,7 +31,7 @@ export default function Chess() {
 
   // Poll for PvP opponent moves
   useEffect(() => {
-    if (!currentGame || currentGame.gameType !== 'PVP' || currentGame.status !== 'IN_PROGRESS') {
+    if (currentGame?.gameType !== 'PVP' || currentGame.status !== 'IN_PROGRESS') {
       return;
     }
 
@@ -137,12 +137,10 @@ export default function Chess() {
     return <GameLobby onGameSelected={setCurrentGame} />;
   }
 
-  const turnLabel =
-    currentGame.status === 'IN_PROGRESS'
-      ? currentGame.fen.includes(' w ')
-        ? 'White to move'
-        : 'Black to move'
-      : '';
+  let turnLabel = '';
+  if (currentGame.status === 'IN_PROGRESS') {
+    turnLabel = currentGame.fen.includes(' w ') ? 'White to move' : 'Black to move';
+  }
 
   return (
     <div className="chess-game-view">

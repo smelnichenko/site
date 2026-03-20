@@ -7,7 +7,7 @@ interface GameOverDialogProps {
   onBack: () => void;
 }
 
-export default function GameOverDialog({ game, userId, onNewGame, onBack }: GameOverDialogProps) {
+export default function GameOverDialog({ game, userId, onNewGame, onBack }: Readonly<GameOverDialogProps>) {
   if (game.status !== 'FINISHED' && game.status !== 'ABANDONED') return null;
 
   const getResultText = () => {

@@ -12,7 +12,7 @@ interface GameLobbyProps {
   onGameSelected: (game: ChessGameDto) => void;
 }
 
-export default function GameLobby({ onGameSelected }: GameLobbyProps) {
+export default function GameLobby({ onGameSelected }: Readonly<GameLobbyProps>) {
   const [activeGames, setActiveGames] = useState<ChessGameDto[]>([]);
   const [openGames, setOpenGames] = useState<ChessGameDto[]>([]);
   const [difficulty, setDifficulty] = useState(10);
@@ -126,7 +126,7 @@ export default function GameLobby({ onGameSelected }: GameLobbyProps) {
               <div key={g.gameUuid} className="chess-game-item">
                 <div className="chess-game-info">
                   <span className="chess-game-type">{g.gameType}</span>
-                  <span className="chess-game-status">{g.status.replace(/_/g, ' ')}</span>
+                  <span className="chess-game-status">{g.status.replaceAll('_', ' ')}</span>
                   <span className="chess-game-moves">{g.moveCount} moves</span>
                 </div>
                 <div className="chess-game-actions">

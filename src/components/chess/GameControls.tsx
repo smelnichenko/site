@@ -20,7 +20,7 @@ export default function GameControls({
   onDeclineDraw,
   onBack,
   disabled,
-}: GameControlsProps) {
+}: Readonly<GameControlsProps>) {
   const isFinished = game.status === 'FINISHED' || game.status === 'ABANDONED';
   const isPvp = game.gameType === 'PVP';
   const hasPendingDraw = game.drawOfferedBy !== null;
