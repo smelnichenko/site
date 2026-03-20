@@ -1,0 +1,151 @@
+# CD: Build + Push on push to main
+
+when:
+  - branch: main
+    event: push
+
+clone:
+  - name: git
+    image: woodpeckerci/plugin-git
+    settings:
+      partial: false
+      depth: 100
+
+steps:
+  - name: test
+    image: node:22-bookworm-slim
+    commands:
+      - npm ci --silent
+      - npx tsc --noEmit
+      - npm run test:coverage
+    backend_options:
+      kubernetes:
+        resources:
+          requests: { cpu: 250m, memory: 1Gi }
+          limits: { cpu: 2000m, memory: 2Gi }
+        secrets:
+          - name: woodpecker-ci-secrets
+            key: nexus_npm_registry
+            target:
+              env: NPM_CONFIG_REGISTRY
+
+  - name: sonar
+    image: node:22-bookworm-slim
+    depends_on: [test]
+    commands:
+      - '[ -n "$SONAR_TOKEN" ] && [ -n "$SONAR_HOST_URL" ] || { echo "Skipping SonarQube (no token or URL)"; exit 0; }'
+      - |
+        for i in $(seq 1 30); do
+          wget -q --spider --timeout=2 "$SONAR_HOST_URL/api/system/status" 2>/dev/null && break
+          sleep 1
+        done
+      - git fetch --unshallow || true
+      - npx sonarqube-scanner -Dsonar.qualitygate.wait=false
+    backend_options:
+      kubernetes:
+        secrets:
+          - name: woodpecker-ci-secrets
+            key: sonar_token
+            target:
+              env: SONAR_TOKEN
+          - name: woodpecker-ci-secrets
+            key: sonar_host_url
+            target:
+              env: SONAR_HOST_URL
+          - name: woodpecker-ci-secrets
+            key: nexus_npm_registry
+            target:
+              env: NPM_CONFIG_REGISTRY
+
+  # ============== BUILD + PUSH IMAGE (Kaniko) ==============
+  - name: build-dist
+    image: node:22-bookworm-slim
+    commands:
+      - npm ci --silent
+      - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
+      - BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      - VITE_GIT_HASH=$GIT_HASH VITE_BUILD_TIME=$BUILD_TIME npm run build
+      - mkdir -p .docker-context
+      - cp -r dist .docker-context/
+      - cp Dockerfile.runtime .docker-context/Dockerfile
+      - cp nginx.conf nginx.conf.template security-headers.conf security-headers-base.conf docker-entrypoint.sh .docker-context/
+    depends_on: [test, sonar]
+    backend_options:
+      kubernetes:
+        secrets:
+          - name: woodpecker-ci-secrets
+            key: nexus_npm_registry
+            target:
+              env: NPM_CONFIG_REGISTRY
+
+  - name: push-image
+    image: gcr.io/kaniko-project/executor:debug
+    commands:
+      # Wait for k3s network policy propagation
+      - |
+        for i in $(seq 1 60); do
+          wget --no-check-certificate -q -O /dev/null -S --timeout=2 https://git.pmon.dev/v2/ 2>&1 | grep -q "HTTP/" && break
+          sleep 1
+        done
+      - mkdir -p /kaniko/.docker
+      - |
+        echo "{\"auths\":{\"git.pmon.dev\":{\"username\":\"$REGISTRY_USER\",\"password\":\"$REGISTRY_TOKEN\"}}}" > /kaniko/.docker/config.json
+      - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
+      - |
+        /kaniko/executor \
+          --context=.docker-context \
+          --destination=git.pmon.dev/schnappy/frontend:$GIT_HASH \
+          --skip-tls-verify-registry=git.pmon.dev \
+          --cache=true \
+          --cache-repo=git.pmon.dev/schnappy/frontend/cache
+    depends_on: [build-dist]
+    backend_options:
+      kubernetes:
+        secrets:
+          - name: woodpecker-ci-secrets
+            key: registry_user
+            target:
+              env: REGISTRY_USER
+          - name: woodpecker-ci-secrets
+            key: registry_token
+            target:
+              env: REGISTRY_TOKEN
+
+  # ============== UPDATE INFRA REPO (Flux deploys) ==============
+  - name: update-infra
+    image: alpine:latest
+    commands:
+      - apk add --no-cache git
+      - printf "machine git.pmon.dev\nlogin woodpecker\npassword %s\n" "$INFRA_TOKEN" > ~/.netrc && chmod 600 ~/.netrc
+      - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
+      - |
+        HELMRELEASE=clusters/production/monitor/helmrelease.yaml
+
+        for attempt in 1 2 3 4 5; do
+          rm -rf /tmp/infra
+          git clone https://git.pmon.dev/schnappy/infra.git /tmp/infra
+          cd /tmp/infra
+          git config user.name "Woodpecker CD"
+          git config user.email "woodpecker@pmon.dev"
+
+          sed -i "s|tag: \".*\"  # monitor-frontend|tag: \"$GIT_HASH\"  # monitor-frontend|" "$HELMRELEASE"
+
+          git add -A
+          git diff --cached --quiet && { echo "No changes to commit"; exit 0; }
+          git commit -m "deploy: frontend=$GIT_HASH"
+          git push && { echo "Push succeeded"; exit 0; }
+
+          echo "Push conflict (attempt $attempt), retrying..."
+          sleep $((attempt * 2))
+        done
+
+        echo "Failed to push after 5 attempts"
+        exit 1
+    depends_on: [push-image]
+    backend_options:
+      kubernetes:
+        secrets:
+          - name: woodpecker-ci-secrets
+            key: infra_repo_token
+            target:
+              env: INFRA_TOKEN
