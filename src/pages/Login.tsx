@@ -88,10 +88,18 @@ function Login() {
               </p>
             ) : (
               <button
-                className="btn"
                 onClick={handleResend}
                 disabled={resendBusy || !email.trim()}
-                style={{ width: '100%' }}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  fontSize: '0.95rem',
+                }}
               >
                 {resendBusy ? 'Sending...' : 'Resend verification email'}
               </button>
