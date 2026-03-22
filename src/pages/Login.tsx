@@ -161,12 +161,13 @@ function Login() {
           style={{
             width: '100%',
             padding: '10px 16px',
-            border: '1px solid var(--border)',
+            border: 'none',
             borderRadius: '6px',
-            background: 'var(--bg)',
-            color: 'var(--text)',
+            background: '#2563eb',
+            color: '#fff',
             cursor: 'pointer',
             fontSize: '0.95rem',
+            fontWeight: 500,
           }}
         >
           Sign in with Keycloak
