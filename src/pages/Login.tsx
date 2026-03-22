@@ -2,6 +2,7 @@ import { type SyntheticEvent, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useHashcash } from '../hooks/useHashcash';
+import { OIDC_CONFIG } from '../config/oidc';
 
 function buttonLabel(solving: boolean, loading: boolean) {
   if (solving) return 'Verifying...';
@@ -132,6 +133,44 @@ function Login() {
             {buttonLabel(solving, loading)}
           </button>
         </form>
+        <div style={{ position: 'relative', textAlign: 'center', margin: '16px 0' }}>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)' }} />
+          <span style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'var(--card-bg, #fff)',
+            padding: '0 12px',
+            color: '#888',
+            fontSize: '0.85rem',
+          }}>or</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const params = new URLSearchParams({
+              client_id: OIDC_CONFIG.clientId,
+              redirect_uri: OIDC_CONFIG.redirectUri,
+              response_type: 'code',
+              scope: 'openid profile email',
+            });
+            globalThis.location.href = `${OIDC_CONFIG.authority}/protocol/openid-connect/auth?${params}`;
+          }}
+          disabled={busy}
+          style={{
+            width: '100%',
+            padding: '10px 16px',
+            border: '1px solid var(--border)',
+            borderRadius: '6px',
+            background: 'var(--bg)',
+            color: 'var(--text)',
+            cursor: 'pointer',
+            fontSize: '0.95rem',
+          }}
+        >
+          Sign in with Keycloak
+        </button>
         <p className="auth-link">
           <Link to="/forgot-password">Forgot password?</Link>
         </p>

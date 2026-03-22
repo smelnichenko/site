@@ -19,6 +19,7 @@ vi.mock('../hooks/useHashcash', () => ({
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
     login: mockLogin,
+    loginWithCode: vi.fn(),
     isAuthenticated: false,
     email: null,
     permissions: [],
@@ -106,6 +107,11 @@ describe('Login', () => {
   it('has link to register page', () => {
     renderLogin()
     expect(screen.getByText('Register')).toHaveAttribute('href', '/register')
+  })
+
+  it('renders Keycloak login button', () => {
+    renderLogin()
+    expect(screen.getByRole('button', { name: 'Sign in with Keycloak' })).toBeInTheDocument()
   })
 
   describe('resend verification', () => {

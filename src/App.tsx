@@ -10,6 +10,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
+import AuthCallback from './pages/AuthCallback';
 
 // Lazy-load pages that pull in heavy dependencies (recharts/d3)
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -50,7 +51,7 @@ function App() {
   const hasPendingApproval = isAuthenticated && permissions.length === 0;
 
   useEffect(() => {
-    const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
+    const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/auth/callback'];
     if (isAuthenticated && !publicPaths.includes(location.pathname) && location.pathname !== lastSavedPath.current) {
       lastSavedPath.current = location.pathname;
       saveLastPath(location.pathname).catch(() => {});
@@ -146,6 +147,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/" element={<ProtectedRoute permission="METRICS"><Dashboard /></ProtectedRoute>} />
             <Route path="/page/:pageName" element={<ProtectedRoute permission="METRICS"><PageDetail /></ProtectedRoute>} />
             <Route path="/rss" element={<ProtectedRoute permission="METRICS"><RssDashboard /></ProtectedRoute>} />

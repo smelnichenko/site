@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { AuthProvider, useAuth } from './AuthContext'
 import { setPermissionsChangedCallback, fetchUserKeys, uploadUserKeys } from '../services/api'
@@ -40,6 +40,23 @@ vi.mock('../services/keyStore', () => ({
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
+
+// Mock location.href setter to prevent jsdom navigation errors from Keycloak logout redirect
+const originalLocation = globalThis.location
+beforeAll(() => {
+  Object.defineProperty(globalThis, 'location', {
+    value: { ...originalLocation, href: originalLocation.href },
+    writable: true,
+    configurable: true,
+  })
+})
+afterAll(() => {
+  Object.defineProperty(globalThis, 'location', {
+    value: originalLocation,
+    writable: true,
+    configurable: true,
+  })
+})
 
 beforeEach(() => {
   mockFetch.mockReset()

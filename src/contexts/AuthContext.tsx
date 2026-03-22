@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { OIDC_CONFIG } from '../config/oidc';
 import { setPermissionsChangedCallback, fetchUserKeys, uploadUserKeys } from '../services/api';
 import {
   generateIdentityKeyPair,
@@ -27,6 +28,7 @@ export interface CaptchaData {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, captcha?: CaptchaData) => Promise<string | null>;
+  loginWithCode: (code: string, redirectUri: string) => Promise<string | null>;
   logout: () => void;
   refreshPermissions: () => Promise<void>;
   isAuthenticated: boolean;
@@ -187,6 +189,27 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     return data.lastPath ?? null;
   }, []);
 
+  const loginWithCode = useCallback(async (code: string, redirectUri: string): Promise<string | null> => {
+    const response = await fetch(`${API_BASE}/auth/oidc/callback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ code, redirectUri }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'OIDC login failed');
+    }
+    const data = await response.json();
+    setAuth({
+      email: data.email,
+      userId: data.userId ?? null,
+      permissions: data.permissions || [],
+      groups: data.groups || [],
+    });
+    return data.lastPath ?? null;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await fetch(`${API_BASE}/auth/logout`, {
@@ -198,6 +221,8 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     }
     keyStore.clear();
     setAuth({ email: null, userId: null, permissions: [], groups: [] });
+    const keycloakLogoutUrl = `${OIDC_CONFIG.authority}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(OIDC_CONFIG.postLogoutRedirectUri)}&client_id=${OIDC_CONFIG.clientId}`;
+    globalThis.location.href = keycloakLogoutUrl;
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -205,8 +230,8 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, [logout]);
 
   const contextValue = useMemo(() => ({
-    ...auth, login, logout: handleLogout, refreshPermissions, isAuthenticated, hasPermission,
-  }), [auth, login, handleLogout, refreshPermissions, isAuthenticated, hasPermission]);
+    ...auth, login, loginWithCode, logout: handleLogout, refreshPermissions, isAuthenticated, hasPermission,
+  }), [auth, login, loginWithCode, handleLogout, refreshPermissions, isAuthenticated, hasPermission]);
 
   return (
     <AuthContext.Provider value={contextValue}>
