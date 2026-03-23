@@ -79,7 +79,7 @@ export interface PageStats {
   };
 }
 
-import { getAccessToken, login as oidcLogin } from './oidcClient';
+import { getAccessToken } from './oidcClient';
 
 const API_BASE = '/api';
 
@@ -97,8 +97,8 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
   const response = await fetch(url, { ...options, headers });
 
   if (response.status === 401) {
-    // Session expired — redirect to Keycloak login
-    await oidcLogin();
+    console.error('API 401:', url, 'token present:', !!token, 'token prefix:', token?.substring(0, 20));
+    // Don't auto-redirect — let the UI handle it
     throw new Error('Unauthorized');
   }
 

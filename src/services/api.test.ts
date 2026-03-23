@@ -77,12 +77,12 @@ describe('api - apiFetch internals (tested via exported functions)', () => {
     )
   })
 
-  it('calls oidcClient.login on 401 response', async () => {
+  it('throws on 401 response without redirecting', async () => {
     const { fetchPages } = await import('./api')
     const { login } = await import('./oidcClient')
     mockFetch.mockResolvedValueOnce(mockResponse(null, { status: 401 }))
     await expect(fetchPages()).rejects.toThrow('Unauthorized')
-    expect(login).toHaveBeenCalled()
+    expect(login).not.toHaveBeenCalled()
   })
 
   it('does not include credentials: include (no cookies)', async () => {
