@@ -77,6 +77,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, []);
 
   const logout = useCallback(() => {
+    console.debug('[Auth] logout called');
     keyStore.clear();
     setAuth(EMPTY_STATE);
     oidcClient.logout();
