@@ -103,6 +103,7 @@ async function tokenRequest(params: URLSearchParams): Promise<{
   );
   if (!response.ok) {
     const error = await response.text().catch(() => 'Token request failed');
+    console.error('Token request failed:', response.status, error);
     throw new Error(error);
   }
   return response.json();

@@ -25,7 +25,10 @@ function AuthCallback() {
 
     handleCallback(code)
       .then(() => navigate('/', { replace: true }))
-      .catch(e => setError(e instanceof Error ? e.message : 'OIDC login failed'));
+      .catch(e => {
+        console.error('OIDC callback error:', e);
+        setError(e instanceof Error ? e.message : 'OIDC login failed');
+      });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) {
