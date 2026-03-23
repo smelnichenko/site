@@ -38,7 +38,6 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [initializing, setInitializing] = useState(true);
 
   const isAuthenticated = !!auth.email;
-  console.debug('[Auth]', { isAuthenticated, initializing, email: auth.email });
 
   const hasPermission = useCallback(
     (permission: string) => auth.permissions.includes(permission),
@@ -77,7 +76,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, []);
 
   const logout = useCallback(() => {
-    console.debug('[Auth] logout called');
+
     keyStore.clear();
     setAuth(EMPTY_STATE);
     oidcClient.logout();

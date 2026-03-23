@@ -97,7 +97,7 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
   const response = await fetch(url, { ...options, headers });
 
   if (response.status === 401) {
-    console.error('API 401:', url, 'token present:', !!token, 'token prefix:', token?.substring(0, 20));
+    console.error('API 401:', url);
     // Don't auto-redirect — let the UI handle it
     throw new Error('Unauthorized');
   }
