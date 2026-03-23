@@ -44,8 +44,13 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     [auth.permissions]
   );
 
-  // On mount: try silent auth to restore session
+  // On mount: check if we have tokens in memory (e.g., after token refresh)
   useEffect(() => {
+    // Skip silent auth if we're on the callback page (handleCallback will set auth)
+    if (globalThis.location.pathname === '/auth/callback') {
+      setInitializing(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -67,6 +72,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const handleCallback = useCallback(async (code: string): Promise<void> => {
     const userInfo = await oidcClient.handleCallback(code);
     setAuth(userInfoToState(userInfo));
+    setInitializing(false);
   }, []);
 
   const logout = useCallback(() => {
