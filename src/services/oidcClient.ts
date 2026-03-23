@@ -210,83 +210,20 @@ export async function refreshAndGetUserInfo(): Promise<UserInfo | null> {
 }
 
 /**
- * Try silent authentication via Keycloak session (iframe prompt=none).
- * Returns UserInfo if a Keycloak session exists, null otherwise.
+ * Try to restore session from in-memory tokens.
+ * If refresh token exists, refresh and return user info.
+ * On page refresh (tokens lost), returns null — user redirects to Keycloak
+ * which auto-authenticates via session cookie (instant, no login prompt).
  */
 export async function trySilentAuth(): Promise<UserInfo | null> {
-  // If we already have a valid refresh token, just refresh
   if (refreshToken) {
     const refreshed = await silentRefresh();
     if (refreshed && accessToken) {
       return extractUserInfo(accessToken);
     }
   }
-
-  // Try prompt=none to check for existing Keycloak session
-  const verifier = await generateCodeVerifier();
-  const challenge = await generateCodeChallenge(verifier);
-
-  const params = new URLSearchParams({
-    client_id: OIDC_CONFIG.clientId,
-    redirect_uri: OIDC_CONFIG.redirectUri,
-    response_type: 'code',
-    scope: 'openid profile email',
-    code_challenge: challenge,
-    code_challenge_method: 'S256',
-    prompt: 'none',
-  });
-
-  const authUrl = `${OIDC_CONFIG.authority}/protocol/openid-connect/auth?${params}`;
-
-  return new Promise((resolve) => {
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = authUrl;
-
-    const timeout = globalThis.setTimeout(() => {
-      cleanup();
-      resolve(null);
-    }, 5_000);
-
-    function cleanup() {
-      globalThis.clearTimeout(timeout);
-      globalThis.removeEventListener('message', onMessage);
-      if (iframe.parentNode) {
-        iframe.parentNode.removeChild(iframe);
-      }
-    }
-
-    function onMessage(event: MessageEvent) {
-      if (event.origin !== globalThis.location.origin) return;
-      cleanup();
-      resolve(null);
-    }
-
-    iframe.onload = async () => {
-      try {
-        const iframeUrl = new URL(iframe.contentWindow!.location.href);
-        const code = iframeUrl.searchParams.get('code');
-        const error = iframeUrl.searchParams.get('error');
-
-        cleanup();
-
-        if (error || !code) {
-          resolve(null);
-          return;
-        }
-
-        // Exchange code using the verifier we generated
-        sessionStorage.setItem('oidc_code_verifier', verifier);
-        const userInfo = await handleCallback(code);
-        resolve(userInfo);
-      } catch {
-        // Cross-origin or other error — no session
-        cleanup();
-        resolve(null);
-      }
-    };
-
-    globalThis.addEventListener('message', onMessage);
-    document.body.appendChild(iframe);
-  });
+  if (accessToken && Date.now() < expiresAt) {
+    return extractUserInfo(accessToken);
+  }
+  return null;
 }
