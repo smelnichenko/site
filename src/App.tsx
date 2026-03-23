@@ -6,9 +6,6 @@ import { saveLastPath } from './services/api';
 import ProtectedRoute from './components/ProtectedRoute';
 import PendingApproval from './components/PendingApproval';
 import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import AuthCallback from './pages/AuthCallback';
 
@@ -51,7 +48,7 @@ function App() {
   const hasPendingApproval = isAuthenticated && permissions.length === 0;
 
   useEffect(() => {
-    const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/auth/callback'];
+    const publicPaths = ['/login', '/verify-email', '/auth/callback'];
     if (isAuthenticated && !publicPaths.includes(location.pathname) && location.pathname !== lastSavedPath.current) {
       lastSavedPath.current = location.pathname;
       saveLastPath(location.pathname).catch(() => {});
@@ -143,9 +140,6 @@ function App() {
           <Suspense fallback={<div className="loading-overlay"><div className="loading-spinner" /></div>}>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/" element={<ProtectedRoute permission="METRICS"><Dashboard /></ProtectedRoute>} />

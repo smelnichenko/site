@@ -1,17 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { OIDC_CONFIG } from '../config/oidc';
-import { setPermissionsChangedCallback, fetchUserKeys, uploadUserKeys } from '../services/api';
-import {
-  generateIdentityKeyPair,
-  exportPublicKey,
-  importPublicKey,
-  generateSalt,
-  deriveWrappingKey,
-  encryptPrivateKey,
-  decryptPrivateKey,
-  bufferToBase64,
-  base64ToBuffer,
-} from '../services/crypto';
+import { setPermissionsChangedCallback } from '../services/api';
 import * as keyStore from '../services/keyStore';
 
 interface AuthState {
@@ -21,13 +10,7 @@ interface AuthState {
   groups: string[];
 }
 
-export interface CaptchaData {
-  captchaChallenge: string;
-  captchaNonce: string;
-}
-
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string, captcha?: CaptchaData) => Promise<string | null>;
   loginWithCode: (code: string, redirectUri: string) => Promise<string | null>;
   logout: () => void;
   refreshPermissions: () => Promise<void>;
@@ -58,33 +41,6 @@ function saveState(state: AuthState) {
     localStorage.removeItem('userId');
     localStorage.removeItem('permissions');
     localStorage.removeItem('groups');
-  }
-}
-
-async function setupE2eKeys(password: string) {
-  const existing = await fetchUserKeys();
-  if (existing) {
-    // Decrypt existing private key
-    const salt = base64ToBuffer(existing.pbkdf2Salt);
-    const wrappingKey = await deriveWrappingKey(password, salt.buffer as ArrayBuffer, existing.pbkdf2Iterations);
-    const privateKey = await decryptPrivateKey(existing.encryptedPrivateKey, wrappingKey);
-    const publicKey = await importPublicKey(JSON.parse(existing.publicKey));
-    keyStore.setIdentityKeys(privateKey, publicKey);
-  } else {
-    // Generate new key pair
-    const keyPair = await generateIdentityKeyPair();
-    const salt = generateSalt();
-    const wrappingKey = await deriveWrappingKey(password, salt.buffer as ArrayBuffer, 600000);
-    const encryptedPrivKey = await encryptPrivateKey(keyPair.privateKey, wrappingKey);
-    const publicKeyJwk = await exportPublicKey(keyPair.publicKey);
-
-    await uploadUserKeys({
-      publicKey: JSON.stringify(publicKeyJwk),
-      encryptedPrivateKey: encryptedPrivKey,
-      pbkdf2Salt: bufferToBase64(salt),
-      pbkdf2Iterations: 600000,
-    });
-    keyStore.setIdentityKeys(keyPair.privateKey, keyPair.publicKey);
   }
 }
 
@@ -158,37 +114,6 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     return () => clearInterval(interval);
   }, [auth.email]);
 
-  const login = useCallback(async (email: string, password: string, captcha?: CaptchaData): Promise<string | null> => {
-    const response = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email, password, ...captcha }),
-    });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'Login failed');
-    }
-    const data = await response.json();
-    setAuth({
-      email: data.email,
-      userId: data.userId ?? null,
-      permissions: data.permissions || [],
-      groups: data.groups || [],
-    });
-
-    // Set up E2E encryption keys (best-effort, don't block login)
-    if (data.permissions?.includes('CHAT')) {
-      try {
-        await setupE2eKeys(password);
-      } catch (e) {
-        console.warn('E2E key setup failed:', e);
-      }
-    }
-
-    return data.lastPath ?? null;
-  }, []);
-
   const loginWithCode = useCallback(async (code: string, redirectUri: string): Promise<string | null> => {
     const response = await fetch(`${API_BASE}/auth/oidc/callback`, {
       method: 'POST',
@@ -211,14 +136,6 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, []);
 
   const logout = useCallback(async () => {
-    try {
-      await fetch(`${API_BASE}/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch {
-      // Ignore errors during logout
-    }
     keyStore.clear();
     setAuth({ email: null, userId: null, permissions: [], groups: [] });
     const keycloakLogoutUrl = `${OIDC_CONFIG.authority}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(OIDC_CONFIG.postLogoutRedirectUri)}&client_id=${OIDC_CONFIG.clientId}`;
@@ -230,8 +147,8 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, [logout]);
 
   const contextValue = useMemo(() => ({
-    ...auth, login, loginWithCode, logout: handleLogout, refreshPermissions, isAuthenticated, hasPermission,
-  }), [auth, login, loginWithCode, handleLogout, refreshPermissions, isAuthenticated, hasPermission]);
+    ...auth, loginWithCode, logout: handleLogout, refreshPermissions, isAuthenticated, hasPermission,
+  }), [auth, loginWithCode, handleLogout, refreshPermissions, isAuthenticated, hasPermission]);
 
   return (
     <AuthContext.Provider value={contextValue}>

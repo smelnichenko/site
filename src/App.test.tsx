@@ -1,17 +1,26 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import { LoadingProvider } from './contexts/LoadingContext'
 
-vi.mock('./hooks/useHashcash', () => ({
-  useHashcash: () => ({
-    enabled: false,
-    solving: false,
-    solve: vi.fn().mockResolvedValue({ challenge: '', nonce: '' }),
-  }),
-}))
+// Mock location.href to prevent jsdom navigation errors from Keycloak redirect
+const originalLocation = globalThis.location
+beforeAll(() => {
+  Object.defineProperty(globalThis, 'location', {
+    value: { ...originalLocation, href: originalLocation.href },
+    writable: true,
+    configurable: true,
+  })
+})
+afterAll(() => {
+  Object.defineProperty(globalThis, 'location', {
+    value: originalLocation,
+    writable: true,
+    configurable: true,
+  })
+})
 
 // Mock fetch to prevent network calls
 vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -35,13 +44,12 @@ function renderApp(route = '/login') {
 describe('App', () => {
   it('renders without crashing', () => {
     renderApp()
-    // The login page should render for unauthenticated users
-    expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument()
+    // The login page should render the redirect message for unauthenticated users
+    expect(screen.getByText('Redirecting to login...')).toBeInTheDocument()
   })
 
-  it('renders login page at /login route', () => {
+  it('renders login redirect at /login route', () => {
     renderApp('/login')
-    expect(screen.getByLabelText('Email')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toBeInTheDocument()
+    expect(screen.getByText('Redirecting to login...')).toBeInTheDocument()
   })
 })
