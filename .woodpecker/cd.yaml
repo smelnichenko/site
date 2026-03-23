@@ -97,6 +97,8 @@ steps:
           --dockerfile=.docker-context/Dockerfile \
           --destination=git.pmon.dev/schnappy/site:$GIT_HASH \
           --skip-tls-verify-registry=git.pmon.dev \
+          --registry-mirror=nexus.pmon.dev:8082 \
+          --insecure-registry=nexus.pmon.dev:8082 \
           --cache=true \
           --cache-repo=git.pmon.dev/schnappy/site/cache
     depends_on: [build-dist]
