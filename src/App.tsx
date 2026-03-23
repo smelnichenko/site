@@ -38,7 +38,7 @@ function formatBuildTime(isoString: string): string {
 
 function App() {
   const location = useLocation();
-  const { isAuthenticated, email, logout, hasPermission, permissions } = useAuth();
+  const { isAuthenticated, email, logout, hasPermission, permissions, initializing } = useAuth();
   const { loading } = useLoading();
   const [buildInfo, setBuildInfo] = useState(
     `FE: ${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`
@@ -68,6 +68,21 @@ function App() {
       })
       .catch(() => {});
   }, []);
+
+  if (initializing) {
+    return (
+      <div>
+        <header className="header">
+          <div className="header-top">
+            <div className="header-side" />
+            <img src="/logo.svg" alt="" className="header-logo" title={buildInfo} />
+            <div className="header-side" />
+          </div>
+        </header>
+        <div className="loading-overlay"><div className="loading-spinner" /></div>
+      </div>
+    );
+  }
 
   return (
     <div>

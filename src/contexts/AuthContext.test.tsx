@@ -1,20 +1,21 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { AuthProvider, useAuth } from './AuthContext'
-import { setPermissionsChangedCallback } from '../services/api'
 import * as keyStore from '../services/keyStore'
+import * as oidcClient from '../services/oidcClient'
 
-vi.mock('../services/api', () => ({
-  setPermissionsChangedCallback: vi.fn(),
+vi.mock('../services/oidcClient', () => ({
+  trySilentAuth: vi.fn(),
+  handleCallback: vi.fn(),
+  logout: vi.fn(),
+  getAccessToken: vi.fn(),
+  refreshAndGetUserInfo: vi.fn(),
 }))
 
 vi.mock('../services/keyStore', () => ({
   setIdentityKeys: vi.fn(),
   clear: vi.fn(),
 }))
-
-const mockFetch = vi.fn()
-vi.stubGlobal('fetch', mockFetch)
 
 // Mock location.href setter to prevent jsdom navigation errors from Keycloak logout redirect
 const originalLocation = globalThis.location
@@ -34,10 +35,11 @@ afterAll(() => {
 })
 
 beforeEach(() => {
-  mockFetch.mockReset()
-  localStorage.clear()
-  vi.mocked(setPermissionsChangedCallback).mockReset()
-  vi.mocked(keyStore.setIdentityKeys).mockReset()
+  vi.mocked(oidcClient.trySilentAuth).mockResolvedValue(null)
+  vi.mocked(oidcClient.handleCallback).mockReset()
+  vi.mocked(oidcClient.logout).mockReset()
+  vi.mocked(oidcClient.getAccessToken).mockReset()
+  vi.mocked(oidcClient.refreshAndGetUserInfo).mockReset()
   vi.mocked(keyStore.clear).mockReset()
 })
 
@@ -46,61 +48,70 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe('AuthContext', () => {
-  it('initial state is not authenticated when no email in localStorage', () => {
+  it('initial state is not authenticated when no session exists', async () => {
     const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.initializing).toBe(false))
     expect(result.current.isAuthenticated).toBe(false)
     expect(result.current.email).toBeNull()
   })
 
-  it('initial state is authenticated when email exists in localStorage', () => {
-    localStorage.setItem('email', 'test@example.com')
-    const { result } = renderHook(() => useAuth(), { wrapper })
-    expect(result.current.isAuthenticated).toBe(true)
-    expect(result.current.email).toBe('test@example.com')
-  })
-
-  it('loginWithCode sets user state from OIDC callback', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ email: 'user@test.com', userId: 1, permissions: ['METRICS'], groups: ['Users'] }),
+  it('restores session via silent auth on mount', async () => {
+    vi.mocked(oidcClient.trySilentAuth).mockResolvedValue({
+      email: 'test@example.com',
+      uuid: 'abc-123',
+      permissions: ['METRICS'],
     })
 
     const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+    expect(result.current.isAuthenticated).toBe(true)
+    expect(result.current.email).toBe('test@example.com')
+    expect(result.current.permissions).toEqual(['METRICS'])
+  })
+
+  it('handleCallback sets user state from OIDC token', async () => {
+    vi.mocked(oidcClient.handleCallback).mockResolvedValue({
+      email: 'user@test.com',
+      uuid: 'uuid-1',
+      permissions: ['METRICS'],
+    })
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+
     await act(async () => {
-      await result.current.loginWithCode('auth-code', 'http://localhost/auth/callback')
+      await result.current.handleCallback('auth-code')
     })
 
     expect(result.current.isAuthenticated).toBe(true)
     expect(result.current.email).toBe('user@test.com')
     expect(result.current.permissions).toEqual(['METRICS'])
-    expect(result.current.groups).toEqual(['Users'])
-    expect(localStorage.getItem('email')).toBe('user@test.com')
   })
 
-  it('loginWithCode failure throws error', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      json: () => Promise.resolve({ error: 'OIDC login failed' }),
-    })
+  it('handleCallback failure throws error', async () => {
+    vi.mocked(oidcClient.handleCallback).mockRejectedValue(new Error('Token exchange failed'))
 
     const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+
     await expect(
       act(async () => {
-        await result.current.loginWithCode('bad-code', 'http://localhost/auth/callback')
+        await result.current.handleCallback('bad-code')
       }),
-    ).rejects.toThrow('OIDC login failed')
+    ).rejects.toThrow('Token exchange failed')
 
     expect(result.current.isAuthenticated).toBe(false)
   })
 
-  it('logout clears user and removes email from localStorage', async () => {
-    // Start logged in
-    localStorage.setItem('email', 'user@test.com')
-    localStorage.setItem('permissions', '["METRICS"]')
-    localStorage.setItem('groups', '["Users"]')
+  it('logout clears state and calls oidcClient.logout', async () => {
+    vi.mocked(oidcClient.trySilentAuth).mockResolvedValue({
+      email: 'user@test.com',
+      uuid: 'uuid-1',
+      permissions: ['METRICS'],
+    })
 
     const { result } = renderHook(() => useAuth(), { wrapper })
-    expect(result.current.isAuthenticated).toBe(true)
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
 
     await act(async () => {
       result.current.logout()
@@ -109,26 +120,19 @@ describe('AuthContext', () => {
     expect(result.current.isAuthenticated).toBe(false)
     expect(result.current.email).toBeNull()
     expect(result.current.permissions).toEqual([])
-    expect(localStorage.getItem('email')).toBeNull()
-    expect(localStorage.getItem('permissions')).toBeNull()
-    expect(localStorage.getItem('groups')).toBeNull()
-  })
-
-  it('logout redirects to Keycloak logout', async () => {
-    localStorage.setItem('email', 'user@test.com')
-
-    const { result } = renderHook(() => useAuth(), { wrapper })
-    await act(async () => {
-      result.current.logout()
-    })
-
-    expect(globalThis.location.href).toContain('/protocol/openid-connect/logout')
+    expect(oidcClient.logout).toHaveBeenCalled()
   })
 
   it('logout clears keyStore', async () => {
-    localStorage.setItem('email', 'user@test.com')
+    vi.mocked(oidcClient.trySilentAuth).mockResolvedValue({
+      email: 'user@test.com',
+      uuid: 'uuid-1',
+      permissions: [],
+    })
 
     const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
+
     await act(async () => {
       result.current.logout()
     })
@@ -137,14 +141,17 @@ describe('AuthContext', () => {
   })
 
   it('hasPermission returns correct results', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ email: 'user@test.com', permissions: ['METRICS', 'PLAY'], groups: ['Users'] }),
+    vi.mocked(oidcClient.handleCallback).mockResolvedValue({
+      email: 'user@test.com',
+      uuid: 'uuid-1',
+      permissions: ['METRICS', 'PLAY'],
     })
 
     const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+
     await act(async () => {
-      await result.current.loginWithCode('code', 'http://localhost/auth/callback')
+      await result.current.handleCallback('code')
     })
 
     expect(result.current.hasPermission('METRICS')).toBe(true)
@@ -153,7 +160,6 @@ describe('AuthContext', () => {
   })
 
   it('useAuth throws when used outside AuthProvider', () => {
-    // Suppress console.error for this test
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(() => {
       renderHook(() => useAuth())
@@ -161,49 +167,32 @@ describe('AuthContext', () => {
     spy.mockRestore()
   })
 
-  it('registers permissions changed callback when authenticated', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ email: 'user@test.com', permissions: ['METRICS'], groups: ['Users'] }),
+  it('refreshPermissions updates state from refreshed token', async () => {
+    vi.mocked(oidcClient.handleCallback).mockResolvedValue({
+      email: 'user@test.com',
+      uuid: 'uuid-1',
+      permissions: ['METRICS'],
     })
 
     const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.initializing).toBe(false))
+
     await act(async () => {
-      await result.current.loginWithCode('code', 'http://localhost/auth/callback')
+      await result.current.handleCallback('code')
     })
 
-    expect(setPermissionsChangedCallback).toHaveBeenCalledWith(expect.any(Function))
-  })
+    expect(result.current.permissions).toEqual(['METRICS'])
 
-  it('refresh callback updates permissions from /api/auth/refresh', async () => {
-    // Login first
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ email: 'user@test.com', permissions: ['METRICS'], groups: ['Users'] }),
-    })
-
-    const { result } = renderHook(() => useAuth(), { wrapper })
-    await act(async () => {
-      await result.current.loginWithCode('code', 'http://localhost/auth/callback')
-    })
-
-    // Get the callback that was registered
-    const calls = vi.mocked(setPermissionsChangedCallback).mock.calls
-    const refreshCallback = calls.find(c => typeof c[0] === 'function')?.[0] as () => Promise<void>
-    expect(refreshCallback).toBeDefined()
-
-    // Mock the refresh response
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ email: 'user@test.com', permissions: ['METRICS', 'PLAY'], groups: ['Users', 'Gamers'] }),
+    vi.mocked(oidcClient.refreshAndGetUserInfo).mockResolvedValue({
+      email: 'user@test.com',
+      uuid: 'uuid-1',
+      permissions: ['METRICS', 'PLAY'],
     })
 
     await act(async () => {
-      await refreshCallback()
+      await result.current.refreshPermissions()
     })
 
     expect(result.current.permissions).toEqual(['METRICS', 'PLAY'])
-    expect(result.current.groups).toEqual(['Users', 'Gamers'])
-    expect(mockFetch).toHaveBeenCalledWith('/api/auth/refresh', expect.objectContaining({ method: 'POST' }))
   })
 })

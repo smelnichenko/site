@@ -14,7 +14,6 @@ vi.mock('../contexts/AuthContext', () => ({
     isAuthenticated: true,
     email: 'test@example.com',
     permissions: [],
-    groups: [],
     hasPermission: () => false,
   }),
 }))

@@ -1,9 +1,20 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import { LoadingProvider } from './contexts/LoadingContext'
+
+// Mock oidcClient to prevent actual OIDC calls
+vi.mock('./services/oidcClient', () => ({
+  trySilentAuth: vi.fn().mockResolvedValue(null),
+  handleCallback: vi.fn(),
+  logout: vi.fn(),
+  getAccessToken: vi.fn().mockResolvedValue(null),
+  login: vi.fn(),
+  isAuthenticated: vi.fn().mockReturnValue(false),
+  refreshAndGetUserInfo: vi.fn(),
+}))
 
 // Mock location.href to prevent jsdom navigation errors from Keycloak redirect
 const originalLocation = globalThis.location
@@ -42,14 +53,17 @@ function renderApp(route = '/login') {
 }
 
 describe('App', () => {
-  it('renders without crashing', () => {
+  it('renders without crashing', async () => {
     renderApp()
-    // The login page should render the redirect message for unauthenticated users
-    expect(screen.getByText('Redirecting to login...')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Redirecting to login...')).toBeInTheDocument()
+    })
   })
 
-  it('renders login redirect at /login route', () => {
+  it('renders login redirect at /login route', async () => {
     renderApp('/login')
-    expect(screen.getByText('Redirecting to login...')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Redirecting to login...')).toBeInTheDocument()
+    })
   })
 })

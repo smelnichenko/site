@@ -7,8 +7,13 @@ interface ProtectedRouteProps {
 }
 
 function ProtectedRoute({ children, permission }: Readonly<ProtectedRouteProps>) {
-  const { isAuthenticated, hasPermission } = useAuth();
+  const { isAuthenticated, hasPermission, initializing } = useAuth();
   const location = useLocation();
+
+  // Wait for silent auth to complete before deciding to redirect
+  if (initializing) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;

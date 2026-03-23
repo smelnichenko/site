@@ -79,56 +79,27 @@ export interface PageStats {
   };
 }
 
+import { getAccessToken, login as oidcLogin } from './oidcClient';
+
 const API_BASE = '/api';
-
-// Global callback for permission refresh — set by AuthContext
-let _onPermissionsChanged: (() => Promise<void>) | null = null;
-
-export function setPermissionsChangedCallback(cb: (() => Promise<void>) | null) {
-  _onPermissionsChanged = cb;
-}
-
-function getCsrfToken(): string | null {
-  const match = /(?:^|;\s*)XSRF-TOKEN=([^;]*)/.exec(document.cookie);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-let _refreshPromise: Promise<void> | null = null;
 
 async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   };
 
-  // Add CSRF token for state-changing requests
-  const method = (options.method || 'GET').toUpperCase();
-  if (method !== 'GET' && method !== 'HEAD') {
-    const csrfToken = getCsrfToken();
-    if (csrfToken) {
-      headers['X-XSRF-TOKEN'] = csrfToken;
-    }
+  // Add Bearer token
+  const token = await getAccessToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, { ...options, headers, credentials: 'include' });
+  const response = await fetch(url, { ...options, headers });
 
   if (response.status === 401) {
-    localStorage.removeItem('email');
-    localStorage.removeItem('permissions');
-    localStorage.removeItem('groups');
-    globalThis.location.href = '/login';
+    // Session expired — redirect to Keycloak login
+    await oidcLogin();
     throw new Error('Unauthorized');
-  }
-
-  // Handle stale permissions — refresh token and retry once
-  if (response.status === 403 && _onPermissionsChanged) {
-    const body = await response.clone().json().catch(() => null);
-    if (body?.error === 'permissions_changed') {
-      // Deduplicate concurrent refresh calls
-      _refreshPromise ??= _onPermissionsChanged().finally(() => { _refreshPromise = null; });
-      await _refreshPromise;
-      // Retry the original request once
-      return fetch(url, { ...options, headers, credentials: 'include' });
-    }
   }
 
   return response;

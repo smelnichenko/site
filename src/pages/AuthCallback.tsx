@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { OIDC_CONFIG } from '../config/oidc';
 
 function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
-  const { loginWithCode } = useAuth();
+  const { handleCallback } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -24,8 +23,8 @@ function AuthCallback() {
       return;
     }
 
-    loginWithCode(code, OIDC_CONFIG.redirectUri)
-      .then(lastPath => navigate(lastPath || '/', { replace: true }))
+    handleCallback(code)
+      .then(() => navigate('/', { replace: true }))
       .catch(e => setError(e instanceof Error ? e.message : 'OIDC login failed'));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// We need to test the module's internal functions via exports.
-// apiFetch is not exported, so we test it indirectly through the exported functions.
-// We also test exported helpers directly.
+// Mock oidcClient before importing api
+vi.mock('./oidcClient', () => ({
+  getAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
+  login: vi.fn(),
+}))
 
 // Mock fetch globally
 const mockFetch = vi.fn()
@@ -23,10 +25,6 @@ function mockResponse(body: unknown, init: { status?: number; headers?: Record<s
 
 beforeEach(() => {
   mockFetch.mockReset()
-  // Clear cookies
-  document.cookie = 'XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-  // Clear localStorage
-  localStorage.clear()
   // Reset location
   Object.defineProperty(window, 'location', {
     value: { href: '' },
@@ -44,7 +42,9 @@ describe('api - fetchPages', () => {
     expect(result).toEqual(pages)
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/monitor/pages',
-      expect.objectContaining({ credentials: 'include' }),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer mock-access-token' }),
+      }),
     )
   })
 
@@ -65,52 +65,32 @@ describe('api - fetchLatestResult', () => {
 })
 
 describe('api - apiFetch internals (tested via exported functions)', () => {
-  it('includes credentials in requests', async () => {
+  it('includes Bearer token in requests', async () => {
     const { fetchPages } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse([]))
     await fetchPages()
     expect(mockFetch).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ credentials: 'include' }),
-    )
-  })
-
-  it('redirects to /login on 401 response', async () => {
-    const { fetchPages } = await import('./api')
-    mockFetch.mockResolvedValueOnce(mockResponse(null, { status: 401 }))
-    await expect(fetchPages()).rejects.toThrow('Unauthorized')
-    expect(window.location.href).toBe('/login')
-  })
-
-  it('removes email from localStorage on 401', async () => {
-    const { fetchPages } = await import('./api')
-    localStorage.setItem('email', 'test@example.com')
-    mockFetch.mockResolvedValueOnce(mockResponse(null, { status: 401 }))
-    await expect(fetchPages()).rejects.toThrow('Unauthorized')
-    expect(localStorage.getItem('email')).toBeNull()
-  })
-
-  it('includes CSRF token for POST requests when cookie exists', async () => {
-    const { triggerCheck } = await import('./api')
-    document.cookie = 'XSRF-TOKEN=test-csrf-token'
-    mockFetch.mockResolvedValueOnce(mockResponse({ id: 1 }))
-    await triggerCheck('test-page')
-    expect(mockFetch).toHaveBeenCalledWith(
-      '/api/monitor/check/test-page',
       expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({ 'X-XSRF-TOKEN': 'test-csrf-token' }),
+        headers: expect.objectContaining({ Authorization: 'Bearer mock-access-token' }),
       }),
     )
   })
 
-  it('does not include CSRF token for GET requests', async () => {
+  it('calls oidcClient.login on 401 response', async () => {
     const { fetchPages } = await import('./api')
-    document.cookie = 'XSRF-TOKEN=test-csrf-token'
+    const { login } = await import('./oidcClient')
+    mockFetch.mockResolvedValueOnce(mockResponse(null, { status: 401 }))
+    await expect(fetchPages()).rejects.toThrow('Unauthorized')
+    expect(login).toHaveBeenCalled()
+  })
+
+  it('does not include credentials: include (no cookies)', async () => {
+    const { fetchPages } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse([]))
     await fetchPages()
-    const callHeaders = mockFetch.mock.calls[0][1].headers
-    expect(callHeaders['X-XSRF-TOKEN']).toBeUndefined()
+    const callOptions = mockFetch.mock.calls[0][1]
+    expect(callOptions.credentials).toBeUndefined()
   })
 })
 
@@ -687,11 +667,3 @@ describe('api - admin', () => {
   })
 })
 
-describe('api - setPermissionsChangedCallback', () => {
-  it('sets and clears callback without throwing', async () => {
-    const { setPermissionsChangedCallback } = await import('./api')
-    const cb = vi.fn()
-    expect(() => setPermissionsChangedCallback(cb)).not.toThrow()
-    expect(() => setPermissionsChangedCallback(null)).not.toThrow()
-  })
-})

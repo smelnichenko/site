@@ -1,51 +1,41 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-import { OIDC_CONFIG } from '../config/oidc';
-import { setPermissionsChangedCallback } from '../services/api';
+import * as oidcClient from '../services/oidcClient';
+import type { UserInfo } from '../services/oidcClient';
 import * as keyStore from '../services/keyStore';
 
 interface AuthState {
   email: string | null;
+  uuid: string | null;
   userId: number | null;
   permissions: string[];
-  groups: string[];
 }
 
 interface AuthContextType extends AuthState {
-  loginWithCode: (code: string, redirectUri: string) => Promise<string | null>;
+  handleCallback: (code: string) => Promise<void>;
   logout: () => void;
   refreshPermissions: () => Promise<void>;
   isAuthenticated: boolean;
   hasPermission: (permission: string) => boolean;
+  getAccessToken: () => Promise<string | null>;
+  initializing: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const API_BASE = '/api';
-
-function loadState(): AuthState {
-  const email = localStorage.getItem('email');
-  const userId = localStorage.getItem('userId');
-  const permissions = JSON.parse(localStorage.getItem('permissions') || '[]');
-  const groups = JSON.parse(localStorage.getItem('groups') || '[]');
-  return { email, userId: userId ? Number.parseInt(userId, 10) : null, permissions, groups };
+function userInfoToState(info: UserInfo): AuthState {
+  return {
+    email: info.email,
+    uuid: info.uuid,
+    userId: null, // Numeric ID not available from Keycloak token — populated by backend if needed
+    permissions: info.permissions,
+  };
 }
 
-function saveState(state: AuthState) {
-  if (state.email) {
-    localStorage.setItem('email', state.email);
-    if (state.userId) localStorage.setItem('userId', String(state.userId));
-    localStorage.setItem('permissions', JSON.stringify(state.permissions));
-    localStorage.setItem('groups', JSON.stringify(state.groups));
-  } else {
-    localStorage.removeItem('email');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('permissions');
-    localStorage.removeItem('groups');
-  }
-}
+const EMPTY_STATE: AuthState = { email: null, uuid: null, userId: null, permissions: [] };
 
 export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
-  const [auth, setAuth] = useState<AuthState>(loadState);
+  const [auth, setAuth] = useState<AuthState>(EMPTY_STATE);
+  const [initializing, setInitializing] = useState(true);
 
   const isAuthenticated = !!auth.email;
 
@@ -54,101 +44,63 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     [auth.permissions]
   );
 
+  // On mount: try silent auth to restore session
   useEffect(() => {
-    saveState(auth);
-  }, [auth]);
-
-  // Register global callback for permission refresh (called by apiFetch on 403 permissions_changed)
-  const refreshPermissions = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        // Refresh failed — force re-login
-        setAuth({ email: null, userId: null, permissions: [], groups: [] });
-        return;
-      }
-      const data = await response.json();
-      setAuth(prev => ({
-        ...prev,
-        permissions: data.permissions || [],
-        groups: data.groups || [],
-      }));
-    } catch {
-      // Network error — don't log out
-    }
-  }, []);
-
-  useEffect(() => {
-    if (auth.email) {
-      setPermissionsChangedCallback(refreshPermissions);
-    } else {
-      setPermissionsChangedCallback(null);
-    }
-    return () => setPermissionsChangedCallback(null);
-  }, [auth.email, refreshPermissions]);
-
-  // Session validation: periodically check if the cookie/token is still valid
-  useEffect(() => {
-    if (!auth.email) return;
-
-    const checkSession = async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        const response = await fetch('/api/user/last-path', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ path: '/' }),
-        });
-        if (response.status === 401) {
-          setAuth({ email: null, userId: null, permissions: [], groups: [] });
+        const userInfo = await oidcClient.trySilentAuth();
+        if (!cancelled && userInfo) {
+          setAuth(userInfoToState(userInfo));
         }
       } catch {
-        // Network error — don't log out
+        // No session — stay logged out
+      } finally {
+        if (!cancelled) {
+          setInitializing(false);
+        }
       }
-    };
-
-    const interval = setInterval(checkSession, 5 * 60 * 1000); // every 5 minutes
-    return () => clearInterval(interval);
-  }, [auth.email]);
-
-  const loginWithCode = useCallback(async (code: string, redirectUri: string): Promise<string | null> => {
-    const response = await fetch(`${API_BASE}/auth/oidc/callback`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ code, redirectUri }),
-    });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'OIDC login failed');
-    }
-    const data = await response.json();
-    setAuth({
-      email: data.email,
-      userId: data.userId ?? null,
-      permissions: data.permissions || [],
-      groups: data.groups || [],
-    });
-    return data.lastPath ?? null;
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  const logout = useCallback(async () => {
+  const handleCallback = useCallback(async (code: string): Promise<void> => {
+    const userInfo = await oidcClient.handleCallback(code);
+    setAuth(userInfoToState(userInfo));
+  }, []);
+
+  const logout = useCallback(() => {
     keyStore.clear();
-    setAuth({ email: null, userId: null, permissions: [], groups: [] });
-    const keycloakLogoutUrl = `${OIDC_CONFIG.authority}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(OIDC_CONFIG.postLogoutRedirectUri)}&client_id=${OIDC_CONFIG.clientId}`;
-    globalThis.location.href = keycloakLogoutUrl;
+    setAuth(EMPTY_STATE);
+    oidcClient.logout();
   }, []);
 
-  const handleLogout = useCallback(() => {
-    void logout();
-  }, [logout]);
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    return oidcClient.getAccessToken();
+  }, []);
+
+  // Refresh Keycloak token to pick up updated roles/permissions
+  const refreshPermissions = useCallback(async (): Promise<void> => {
+    try {
+      const userInfo = await oidcClient.refreshAndGetUserInfo();
+      if (userInfo) {
+        setAuth(userInfoToState(userInfo));
+      }
+    } catch {
+      // Refresh failed — don't log out
+    }
+  }, []);
 
   const contextValue = useMemo(() => ({
-    ...auth, loginWithCode, logout: handleLogout, refreshPermissions, isAuthenticated, hasPermission,
-  }), [auth, loginWithCode, handleLogout, refreshPermissions, isAuthenticated, hasPermission]);
+    ...auth,
+    handleCallback,
+    logout,
+    refreshPermissions,
+    isAuthenticated,
+    hasPermission,
+    getAccessToken,
+    initializing,
+  }), [auth, handleCallback, logout, refreshPermissions, isAuthenticated, hasPermission, getAccessToken, initializing]);
 
   return (
     <AuthContext.Provider value={contextValue}>
