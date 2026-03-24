@@ -8,6 +8,10 @@ vi.mock('../../services/api', () => ({
   setChannelKeys: vi.fn(),
 }))
 
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({ uuid: 'test-uuid', email: 'test@test.com', permissions: [], isAuthenticated: true }),
+}))
+
 vi.mock('../../services/crypto', () => ({
   generateChannelKey: vi.fn(),
   wrapChannelKeyForMember: vi.fn(),

@@ -2,6 +2,7 @@ import { type SyntheticEvent, useEffect, useRef, useState } from 'react';
 import { createChatChannel, setChannelKeys } from '../../services/api';
 import { generateChannelKey, wrapChannelKeyForMember } from '../../services/crypto';
 import * as keyStore from '../../services/keyStore';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CreateChannelModalProps {
   onCreated: () => void;
@@ -15,6 +16,7 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
   const [creating, setCreating] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
+  const { uuid } = useAuth();
   const canEncrypt = keyStore.hasIdentityKeys();
 
   useEffect(() => {
@@ -35,11 +37,10 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
       if (encrypted && canEncrypt) {
         const channelKey = await generateChannelKey();
         const publicKey = keyStore.getIdentityPublicKey();
-        const uid = null; // TODO: get from auth context
-        if (publicKey && uid) {
+        if (publicKey && uuid) {
           const wrapped = await wrapChannelKeyForMember(channelKey, publicKey);
           await setChannelKeys(channel.id, [{
-            userUuid: uid,
+            userUuid: uuid,
             encryptedChannelKey: wrapped.encryptedChannelKey,
             wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
           }]);

@@ -6,6 +6,7 @@ map $http_user_agent $loggable {
 server {
     listen 8080;
     server_name _;
+    aio off;
     root /usr/share/nginx/html;
     index index.html;
 
