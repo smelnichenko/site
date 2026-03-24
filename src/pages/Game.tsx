@@ -37,15 +37,14 @@ export default function Game() {
       .catch(err => setError(String(err)));
   }, [godotReady, sendToGodot]);
 
-  // Listen for postMessage from Godot iframe
+  // Listen for messages from Godot (supports both postMessage and CustomEvent)
   useEffect(() => {
-    const handler = async (e: MessageEvent) => {
-      if (e.data?.source !== 'godot') return;
+    const handleGodotAction = async (type: string) => {
       try {
-        if (e.data.type === 'spin') {
+        if (type === 'spin') {
           const result = await spinGame();
           sendToGodot('spinResult', result);
-        } else if (e.data.type === 'reset') {
+        } else if (type === 'reset') {
           const s = await resetGame();
           sendToGodot('state', s);
         }
@@ -54,9 +53,30 @@ export default function Game() {
         sendToGodot('error', { message: String(err) });
       }
     };
-    globalThis.addEventListener('message', handler);
-    return () => globalThis.removeEventListener('message', handler);
-  }, [sendToGodot]);
+
+    // postMessage handler (new Godot exports)
+    const messageHandler = (e: MessageEvent) => {
+      if (e.data?.source === 'godot') handleGodotAction(e.data.type);
+    };
+
+    // CustomEvent handler (old Godot exports dispatch on iframe window)
+    const customEventHandler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.source === 'godot') handleGodotAction(detail.type);
+    };
+
+    globalThis.addEventListener('message', messageHandler);
+    try {
+      iframeRef.current?.contentWindow?.addEventListener('godotMessage', customEventHandler);
+    } catch { /* cross-origin */ }
+
+    return () => {
+      globalThis.removeEventListener('message', messageHandler);
+      try {
+        iframeRef.current?.contentWindow?.removeEventListener('godotMessage', customEventHandler);
+      } catch { /* already cleaned */ }
+    };
+  }, [godotReady, sendToGodot]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
