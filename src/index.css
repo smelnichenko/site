@@ -618,6 +618,72 @@ a.card-title {
   border-color: #dc3545;
 }
 
+/* Chess — button classes used by chess components */
+
+.btn-primary {
+  display: inline-block;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: white;
+  background: #004085;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover {
+  background: #003060;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-small {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: #004085;
+  background: #d6e4f0;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-small:hover {
+  background: #b8d4f0;
+}
+
+.btn-small:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-small.btn-danger {
+  color: #721c24;
+  background: #f8d7da;
+}
+
+.btn-small.btn-danger:hover {
+  background: #f1b0b7;
+}
+
+.btn-small.btn-primary {
+  color: white;
+  background: #004085;
+}
+
+.btn-small.btn-primary:hover {
+  background: #003060;
+}
+
 /* Chess */
 
 .chess-lobby,
@@ -626,41 +692,83 @@ a.card-title {
   margin: 0 auto;
 }
 
+.chess-lobby h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 20px;
+}
+
 .chess-error {
-  color: var(--danger);
-  background: rgba(220, 53, 69, 0.1);
-  padding: 8px 12px;
+  color: #721c24;
+  background: #f8d7da;
+  padding: 10px 14px;
   border-radius: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
 }
 
 .chess-lobby-section {
-  margin-bottom: 24px;
-  padding: 16px;
-  background: var(--card-bg);
+  background: white;
   border-radius: 8px;
-  border: 1px solid var(--border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
 }
 
 .chess-lobby-section h3 {
-  margin: 0 0 12px;
-  font-size: 1rem;
+  margin: 0 0 14px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
 }
 
 .chess-difficulty {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .chess-difficulty label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   font-size: 0.9rem;
+  font-weight: 500;
+  color: #555;
 }
 
 .chess-difficulty input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
-  max-width: 300px;
+  max-width: 320px;
+  height: 6px;
+  border-radius: 3px;
+  background: #dde4eb;
+  outline: none;
+}
+
+.chess-difficulty input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #004085;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.chess-difficulty input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #004085;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .chess-game-list {
@@ -673,10 +781,16 @@ a.card-title {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 12px 16px;
+  background: #f9fafb;
   border-radius: 6px;
-  border: 1px solid var(--border);
+  border: 1px solid #eee;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.chess-game-item:hover {
+  background: #f0f4f8;
+  border-color: #d6e4f0;
 }
 
 .chess-game-info {
@@ -688,16 +802,16 @@ a.card-title {
 
 .chess-game-type {
   font-weight: 600;
-  color: var(--accent);
+  color: #004085;
 }
 
 .chess-game-status {
-  color: var(--text-secondary);
+  color: #666;
   text-transform: lowercase;
 }
 
 .chess-game-moves {
-  color: var(--text-secondary);
+  color: #888;
   font-size: 0.85rem;
 }
 
@@ -708,8 +822,9 @@ a.card-title {
 }
 
 .chess-waiting {
-  color: var(--warning);
+  color: #856404;
   font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .chess-game-layout {
@@ -733,17 +848,19 @@ a.card-title {
 
 .chess-turn-indicator {
   text-align: center;
-  padding: 6px;
+  padding: 8px;
   font-size: 0.9rem;
-  color: var(--text-secondary);
-  min-height: 28px;
+  font-weight: 500;
+  color: #555;
+  min-height: 32px;
 }
 
 .chess-thinking {
   text-align: center;
-  padding: 4px;
-  color: var(--accent);
+  padding: 6px;
+  color: #0066cc;
   font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .chess-game-meta {
@@ -753,45 +870,63 @@ a.card-title {
 
 .chess-game-type-badge,
 .chess-difficulty-badge {
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 4px 12px;
+  border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 600;
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--accent);
+  background: #d6e4f0;
+  color: #004085;
 }
 
 .chess-move-history {
-  background: var(--card-bg);
+  background: white;
   border-radius: 8px;
-  padding: 12px;
-  border: 1px solid var(--border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 16px;
   max-height: 300px;
   overflow-y: auto;
 }
 
 .chess-move-history h4 {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
 }
 
 .chess-moves-table {
-  font-family: monospace;
+  font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 0.85rem;
 }
 
 .chess-move-row {
   display: grid;
-  grid-template-columns: 30px 1fr 1fr;
+  grid-template-columns: 32px 1fr 1fr;
   gap: 4px;
-  padding: 2px 0;
+  padding: 3px 4px;
+  border-radius: 4px;
+}
+
+.chess-move-row:hover {
+  background: #f5f5f5;
 }
 
 .chess-move-number {
-  color: var(--text-secondary);
+  color: #888;
+}
+
+.chess-move-white,
+.chess-move-black {
+  color: #333;
 }
 
 .chess-controls {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 16px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -803,10 +938,12 @@ a.card-title {
   gap: 6px;
   align-items: center;
   font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
 }
 
 .chess-draw-pending {
-  color: var(--text-secondary);
+  color: #666;
   font-size: 0.85rem;
   font-style: italic;
 }
@@ -814,7 +951,7 @@ a.card-title {
 .chess-game-over {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -822,22 +959,25 @@ a.card-title {
 }
 
 .chess-game-over-content {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
+  background: white;
   border-radius: 12px;
-  padding: 32px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  padding: 36px;
   text-align: center;
   max-width: 360px;
+  width: 90%;
 }
 
 .chess-game-over-content h3 {
   margin: 0 0 8px;
   font-size: 1.5rem;
+  color: #333;
 }
 
 .chess-game-over-content p {
-  color: var(--text-secondary);
-  margin: 0 0 20px;
+  color: #666;
+  margin: 0 0 24px;
+  font-size: 0.95rem;
 }
 
 .chess-game-over-actions {
@@ -848,6 +988,9 @@ a.card-title {
 
 .chess-board-container {
   position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 @media (max-width: 700px) {
@@ -860,5 +1003,8 @@ a.card-title {
   .chess-side-panel {
     min-width: 0;
     width: 100%;
+  }
+  .chess-lobby-section {
+    padding: 16px;
   }
 }
