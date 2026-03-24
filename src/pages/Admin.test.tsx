@@ -16,8 +16,8 @@ vi.mock('../services/api', () => ({
 const api = await import('../services/api')
 
 const mockUsers = [
-  { id: 1, email: 'admin@test.com', enabled: true, groups: ['Admins'], permissions: ['MANAGE_USERS'], createdAt: '2026-01-01T00:00:00Z' },
-  { id: 2, email: 'user@test.com', enabled: true, groups: [], permissions: [], createdAt: '2026-01-02T00:00:00Z' },
+  { uuid: 'uuid-1', email: 'admin@test.com', enabled: true, groups: ['Admins'], permissions: ['MANAGE_USERS'], createdAt: '2026-01-01T00:00:00Z' },
+  { uuid: 'uuid-2', email: 'user@test.com', enabled: true, groups: [], permissions: [], createdAt: '2026-01-02T00:00:00Z' },
 ]
 
 const mockGroups = [
@@ -75,7 +75,7 @@ describe('Admin', () => {
     })
 
     await user.click(screen.getAllByText('Disable')[0])
-    expect(api.setUserEnabled).toHaveBeenCalledWith(1, false)
+    expect(api.setUserEnabled).toHaveBeenCalledWith('uuid-1', false)
   })
 
   it('switches to groups tab', async () => {
@@ -213,7 +213,7 @@ describe('Admin', () => {
 
     // Save
     await user.click(screen.getByText('Save'))
-    expect(api.setUserGroups).toHaveBeenCalledWith(1, [1, 2])
+    expect(api.setUserGroups).toHaveBeenCalledWith('uuid-1', [1, 2])
   })
 
   it('cancels user group editing', async () => {
@@ -260,7 +260,7 @@ describe('Admin', () => {
     expect(screen.getByLabelText('Admins')).not.toBeChecked()
 
     await user.click(screen.getByText('Save'))
-    expect(api.setUserGroups).toHaveBeenCalledWith(1, [])
+    expect(api.setUserGroups).toHaveBeenCalledWith('uuid-1', [])
   })
 
   it('shows error when saving user groups fails', async () => {

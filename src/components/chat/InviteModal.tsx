@@ -22,9 +22,9 @@ interface InviteModalProps {
 
 function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onClose, onInvited }: Readonly<InviteModalProps>) {
   const [users, setUsers] = useState<ChatUser[]>([]);
-  const [memberIds, setMemberIds] = useState<Set<number>>(new Set());
+  const [memberIds, setMemberIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [inviting, setInviting] = useState<number | null>(null);
+  const [inviting, setInviting] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -42,7 +42,7 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
     ])
       .then(([allUsers, members]: [ChatUser[], ChannelMember[]]) => {
         setUsers(allUsers);
-        setMemberIds(new Set(members.map((m) => m.id)));
+        setMemberIds(new Set(members.map((m) => m.uuid)));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -53,22 +53,22 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleInvite = async (userId: number) => {
+  const handleInvite = async (userUuid: string) => {
     setError('');
-    setInviting(userId);
+    setInviting(userUuid);
     try {
-      await inviteToChannel(channelId, userId);
+      await inviteToChannel(channelId, userUuid);
 
       // Wrap channel key for invited user (encrypted channels)
       if (encrypted && currentKeyVersion) {
         const channelKey = keyStore.getChannelKey(channelId, currentKeyVersion);
         if (channelKey) {
-          const pubKeys = await fetchPublicKeys([userId]);
+          const pubKeys = await fetchPublicKeys([userUuid]);
           if (pubKeys.length > 0) {
             const recipientPubKey = await importPublicKey(JSON.parse(pubKeys[0].publicKey));
             const wrapped = await wrapChannelKeyForMember(channelKey, recipientPubKey);
             await setChannelKeys(channelId, [{
-              userId,
+              userUuid,
               encryptedChannelKey: wrapped.encryptedChannelKey,
               wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
             }]);
@@ -76,7 +76,7 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
         }
       }
 
-      setMemberIds((prev) => new Set(prev).add(userId));
+      setMemberIds((prev) => new Set(prev).add(userUuid));
       onInvited();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to invite');
@@ -132,7 +132,7 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
           )}
           {!loading && filtered.length > 0 &&
             filtered.map((user) => {
-              const isMember = memberIds.has(user.id);
+              const isMember = memberIds.has(user.uuid);
               return (
                 <div
                   key={user.id}
@@ -155,11 +155,11 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
                   ) : (
                     <button
                       className="status-badge action"
-                      onClick={() => handleInvite(user.id)}
-                      disabled={inviting === user.id}
+                      onClick={() => handleInvite(user.uuid)}
+                      disabled={inviting === user.uuid}
                       style={{ fontSize: '0.7rem', padding: '2px 8px' }}
                     >
-                      {inviting === user.id ? '...' : 'Invite'}
+                      {inviting === user.uuid ? '...' : 'Invite'}
                     </button>
                   )}
                 </div>

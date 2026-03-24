@@ -23,7 +23,7 @@ function Admin() {
   const [error, setError] = useState('');
 
   // User group editing
-  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
 
   // Group form
@@ -49,7 +49,7 @@ function Admin() {
   const handleToggleEnabled = async (user: AdminUser) => {
     setError('');
     try {
-      await setUserEnabled(user.id, !user.enabled);
+      await setUserEnabled(user.uuid, !user.enabled);
       await load();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed');
@@ -57,7 +57,7 @@ function Admin() {
   };
 
   const startEditGroups = (user: AdminUser) => {
-    setEditingUserId(user.id);
+    setEditingUserId(user.uuid);
     setSelectedGroupIds(
       groups.filter(g => user.groups.includes(g.name)).map(g => g.id)
     );
@@ -171,10 +171,10 @@ function Admin() {
             </thead>
             <tbody>
               {users.map(user => (
-                <tr key={user.id}>
+                <tr key={user.uuid}>
                   <td>{user.email}</td>
                   <td>
-                    {editingUserId === user.id ? (
+                    {editingUserId === user.uuid ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {groups.map(g => (
                           <label key={g.id} className="toggle-label">

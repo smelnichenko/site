@@ -468,14 +468,14 @@ describe('api - chat', () => {
   it('inviteToChannel sends POST', async () => {
     const { inviteToChannel } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse(null))
-    await inviteToChannel(1, 2)
+    await inviteToChannel(1, "uuid-2")
     expect(mockFetch).toHaveBeenCalledWith('/api/chat/channels/1/invite', expect.objectContaining({ method: 'POST' }))
   })
 
   it('inviteToChannel throws with error', async () => {
     const { inviteToChannel } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse({ error: 'Already member' }, { status: 400 }))
-    await expect(inviteToChannel(1, 2)).rejects.toThrow('Already member')
+    await expect(inviteToChannel(1, "uuid-2")).rejects.toThrow('Already member')
   })
 
   it('fetchChannelMembers returns members', async () => {
@@ -488,14 +488,14 @@ describe('api - chat', () => {
   it('kickFromChannel sends POST', async () => {
     const { kickFromChannel } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse(null))
-    await kickFromChannel(1, 2)
+    await kickFromChannel(1, "uuid-2")
     expect(mockFetch).toHaveBeenCalledWith('/api/chat/channels/1/kick', expect.objectContaining({ method: 'POST' }))
   })
 
   it('kickFromChannel throws with error', async () => {
     const { kickFromChannel } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse({ error: 'Cannot kick owner' }, { status: 400 }))
-    await expect(kickFromChannel(1, 2)).rejects.toThrow('Cannot kick owner')
+    await expect(kickFromChannel(1, "uuid-2")).rejects.toThrow('Cannot kick owner')
   })
 })
 
@@ -532,9 +532,9 @@ describe('api - E2E encryption keys', () => {
   it('fetchPublicKeys builds query params', async () => {
     const { fetchPublicKeys } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse([]))
-    await fetchPublicKeys([1, 2])
+    await fetchPublicKeys(['uuid-1', 'uuid-2'])
     expect(mockFetch).toHaveBeenCalledWith(
-      '/api/chat/keys/public?userIds=1&userIds=2',
+      '/api/chat/keys/public?userUuids=uuid-1&userUuids=uuid-2',
       expect.any(Object),
     )
   })
@@ -556,7 +556,7 @@ describe('api - E2E encryption keys', () => {
   it('setChannelKeys sends POST', async () => {
     const { setChannelKeys } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse(null))
-    await setChannelKeys(1, [{ userId: 1, encryptedChannelKey: 'eck', wrapperPublicKey: 'wpk' }])
+    await setChannelKeys(1, [{ userUuid: 'uuid-1', encryptedChannelKey: 'eck', wrapperPublicKey: 'wpk' }])
     expect(mockFetch).toHaveBeenCalledWith('/api/chat/channels/1/keys', expect.objectContaining({ method: 'POST' }))
   })
 
@@ -597,27 +597,27 @@ describe('api - admin', () => {
   it('setUserEnabled sends PUT', async () => {
     const { setUserEnabled } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse(null))
-    await setUserEnabled(1, false)
-    expect(mockFetch).toHaveBeenCalledWith('/api/admin/users/1/enabled', expect.objectContaining({ method: 'PUT' }))
+    await setUserEnabled('uuid-1', false)
+    expect(mockFetch).toHaveBeenCalledWith('/api/admin/users/uuid-1/enabled', expect.objectContaining({ method: 'PUT' }))
   })
 
   it('setUserEnabled throws with error', async () => {
     const { setUserEnabled } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse({ error: 'Cannot disable self' }, { status: 400 }))
-    await expect(setUserEnabled(1, false)).rejects.toThrow('Cannot disable self')
+    await expect(setUserEnabled('uuid-1', false)).rejects.toThrow('Cannot disable self')
   })
 
   it('setUserGroups sends PUT', async () => {
     const { setUserGroups } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse(null))
-    await setUserGroups(1, [1, 2])
-    expect(mockFetch).toHaveBeenCalledWith('/api/admin/users/1/groups', expect.objectContaining({ method: 'PUT' }))
+    await setUserGroups('uuid-1', [1, 2])
+    expect(mockFetch).toHaveBeenCalledWith('/api/admin/users/uuid-1/groups', expect.objectContaining({ method: 'PUT' }))
   })
 
   it('setUserGroups throws with error', async () => {
     const { setUserGroups } = await import('./api')
     mockFetch.mockResolvedValueOnce(mockResponse({ error: 'Cannot remove self' }, { status: 400 }))
-    await expect(setUserGroups(1, [])).rejects.toThrow('Cannot remove self')
+    await expect(setUserGroups('uuid-1', [])).rejects.toThrow('Cannot remove self')
   })
 
   it('fetchAdminGroups returns groups', async () => {

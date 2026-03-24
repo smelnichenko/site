@@ -46,8 +46,8 @@ describe('MembersModal', () => {
 
   it('shows members list', async () => {
     vi.mocked(api.fetchChannelMembers).mockResolvedValue([
-      { id: 1, email: 'owner@test.com', joinedAt: '2026-01-01T00:00:00Z' },
-      { id: 2, email: 'user@test.com', joinedAt: '2026-01-01T00:00:00Z' },
+      { id: 1, uuid: 'uuid-1', email: 'owner@test.com', joinedAt: '2026-01-01T00:00:00Z' },
+      { id: 2, uuid: 'uuid-2', email: 'user@test.com', joinedAt: '2026-01-01T00:00:00Z' },
     ])
 
     render(<MembersModal channelId={1} channelName="general" onClose={vi.fn()} onKicked={vi.fn()} />)
@@ -59,8 +59,8 @@ describe('MembersModal', () => {
 
   it('shows Kick button for other members, not self', async () => {
     vi.mocked(api.fetchChannelMembers).mockResolvedValue([
-      { id: 1, email: 'owner@test.com', joinedAt: '2026-01-01T00:00:00Z' },
-      { id: 2, email: 'user@test.com', joinedAt: '2026-01-01T00:00:00Z' },
+      { id: 1, uuid: 'uuid-1', email: 'owner@test.com', joinedAt: '2026-01-01T00:00:00Z' },
+      { id: 2, uuid: 'uuid-2', email: 'user@test.com', joinedAt: '2026-01-01T00:00:00Z' },
     ])
 
     render(<MembersModal channelId={1} channelName="general" onClose={vi.fn()} onKicked={vi.fn()} />)
@@ -71,8 +71,8 @@ describe('MembersModal', () => {
 
   it('kicks member on button click', async () => {
     vi.mocked(api.fetchChannelMembers).mockResolvedValue([
-      { id: 1, email: 'owner@test.com', joinedAt: '2026-01-01T00:00:00Z' },
-      { id: 2, email: 'user@test.com', joinedAt: '2026-01-01T00:00:00Z' },
+      { id: 1, uuid: 'uuid-1', email: 'owner@test.com', joinedAt: '2026-01-01T00:00:00Z' },
+      { id: 2, uuid: 'uuid-2', email: 'user@test.com', joinedAt: '2026-01-01T00:00:00Z' },
     ])
     vi.mocked(api.kickFromChannel).mockResolvedValue(undefined)
 
@@ -82,7 +82,7 @@ describe('MembersModal', () => {
     await waitFor(() => screen.getByText('Kick'))
 
     await user.click(screen.getByText('Kick'))
-    expect(api.kickFromChannel).toHaveBeenCalledWith(1, 2)
+    expect(api.kickFromChannel).toHaveBeenCalledWith(1, 'uuid-2')
   })
 
   it('shows empty state', async () => {

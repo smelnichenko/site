@@ -468,13 +468,14 @@ export interface ChatChannel {
 
 export interface ChatUser {
   id: number;
+  uuid: string;
   email: string;
 }
 
 export interface ChatMessage {
   messageId: string;
   channelId: number;
-  userId: number;
+  userUuid: string;
   username: string;
   content: string;
   parentMessageId?: string;
@@ -489,7 +490,7 @@ export interface ChatMessage {
 
 export interface MessageEdit {
   editId: string;
-  userId: number;
+  userUuid: string;
   content: string;
   hash: string;
   createdAt: string;
@@ -590,11 +591,11 @@ export async function fetchChatUsers(signal?: AbortSignal): Promise<ChatUser[]> 
   return response.json();
 }
 
-export async function inviteToChannel(channelId: number, userId: number): Promise<void> {
+export async function inviteToChannel(channelId: number, userUuid: string): Promise<void> {
   const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/invite`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId }),
+    body: JSON.stringify({ userUuid }),
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
@@ -604,6 +605,7 @@ export async function inviteToChannel(channelId: number, userId: number): Promis
 
 export interface ChannelMember {
   id: number;
+  uuid: string;
   email: string;
   joinedAt: string;
 }
@@ -614,11 +616,11 @@ export async function fetchChannelMembers(channelId: number, signal?: AbortSigna
   return response.json();
 }
 
-export async function kickFromChannel(channelId: number, userId: number): Promise<void> {
+export async function kickFromChannel(channelId: number, userUuid: string): Promise<void> {
   const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/kick`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId }),
+    body: JSON.stringify({ userUuid }),
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
@@ -637,20 +639,20 @@ export interface UserKeysResponse {
 }
 
 export interface PublicKeyInfo {
-  userId: number;
+  userUuid: string;
   publicKey: string;
   keyVersion: number;
 }
 
 export interface ChannelKeyBundleResponse {
-  userId: number;
+  userUuid: string;
   keyVersion: number;
   encryptedChannelKey: string;
   wrapperPublicKey: string;
 }
 
 export interface MemberKeyBundle {
-  userId: number;
+  userUuid: string;
   encryptedChannelKey: string;
   wrapperPublicKey: string;
 }
@@ -691,8 +693,8 @@ export async function updateUserKeys(request: {
   if (!response.ok) throw new Error('Failed to update keys');
 }
 
-export async function fetchPublicKeys(userIds: number[], signal?: AbortSignal): Promise<PublicKeyInfo[]> {
-  const params = userIds.map(id => `userIds=${id}`).join('&');
+export async function fetchPublicKeys(userUuids: string[], signal?: AbortSignal): Promise<PublicKeyInfo[]> {
+  const params = userUuids.map(id => `userUuids=${id}`).join('&');
   const response = await apiFetch(`${API_BASE}/chat/keys/public?${params}`, { signal });
   if (!response.ok) throw new Error('Failed to fetch public keys');
   return response.json();
@@ -877,7 +879,7 @@ export async function testRssFeedMonitor(request: RssFeedMonitorRequest): Promis
 // Admin API
 
 export interface AdminUser {
-  id: number;
+  uuid: string;
   email: string;
   enabled: boolean;
   groups: string[];
@@ -898,8 +900,8 @@ export async function fetchAdminUsers(signal?: AbortSignal): Promise<AdminUser[]
   return response.json();
 }
 
-export async function setUserEnabled(userId: number, enabled: boolean): Promise<void> {
-  const response = await apiFetch(`${API_BASE}/admin/users/${userId}/enabled`, {
+export async function setUserEnabled(userUuid: string, enabled: boolean): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/admin/users/${userUuid}/enabled`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
@@ -910,8 +912,8 @@ export async function setUserEnabled(userId: number, enabled: boolean): Promise<
   }
 }
 
-export async function setUserGroups(userId: number, groupIds: number[]): Promise<void> {
-  const response = await apiFetch(`${API_BASE}/admin/users/${userId}/groups`, {
+export async function setUserGroups(userUuid: string, groupIds: number[]): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/admin/users/${userUuid}/groups`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ groupIds }),
@@ -970,7 +972,7 @@ export interface ApprovalStatus {
 
 export interface PendingApprovalItem {
   id: number;
-  userId: number;
+  userUuid: string;
   status: string;
   decidedBy: string | null;
   decisionReason: string | null;

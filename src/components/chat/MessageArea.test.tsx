@@ -47,7 +47,7 @@ const baseChannel = {
 const makeMsg = (id: string, username: string, content: string, createdAt = '2026-01-15T10:30:00Z') => ({
   messageId: id,
   channelId: 1,
-  userId: 1,
+  userUuid: "uuid-1",
   username,
   content,
   createdAt,

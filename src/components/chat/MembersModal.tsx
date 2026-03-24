@@ -20,7 +20,7 @@ interface MembersModalProps {
 function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: Readonly<MembersModalProps>) {
   const [members, setMembers] = useState<ChannelMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const [kicking, setKicking] = useState<number | null>(null);
+  const [kicking, setKicking] = useState<string | null>(null);
   const [error, setError] = useState('');
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -40,25 +40,25 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
 
   const currentUserEmail = localStorage.getItem('email');
 
-  const handleKick = async (userId: number) => {
+  const handleKick = async (userUuid: string) => {
     setError('');
-    setKicking(userId);
+    setKicking(userUuid);
     try {
-      await kickFromChannel(channelId, userId);
-      const remaining = members.filter((m) => m.id !== userId);
+      await kickFromChannel(channelId, userUuid);
+      const remaining = members.filter((m) => m.uuid !== userUuid);
       setMembers(remaining);
 
       // Rotate channel key for encrypted channels
       if (encrypted) {
         const newChannelKey = await generateChannelKey();
-        const remainingIds = remaining.map((m) => m.id);
+        const remainingIds = remaining.map((m) => m.uuid);
         const pubKeys = await fetchPublicKeys(remainingIds);
         const bundles = await Promise.all(
           pubKeys.map(async (pk) => {
             const recipientPubKey = await importPublicKey(JSON.parse(pk.publicKey));
             const wrapped = await wrapChannelKeyForMember(newChannelKey, recipientPubKey);
             return {
-              userId: pk.userId,
+              userUuid: pk.userUuid,
               encryptedChannelKey: wrapped.encryptedChannelKey,
               wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
             };
@@ -127,11 +127,11 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
                 {member.email !== currentUserEmail && (
                   <button
                     className="status-badge danger"
-                    onClick={() => handleKick(member.id)}
-                    disabled={kicking === member.id}
+                    onClick={() => handleKick(member.uuid)}
+                    disabled={kicking === member.uuid}
                     style={{ fontSize: '0.7rem', padding: '2px 8px' }}
                   >
-                    {kicking === member.id ? '...' : 'Kick'}
+                    {kicking === member.uuid ? '...' : 'Kick'}
                   </button>
                 )}
               </div>

@@ -48,11 +48,11 @@ describe('InviteModal', () => {
 
   it('shows users with invite buttons', async () => {
     vi.mocked(api.fetchChatUsers).mockResolvedValue([
-      { id: 1, email: 'user1@test.com' },
-      { id: 2, email: 'user2@test.com' },
+      { id: 1, uuid: 'uuid-1', email: 'user1@test.com' },
+      { id: 2, uuid: 'uuid-2', email: 'user2@test.com' },
     ])
     vi.mocked(api.fetchChannelMembers).mockResolvedValue([
-      { id: 1, email: 'user1@test.com', joinedAt: '2026-01-01T00:00:00Z' },
+      { id: 1, uuid: 'uuid-1', email: 'user1@test.com', joinedAt: '2026-01-01T00:00:00Z' },
     ])
 
     render(<InviteModal channelId={1} channelName="general" onClose={vi.fn()} onInvited={vi.fn()} />)
@@ -65,7 +65,7 @@ describe('InviteModal', () => {
   })
 
   it('invites user on button click', async () => {
-    vi.mocked(api.fetchChatUsers).mockResolvedValue([{ id: 2, email: 'user2@test.com' }])
+    vi.mocked(api.fetchChatUsers).mockResolvedValue([{ id: 2, uuid: 'uuid-2', email: 'user2@test.com' }])
     vi.mocked(api.fetchChannelMembers).mockResolvedValue([])
     vi.mocked(api.inviteToChannel).mockResolvedValue(undefined)
 
@@ -75,13 +75,13 @@ describe('InviteModal', () => {
     await waitFor(() => screen.getByText('Invite'))
 
     await user.click(screen.getByText('Invite'))
-    expect(api.inviteToChannel).toHaveBeenCalledWith(1, 2)
+    expect(api.inviteToChannel).toHaveBeenCalledWith(1, 'uuid-2')
   })
 
   it('filters users by search', async () => {
     vi.mocked(api.fetchChatUsers).mockResolvedValue([
-      { id: 1, email: 'alice@test.com' },
-      { id: 2, email: 'bob@test.com' },
+      { id: 1, uuid: 'uuid-1', email: 'alice@test.com' },
+      { id: 2, uuid: 'uuid-2', email: 'bob@test.com' },
     ])
     vi.mocked(api.fetchChannelMembers).mockResolvedValue([])
 

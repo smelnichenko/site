@@ -35,11 +35,11 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
       if (encrypted && canEncrypt) {
         const channelKey = await generateChannelKey();
         const publicKey = keyStore.getIdentityPublicKey();
-        const uid = localStorage.getItem('userId');
+        const uid = null; // TODO: get from auth context
         if (publicKey && uid) {
           const wrapped = await wrapChannelKeyForMember(channelKey, publicKey);
           await setChannelKeys(channel.id, [{
-            userId: Number.parseInt(uid, 10),
+            userUuid: uid,
             encryptedChannelKey: wrapped.encryptedChannelKey,
             wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
           }]);
