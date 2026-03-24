@@ -746,9 +746,9 @@ export interface ChessGameDto {
   gameType: 'AI' | 'PVP';
   moveCount: number;
   lastMove: string | null;
-  whitePlayerId: number;
-  blackPlayerId: number | null;
-  drawOfferedBy: number | null;
+  whitePlayerUuid: string;
+  blackPlayerUuid: string | null;
+  drawOfferedByUuid: string | null;
   aiDifficulty: number | null;
   updatedAt: string;
 }

@@ -2,7 +2,7 @@ import type { ChessGameDto } from '../../services/api';
 
 interface GameControlsProps {
   game: ChessGameDto;
-  userId: number;
+  uuid: string;
   onResign: () => void;
   onOfferDraw: () => void;
   onAcceptDraw: () => void;
@@ -13,7 +13,7 @@ interface GameControlsProps {
 
 export default function GameControls({
   game,
-  userId,
+  uuid,
   onResign,
   onOfferDraw,
   onAcceptDraw,
@@ -23,8 +23,8 @@ export default function GameControls({
 }: Readonly<GameControlsProps>) {
   const isFinished = game.status === 'FINISHED' || game.status === 'ABANDONED';
   const isPvp = game.gameType === 'PVP';
-  const hasPendingDraw = game.drawOfferedBy !== null;
-  const isDrawOfferedToMe = hasPendingDraw && game.drawOfferedBy !== userId;
+  const hasPendingDraw = game.drawOfferedByUuid !== null;
+  const isDrawOfferedToMe = hasPendingDraw && game.drawOfferedByUuid !== uuid;
 
   return (
     <div className="chess-controls">

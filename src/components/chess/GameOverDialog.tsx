@@ -2,18 +2,18 @@ import type { ChessGameDto } from '../../services/api';
 
 interface GameOverDialogProps {
   game: ChessGameDto;
-  userId: number;
+  uuid: string;
   onNewGame: () => void;
   onBack: () => void;
 }
 
-export default function GameOverDialog({ game, userId, onNewGame, onBack }: Readonly<GameOverDialogProps>) {
+export default function GameOverDialog({ game, uuid, onNewGame, onBack }: Readonly<GameOverDialogProps>) {
   if (game.status !== 'FINISHED' && game.status !== 'ABANDONED') return null;
 
   const getResultText = () => {
     if (game.status === 'ABANDONED') return 'Game Abandoned';
     if (game.result === 'DRAW') return 'Draw';
-    const isWhite = userId === game.whitePlayerId;
+    const isWhite = uuid === game.whitePlayerUuid;
     const playerWon =
       (game.result === 'WHITE_WINS' && isWhite) || (game.result === 'BLACK_WINS' && !isWhite);
     return playerWon ? 'You Win!' : 'You Lose';

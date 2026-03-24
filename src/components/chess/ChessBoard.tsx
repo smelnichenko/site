@@ -5,12 +5,12 @@ import type { ChessGameDto } from '../../services/api';
 
 interface ChessBoardProps {
   game: ChessGameDto;
-  userId: number;
+  uuid: string;
   onMove: (move: string) => Promise<void>;
   disabled?: boolean;
 }
 
-export default function ChessBoard({ game, userId, onMove, disabled }: Readonly<ChessBoardProps>) {
+export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<ChessBoardProps>) {
   const [chess] = useState(() => new Chess(game.fen));
   const [position, setPosition] = useState(game.fen);
   const [moveFrom, setMoveFrom] = useState<Square | null>(null);
@@ -18,11 +18,11 @@ export default function ChessBoard({ game, userId, onMove, disabled }: Readonly<
   const [pendingMove, setPendingMove] = useState(false);
   const prevFenRef = useRef(game.fen);
 
-  const orientation: 'white' | 'black' = userId === game.whitePlayerId ? 'white' : 'black';
+  const orientation: 'white' | 'black' = uuid === game.whitePlayerUuid ? 'white' : 'black';
   const isMyTurn =
     game.status === 'IN_PROGRESS' &&
-    ((chess.turn() === 'w' && userId === game.whitePlayerId) ||
-      (chess.turn() === 'b' && userId === game.blackPlayerId));
+    ((chess.turn() === 'w' && uuid === game.whitePlayerUuid) ||
+      (chess.turn() === 'b' && uuid === game.blackPlayerUuid));
 
   useEffect(() => {
     if (game.fen !== prevFenRef.current) {

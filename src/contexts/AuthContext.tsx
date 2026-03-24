@@ -6,7 +6,6 @@ import * as keyStore from '../services/keyStore';
 interface AuthState {
   email: string | null;
   uuid: string | null;
-  userId: number | null;
   permissions: string[];
 }
 
@@ -26,12 +25,11 @@ function userInfoToState(info: UserInfo): AuthState {
   return {
     email: info.email,
     uuid: info.uuid,
-    userId: null, // Numeric ID not available from Keycloak token — populated by backend if needed
     permissions: info.permissions,
   };
 }
 
-const EMPTY_STATE: AuthState = { email: null, uuid: null, userId: null, permissions: [] };
+const EMPTY_STATE: AuthState = { email: null, uuid: null, permissions: [] };
 
 export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [auth, setAuth] = useState<AuthState>(EMPTY_STATE);

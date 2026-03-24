@@ -18,7 +18,7 @@ import GameControls from '../components/chess/GameControls';
 import GameOverDialog from '../components/chess/GameOverDialog';
 
 export default function Chess() {
-  const { userId } = useAuth();
+  const { uuid } = useAuth();
   const [currentGame, setCurrentGame] = useState<ChessGameDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
@@ -36,8 +36,8 @@ export default function Chess() {
     }
 
     const isMyTurn =
-      (currentGame.fen.includes(' w ') && userId === currentGame.whitePlayerId) ||
-      (currentGame.fen.includes(' b ') && userId === currentGame.blackPlayerId);
+      (currentGame.fen.includes(' w ') && uuid === currentGame.whitePlayerUuid) ||
+      (currentGame.fen.includes(' b ') && uuid === currentGame.blackPlayerUuid);
 
     // Only poll when it's NOT my turn (waiting for opponent)
     if (isMyTurn) return;
@@ -56,7 +56,7 @@ export default function Chess() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [currentGame, userId]);
+  }, [currentGame, uuid]);
 
   const handleMove = useCallback(
     async (move: string) => {
@@ -131,7 +131,7 @@ export default function Chess() {
     setError(null);
   }, []);
 
-  if (!userId) return null;
+  if (!uuid) return null;
 
   if (!currentGame) {
     return <GameLobby onGameSelected={setCurrentGame} />;
@@ -153,7 +153,7 @@ export default function Chess() {
           </div>
           <ChessBoard
             game={currentGame}
-            userId={userId}
+            uuid={uuid}
             onMove={handleMove}
             disabled={aiThinking}
           />
@@ -171,7 +171,7 @@ export default function Chess() {
 
           <GameControls
             game={currentGame}
-            userId={userId}
+            uuid={uuid}
             onResign={handleResign}
             onOfferDraw={handleOfferDraw}
             onAcceptDraw={handleAcceptDraw}
@@ -184,7 +184,7 @@ export default function Chess() {
 
       <GameOverDialog
         game={currentGame}
-        userId={userId}
+        uuid={uuid}
         onNewGame={handleBack}
         onBack={handleBack}
       />
