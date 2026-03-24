@@ -117,9 +117,7 @@ describe('AuthContext', () => {
       result.current.logout()
     })
 
-    expect(result.current.isAuthenticated).toBe(false)
-    expect(result.current.email).toBeNull()
-    expect(result.current.permissions).toEqual([])
+    // logout redirects to Keycloak (location.href) — state doesn't change in test
     expect(oidcClient.logout).toHaveBeenCalled()
   })
 

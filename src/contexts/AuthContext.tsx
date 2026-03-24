@@ -76,10 +76,8 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, []);
 
   const logout = useCallback(() => {
-
     keyStore.clear();
-    setAuth(EMPTY_STATE);
-    oidcClient.logout();
+    oidcClient.logout(); // Redirects to Keycloak — must happen before setAuth triggers re-render
   }, []);
 
   const getAccessToken = useCallback(async (): Promise<string | null> => {
