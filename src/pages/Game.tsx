@@ -7,15 +7,20 @@ export default function Game() {
   const [error, setError] = useState<string | null>(null);
 
   const sendToGodot = useCallback((type: string, data: unknown) => {
-    iframeRef.current?.contentWindow?.postMessage({ type, data }, globalThis.location.origin);
+    try {
+      const win = iframeRef.current?.contentWindow as Window & {
+        _godotReceive?: (json: string) => void;
+      };
+      win?._godotReceive?.(JSON.stringify({ type, data }));
+    } catch { /* iframe not ready */ }
   }, []);
 
   // Poll for Godot ready
   useEffect(() => {
     const interval = setInterval(() => {
       try {
-        const win = iframeRef.current?.contentWindow as Window & { _godotReceive?: unknown };
-        if (win?._godotReceive) {
+        const win = iframeRef.current?.contentWindow as Window & { _gameReady?: boolean };
+        if (win?._gameReady) {
           setGodotReady(true);
           clearInterval(interval);
         }
@@ -32,10 +37,10 @@ export default function Game() {
       .catch(err => setError(String(err)));
   }, [godotReady, sendToGodot]);
 
-  // Listen for messages from Godot (spin/reset requests)
+  // Listen for postMessage from Godot iframe
   useEffect(() => {
     const handler = async (e: MessageEvent) => {
-      if (e.origin !== globalThis.location.origin || e.data?.source !== 'godot') return;
+      if (e.data?.source !== 'godot') return;
       try {
         if (e.data.type === 'spin') {
           const result = await spinGame();
