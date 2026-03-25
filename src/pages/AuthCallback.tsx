@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { parseState } from '../services/oidcClient';
 
 function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
@@ -23,8 +24,10 @@ function AuthCallback() {
       return;
     }
 
+    const { returnTo } = parseState(params.get('state'));
+
     handleCallback(code)
-      .then(() => navigate('/', { replace: true }))
+      .then(() => navigate(returnTo, { replace: true }))
       .catch(e => {
         console.error('OIDC callback error:', e);
         setError(e instanceof Error ? e.message : 'OIDC login failed');

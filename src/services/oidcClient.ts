@@ -136,20 +136,31 @@ async function silentRefresh(): Promise<boolean> {
 
 // Public API
 
-export async function login(): Promise<void> {
+export async function login(returnTo?: string): Promise<void> {
   const verifier = await generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
   sessionStorage.setItem('oidc_code_verifier', verifier);
+
+  const state = btoa(JSON.stringify({ returnTo: returnTo || '/' }));
 
   const params = new URLSearchParams({
     client_id: OIDC_CONFIG.clientId,
     redirect_uri: OIDC_CONFIG.redirectUri,
     response_type: 'code',
     scope: 'openid profile email',
+    state,
     code_challenge: challenge,
     code_challenge_method: 'S256',
   });
   globalThis.location.href = `${OIDC_CONFIG.authority}/protocol/openid-connect/auth?${params}`;
+}
+
+export function parseState(stateParam: string | null): { returnTo: string } {
+  try {
+    return stateParam ? JSON.parse(atob(stateParam)) : { returnTo: '/' };
+  } catch {
+    return { returnTo: '/' };
+  }
 }
 
 export async function handleCallback(code: string): Promise<UserInfo> {
