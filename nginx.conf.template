@@ -57,7 +57,7 @@ server {
     # Godot WASM game files — proxy to game-scp service
     # Served through site nginx so /game route goes through SPA auth first
     location /game/ {
-        set $game_backend http://${GAME_BACKEND_HOST}:80;
+        set $game_backend http://${GAME_BACKEND_HOST}:8080;
         proxy_pass $game_backend;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
