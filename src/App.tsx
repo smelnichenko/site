@@ -41,7 +41,7 @@ function App() {
   const { isAuthenticated, email, logout, hasPermission, permissions, initializing } = useAuth();
   const { loading } = useLoading();
   const [buildInfo, setBuildInfo] = useState(
-    `FE: ${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`
+    `${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`
   );
 
   const lastSavedPath = useRef<string | null>(null);
@@ -54,19 +54,6 @@ function App() {
       saveLastPath(location.pathname).catch(() => {});
     }
   }, [location.pathname, isAuthenticated]);
-
-  useEffect(() => {
-    fetch('/api/build-info')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch build info');
-        return res.json();
-      })
-      .then((data: { gitHash: string; buildTime: string }) => {
-        const feLine = `FE: ${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`;
-        const beLine = `BE: ${data.gitHash}${data.buildTime ? ' · ' + formatBuildTime(data.buildTime) : ''}`;
-        setBuildInfo(`${feLine}\n${beLine}`);
-      })
-      .catch(() => {});
   }, []);
 
   if (initializing) {
