@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useEffect, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { useLoading } from './contexts/LoadingContext';
@@ -40,9 +40,7 @@ function App() {
   const location = useLocation();
   const { isAuthenticated, email, logout, hasPermission, permissions, initializing } = useAuth();
   const { loading } = useLoading();
-  const [buildInfo, setBuildInfo] = useState(
-    `${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`
-  );
+  const buildInfo = `${__GIT_HASH__} · ${formatBuildTime(__BUILD_TIME__)}`;
 
   const lastSavedPath = useRef<string | null>(null);
   const hasPendingApproval = isAuthenticated && permissions.length === 0;
@@ -54,7 +52,6 @@ function App() {
       saveLastPath(location.pathname).catch(() => {});
     }
   }, [location.pathname, isAuthenticated]);
-  }, []);
 
   if (initializing) {
     return (
