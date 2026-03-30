@@ -41,7 +41,7 @@ steps:
           wget -q --spider --timeout=2 "$SONAR_HOST_URL/api/system/status" 2>/dev/null && break
           sleep 1
         done
-      - npx sonarqube-scanner
+      - npx sonarqube-scanner -Dsonar.scanner.skipJreProvisioning=true
     backend_options:
       kubernetes:
         secrets:
