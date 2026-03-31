@@ -13,13 +13,13 @@ export interface UserInfo {
 }
 
 // Keycloak default roles to filter out
-const KEYCLOAK_DEFAULT_ROLES = [
+const KEYCLOAK_DEFAULT_ROLES = new Set([
   'default-roles-schnappy',
   'offline_access',
   'uma_authorization',
   'Users',
   'Admins',
-];
+]);
 
 // PKCE helpers using Web Crypto API
 
@@ -27,9 +27,9 @@ function base64urlEncode(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let str = '';
   for (const byte of bytes) {
-    str += String.fromCharCode(byte);
+    str += String.fromCodePoint(byte);
   }
-  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return btoa(str).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 }
 
 async function generateCodeVerifier(): Promise<string> {
@@ -48,11 +48,11 @@ async function generateCodeChallenge(verifier: string): Promise<string> {
 // Parse JWT payload (no validation — gateway validates)
 function parseJwt(token: string): Record<string, unknown> {
   const base64Url = token.split('.')[1];
-  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const base64 = base64Url.replaceAll('-', '+').replaceAll('_', '/');
   const jsonPayload = decodeURIComponent(
     atob(base64)
       .split('')
-      .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+      .map((c) => '%' + ('00' + (c.codePointAt(0) ?? 0).toString(16)).slice(-2))
       .join('')
   );
   return JSON.parse(jsonPayload);
@@ -62,7 +62,7 @@ function extractUserInfo(token: string): UserInfo {
   const claims = parseJwt(token);
   const realmAccess = claims.realm_access as { roles?: string[] } | undefined;
   const roles = (realmAccess?.roles || []).filter(
-    (r: string) => !KEYCLOAK_DEFAULT_ROLES.includes(r)
+    (r: string) => !KEYCLOAK_DEFAULT_ROLES.has(r)
   );
   return {
     email: claims.email as string,
