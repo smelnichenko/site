@@ -46,13 +46,13 @@ npm run coverage  # Test coverage report
 
 ## Deployment
 
-Deployed to k3s via Flux CD GitOps:
+Deployed to kubeadm via Argo CD GitOps:
 
 1. Push to master triggers Woodpecker CD pipeline
 2. `tsc --noEmit` and `vitest run --coverage` validate the build
 3. Kaniko builds the container image (Nginx + static assets)
 4. Image pushed to Forgejo registry at `git.pmon.dev`
 5. Woodpecker commits new image tag to the `schnappy/infra` repo
-6. Flux detects the change and reconciles the HelmRelease
+6. Argo CD detects the change and syncs the Application
 
 Production at `https://pmon.dev/` in the `monitor` namespace.

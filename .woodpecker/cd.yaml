@@ -75,7 +75,6 @@ steps:
   - name: push-image
     image: gcr.io/kaniko-project/executor:debug
     commands:
-      # Wait for k3s network policy propagation
       - mkdir -p /kaniko/.docker
       - |
         echo "{\"auths\":{\"git.pmon.dev\":{\"username\":\"$REGISTRY_USER\",\"password\":\"$REGISTRY_TOKEN\"}}}" > /kaniko/.docker/config.json
@@ -104,7 +103,7 @@ steps:
             target:
               env: REGISTRY_TOKEN
 
-  # ============== UPDATE INFRA REPO (Flux deploys) ==============
+  # ============== UPDATE INFRA REPO (Argo CD syncs) ==============
   - name: update-infra
     image: alpine:latest
     commands:
