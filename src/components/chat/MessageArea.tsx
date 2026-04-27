@@ -14,6 +14,11 @@ import {
 } from '../../services/api';
 import { encryptMessage, decryptMessage, unwrapChannelKey } from '../../services/crypto';
 import * as keyStore from '../../services/keyStore';
+import { subscribe } from '../../services/centrifugoClient';
+
+function mergeMessage(prev: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
+  return prev.some((m) => m.messageId === incoming.messageId) ? prev : [...prev, incoming];
+}
 
 function formatTime(dateString: string): string {
   return new Date(dateString).toLocaleTimeString('en-US', {
@@ -128,12 +133,30 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
     }
 
     if (keyLoaded || !isEncrypted) {
+      // Initial REST fetch + subscribe to live publications. Backend
+      // publishes the same ChatMessage shape on `chat:room:<id>` as
+      // /api returns, so the sub handler can splice into local state.
       loadMessages();
-      const interval = setInterval(loadMessages, 3000);
+
+      const handlePublication = async (msg: ChatMessage) => {
+        if (cancelled) return;
+        const [decrypted] = await decryptMessages([msg]);
+        setMessages((prev) => mergeMessage(prev, decrypted));
+        markChannelRead(channel.id).catch(() => {});
+      };
+      const sub = subscribe<ChatMessage>(`chat:room:${channel.id}`, {
+        onPublication: handlePublication,
+      });
+
+      // Fallback poll kept while we soak the subscription path; drop
+      // once we're confident every page hands off cleanly.
+      const interval = setInterval(loadMessages, 30000);
+
       return () => {
         cancelled = true;
         controller.abort();
         clearInterval(interval);
+        sub.unsubscribe();
       };
     }
     return () => { cancelled = true; };

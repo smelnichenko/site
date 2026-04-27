@@ -11,6 +11,7 @@ import {
   type ChessGameDto,
 } from '../services/api';
 import { useStockfish } from '../hooks/useStockfish';
+import { subscribe } from '../services/centrifugoClient';
 import ChessBoard from '../components/chess/ChessBoard';
 import GameLobby from '../components/chess/GameLobby';
 import MoveHistory from '../components/chess/MoveHistory';
@@ -29,7 +30,8 @@ export default function Chess() {
     moveTimeMs: Math.min(1000 + (currentGame?.aiDifficulty ?? 10) * 200, 5000),
   });
 
-  // Poll for PvP opponent moves
+  // Live opponent updates for PvP games via Centrifugo + a slow REST
+  // poll fallback. Only applies while waiting for the opponent's move.
   useEffect(() => {
     if (currentGame?.gameType !== 'PVP' || currentGame.status !== 'IN_PROGRESS') {
       return;
@@ -38,10 +40,13 @@ export default function Chess() {
     const isMyTurn =
       (currentGame.fen.includes(' w ') && uuid === currentGame.whitePlayerUuid) ||
       (currentGame.fen.includes(' b ') && uuid === currentGame.blackPlayerUuid);
-
-    // Only poll when it's NOT my turn (waiting for opponent)
     if (isMyTurn) return;
 
+    const sub = subscribe<ChessGameDto>(`chess:game:${currentGame.gameUuid}`, {
+      onPublication: (game) => setCurrentGame(game),
+    });
+
+    // Fallback poll — slow cadence; primary path is the subscription.
     pollRef.current = setInterval(async () => {
       try {
         const updated = await fetchChessGame(currentGame.gameUuid);
@@ -51,10 +56,11 @@ export default function Chess() {
       } catch {
         // Ignore poll errors
       }
-    }, 1500);
+    }, 30000);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      sub.unsubscribe();
     };
   }, [currentGame, uuid]);
 
