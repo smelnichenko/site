@@ -4,33 +4,38 @@ React single-page application for pmon.dev.
 
 ## Architecture
 
-Served by Nginx, proxies all `/api` requests to the API gateway. Communicates with backend services exclusively through the gateway. Uses STOMP/SockJS WebSocket for real-time chat and chess. Implements client-side Hashcash PoW in a Web Worker and optional E2E encryption via Web Crypto API.
+Served by Nginx in production. Authenticates against Keycloak via OIDC Authorization Code + PKCE; the access token is sent on every `/api` request and validated by the Istio ingress gateway. WebSocket connections (chat, chess) are upgraded through the same gateway. Implements client-side Hashcash PoW in a Web Worker (registration anti-abuse) and optional E2E encryption for chat via Web Crypto API.
 
 ```
-Browser --> Nginx (this service) --> API Gateway --> Backend services
+Browser --> Nginx (this service) --> Istio ingress --> backend services
                                  --> /game/ (embedded Godot iframe)
+        <-- Keycloak (OIDC PKCE login)
 ```
 
 ## Tech Stack
 
-- React 18, TypeScript, Vite 5
+- React 19, TypeScript, Vite 7
+- React Router 7 (client-side routing)
 - Recharts (monitoring charts)
-- React Router (client-side routing)
-- STOMP/SockJS (real-time chat and chess)
-- Web Worker (Hashcash PoW captcha solving)
-- Web Crypto API (E2E encryption: ECDH P-256, AES-256-GCM, PBKDF2)
+- chess.js + react-chessboard + stockfish.js (chess UI + AI)
+- OIDC client (Authorization Code + PKCE, manual implementation against Keycloak)
+- Spring WebSocket / SockJS-compatible client (chat, chess real-time)
+- Web Worker — Hashcash PoW captcha solving
+- Web Crypto API — E2E chat encryption (ECDH P-256, AES-256-GCM, PBKDF2)
 - Nginx (production server with security headers)
-- Vitest (unit tests)
+- Vitest (unit tests), Playwright (E2E)
 
 ## Pages
 
 | Route | Permission | Purpose |
 |-------|------------|---------|
-| `/login`, `/register` | public | Authentication |
+| `/login`, `/auth/callback`, `/verify-email` | public | OIDC login flow |
 | `/` | METRICS | Dashboard with monitoring charts |
 | `/monitors` | METRICS | CRUD for page and RSS monitors |
-| `/chat` | CHAT | Real-time messaging |
+| `/page/:pageName`, `/rss`, `/rss/:feedName` | METRICS | Monitor detail views |
+| `/chat`, `/chat/:channelId` | CHAT | Real-time messaging |
 | `/inbox` | EMAIL | Received emails |
+| `/chess` | PLAY | Chess (PvP + AI via Stockfish) |
 | `/game` | PLAY | Embedded Godot game |
 | `/admin` | MANAGE_USERS | User and group management |
 
@@ -38,21 +43,21 @@ Browser --> Nginx (this service) --> API Gateway --> Backend services
 
 ```bash
 npm install
-npm run dev       # Dev server at http://localhost:3000, proxies /api to :8080
-npm run build     # Production build to dist/
-npm run test      # Run vitest
-npm run coverage  # Test coverage report
+npm run dev            # Dev server at http://localhost:3000, proxies /api to :8080
+npm run build          # Production build to dist/
+npm run test           # Vitest
+npm run test:coverage  # Coverage report
 ```
 
 ## Deployment
 
 Deployed to kubeadm via Argo CD GitOps:
 
-1. Push to master triggers Woodpecker CD pipeline
-2. `tsc --noEmit` and `vitest run --coverage` validate the build
+1. Push to master triggers Woodpecker CD
+2. `tsc --noEmit` + `vitest run --coverage` validate the build
 3. Kaniko builds the container image (Nginx + static assets)
 4. Image pushed to Forgejo registry at `git.pmon.dev`
-5. Woodpecker commits new image tag to the `schnappy/infra` repo
-6. Argo CD detects the change and syncs the Application
+5. Woodpecker commits the new tag to `schnappy/infra`
+6. Argo CD syncs the Application
 
-Production at `https://pmon.dev/` in the `monitor` namespace.
+Production at `https://pmon.dev/` in the `schnappy-production-apps` namespace.
