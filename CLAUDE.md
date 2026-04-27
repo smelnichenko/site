@@ -67,17 +67,27 @@ redirectUri: <origin>/auth/callback
 
 `AuthContext` tracks `{ isAuthenticated, email, permissions[], … }`. `permissions` comes from JWT claims; an empty array means **registered but pending approval** — `App.tsx` shows the pending banner instead of routing.
 
-## Real-time strategy (current)
+## Real-time strategy
 
-**The site does not use WebSockets, STOMP, or SSE.** Both chat and chess update via REST polling:
+centrifuge-js connects once at `wss://<origin>/realtime/connection/websocket` and multiplexes per-entity subscriptions. The wrapper is `services/centrifugoClient.ts`:
 
-| Page | Polled call | Interval |
-|------|-------------|----------|
-| Chat — channel list | `fetchChatChannels` | 10 s |
-| Chat — message area | `fetchChatMessages(channel, 50)` | 3 s |
-| Chess — active game | `fetchChessGame(uuid)` | 3 s |
+```ts
+import { subscribe } from '../services/centrifugoClient';
 
-The backend services (`chat`, `chess`) expose STOMP/SockJS on `/api/ws/*`, but no client in this repo connects to it. **Plan 066 (`schnappy-realtime`)** plans to migrate to Centrifugo (Kafka → Centrifugo → SSE/WS to browser); when that lands, replace polling here with a Centrifugo SDK subscription.
+const sub = subscribe<ChatMessage>(`chat:room:${channel.id}`, {
+  onPublication: (msg) => /* update local state */,
+});
+// ... on unmount: sub.unsubscribe();
+```
+
+- **Connection auth**: `getToken` returns the user's Keycloak access token (from `oidcClient.getAccessToken`); Centrifugo verifies via JWKS at `auth.pmon.dev`. No separate connect mint.
+- **Per-channel auth (protected namespaces)**: `getToken({ channel })` calls `POST /api/realtime/sub-token` on admin, which checks membership via the chat/chess `/internal/membership` endpoint and returns a 60 s HS256 sub-token.
+- **Channels**:
+  - `chat:room:<id>` — protected; subscribed by `MessageArea`. Publication = full `ChatMessage`; the handler decrypts and merges by `messageId`.
+  - `chess:game:<uuid>` — protected; subscribed by `Chess.tsx` while the page is waiting on the opponent's move. Publication = full `ChessGameDto`.
+- **Fallback poll**: each subscribing component still runs a 30 s REST poll while the subscription path soaks (was 3 s polling before Centrifugo). Drop after a clean week.
+
+The Chat page (channel list) still uses REST + 10 s poll — the channel list isn't tied to a single broadcast channel and adding a per-user notifications subscription is deferred.
 
 ## Workers
 

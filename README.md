@@ -12,7 +12,7 @@ Browser --> Nginx (this service) --> Istio ingress --> backend services
         <-- Keycloak (OIDC PKCE login at auth.pmon.dev)
 ```
 
-Real-time updates (chat messages, chess board state) are delivered by **REST polling** today — the backends expose STOMP/SockJS but the site does not connect to it. Plan 066 (`schnappy-realtime`) will migrate this to a Centrifugo SSE/WS subscription.
+Real-time updates (chat messages, chess board state) are delivered by **Centrifugo** subscriptions. The site connects once via WebSocket at `wss://pmon.dev/realtime/connection/websocket`, subscribes to per-entity channels (`chat:room:<id>`, `chess:game:<uuid>`), and a 30-second REST poll runs as a fallback while the subscription path soaks. Connection auth is the user's normal Keycloak access token (Centrifugo verifies via JWKS); per-channel subscription tokens come from `POST /api/realtime/sub-token` on the admin service after a membership check.
 
 Two Web Workers run alongside the SPA: a **Hashcash PoW solver** for the registration anti-abuse challenge and a **Stockfish engine** for the human-vs-AI chess flow (the server still validates every move with `chesslib`, regardless of whether the AI or a human submitted it).
 
@@ -22,6 +22,7 @@ Two Web Workers run alongside the SPA: a **Hashcash PoW solver** for the registr
 - React Router 7
 - Recharts (monitoring charts)
 - chess.js + react-chessboard + stockfish.js (chess UI + AI)
+- centrifuge-js (real-time subscriptions for chat + chess)
 - Web Crypto API — E2E chat encryption (ECDH P-256, AES-256-GCM, PBKDF2)
 - Web Worker — Hashcash registration PoW
 - Manual OIDC PKCE client (no `oidc-client-ts` dep)
@@ -65,4 +66,4 @@ Deployed to kubeadm via Argo CD GitOps:
 5. Image pushed to Forgejo registry at `git.pmon.dev`
 6. Woodpecker commits the new tag to `schnappy/infra`; Argo CD syncs
 
-Production at `https://pmon.dev/` in the `schnappy-production-apps` namespace.
+Production at `https://pmon.dev/` in the `schnappy-production` namespace.
