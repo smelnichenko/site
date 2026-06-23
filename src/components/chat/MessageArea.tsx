@@ -145,7 +145,7 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
         markChannelRead(channel.id).catch(() => {});
       };
       const sub = subscribe<ChatMessage>(`chat:room:${channel.id}`, {
-        onPublication: handlePublication,
+        onPublication: (msg) => void handlePublication(msg),
       });
 
       // Fallback poll kept while we soak the subscription path; drop

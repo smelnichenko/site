@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MessageArea from './MessageArea'
 
@@ -25,9 +25,22 @@ vi.mock('../../services/keyStore', () => ({
   getIdentityPrivateKey: vi.fn(),
 }))
 
+// Capture the publication handler so tests can push a live message and assert
+// the subscription is torn down on unmount.
+const subscription = { unsubscribe: vi.fn() }
+let lastPublicationHandler: ((msg: ChatMessage) => void) | null = null
+vi.mock('../../services/centrifugoClient', () => ({
+  subscribe: vi.fn((_channel: string, opts: { onPublication: (msg: ChatMessage) => void }) => {
+    lastPublicationHandler = opts.onPublication
+    return subscription
+  }),
+}))
+
 const api = await import('../../services/api')
 const crypto = await import('../../services/crypto')
 const keyStoreModule = await import('../../services/keyStore')
+const centrifugoClient = await import('../../services/centrifugoClient')
+type ChatMessage = Awaited<ReturnType<typeof api.fetchChatMessages>>[number]
 
 const baseChannel = {
   id: 1,
@@ -75,6 +88,9 @@ beforeEach(() => {
   vi.mocked(keyStoreModule.getLatestChannelKey).mockReturnValue(null)
   vi.mocked(keyStoreModule.getChannelKey).mockReturnValue(null)
   vi.mocked(keyStoreModule.getIdentityPrivateKey).mockReturnValue(null)
+  vi.mocked(centrifugoClient.subscribe).mockClear()
+  subscription.unsubscribe.mockClear()
+  lastPublicationHandler = null
   localStorage.setItem('email', 'me@test.com')
 })
 
@@ -330,5 +346,51 @@ describe('MessageArea', () => {
     await waitFor(() => {
       expect(api.markChannelRead).toHaveBeenCalledWith(1)
     })
+  })
+
+  it('subscribes to the channel realtime topic on load', async () => {
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
+    render(<MessageArea channel={baseChannel} />)
+    await waitFor(() => {
+      expect(centrifugoClient.subscribe).toHaveBeenCalledWith(
+        'chat:room:1',
+        expect.objectContaining({ onPublication: expect.any(Function) }),
+      )
+    })
+  })
+
+  it('appends a live publication to the message list', async () => {
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
+    render(<MessageArea channel={baseChannel} />)
+    await waitFor(() => expect(centrifugoClient.subscribe).toHaveBeenCalled())
+
+    await act(async () => {
+      lastPublicationHandler?.(makeMsg('live-1', 'alice@test.com', 'Realtime hello'))
+    })
+
+    expect(screen.getByText('Realtime hello')).toBeInTheDocument()
+  })
+
+  it('ignores duplicate publications already in the list', async () => {
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([
+      makeMsg('dup', 'alice@test.com', 'Only once'),
+    ])
+    render(<MessageArea channel={baseChannel} />)
+    await waitFor(() => expect(screen.getByText('Only once')).toBeInTheDocument())
+
+    await act(async () => {
+      lastPublicationHandler?.(makeMsg('dup', 'alice@test.com', 'Only once'))
+    })
+
+    expect(screen.getAllByText('Only once')).toHaveLength(1)
+  })
+
+  it('unsubscribes on unmount', async () => {
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
+    const { unmount } = render(<MessageArea channel={baseChannel} />)
+    await waitFor(() => expect(centrifugoClient.subscribe).toHaveBeenCalled())
+
+    unmount()
+    expect(subscription.unsubscribe).toHaveBeenCalled()
   })
 })

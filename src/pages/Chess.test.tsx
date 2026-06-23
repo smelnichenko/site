@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // Mock stockfish Web Worker
@@ -10,10 +10,10 @@ vi.mock('../hooks/useStockfish', () => ({
   }),
 }))
 
-// Mock react-chessboard
+// Mock react-chessboard. The real component takes its position via `options`.
 vi.mock('react-chessboard', () => ({
-  Chessboard: ({ position }: { position: string }) => (
-    <div data-testid="chessboard" data-position={position}>Chessboard</div>
+  Chessboard: ({ options }: { options: { position: string } }) => (
+    <div data-testid="chessboard" data-position={options.position}>Chessboard</div>
   ),
 }))
 
@@ -45,12 +45,27 @@ vi.mock('../services/api', () => ({
   fetchChessHistory: vi.fn(),
 }))
 
+// Capture the realtime publication handler so tests can deliver an opponent
+// update and assert the subscription is torn down on cleanup.
+const subscription = { unsubscribe: vi.fn() }
+let lastPublicationHandler: ((game: ChessGameDto) => void) | null = null
+vi.mock('../services/centrifugoClient', () => ({
+  subscribe: vi.fn((_channel: string, opts: { onPublication: (game: ChessGameDto) => void }) => {
+    lastPublicationHandler = opts.onPublication
+    return subscription
+  }),
+}))
+
 const api = await import('../services/api')
+const centrifugoClient = await import('../services/centrifugoClient')
+type ChessGameDto = Awaited<ReturnType<typeof api.fetchChessGame>>
 
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.fetchActiveChessGames).mockResolvedValue([])
   vi.mocked(api.fetchOpenChessGames).mockResolvedValue([])
+  subscription.unsubscribe.mockClear()
+  lastPublicationHandler = null
 })
 
 // Must import after mocks
@@ -241,6 +256,125 @@ describe('Chess', () => {
       await waitFor(() => {
         expect(screen.getByText('New AI Game')).toBeInTheDocument()
       })
+    })
+  })
+
+  describe('Realtime (PvP)', () => {
+    // White is the opponent (uuid-2) and it is white's turn, so the logged-in
+    // player (uuid-1, black) is waiting and the subscription path activates.
+    const opponentsTurnGame = {
+      gameUuid: 'pvp-uuid',
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      pgn: null,
+      status: 'IN_PROGRESS' as const,
+      result: null,
+      resultReason: null,
+      gameType: 'PVP' as const,
+      moveCount: 0,
+      lastMove: null,
+      whitePlayerUuid: 'uuid-2',
+      blackPlayerUuid: 'uuid-1',
+      drawOfferedByUuid: null,
+      aiDifficulty: null,
+      updatedAt: '2026-03-17T00:00:00Z',
+    }
+
+    async function enterOpponentsTurnGame() {
+      vi.mocked(api.fetchActiveChessGames).mockResolvedValue([opponentsTurnGame])
+      render(<Chess />)
+      const resume = await screen.findByText('Resume')
+      await act(async () => { resume.click() })
+      await waitFor(() => expect(centrifugoClient.subscribe).toHaveBeenCalled())
+    }
+
+    it('subscribes to the game channel while waiting for the opponent', async () => {
+      await enterOpponentsTurnGame()
+      expect(centrifugoClient.subscribe).toHaveBeenCalledWith(
+        'chess:game:pvp-uuid',
+        expect.objectContaining({ onPublication: expect.any(Function) }),
+      )
+    })
+
+    it('updates the board from a live opponent publication', async () => {
+      await enterOpponentsTurnGame()
+      const movedGame = {
+        ...opponentsTurnGame,
+        fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+        moveCount: 1,
+        lastMove: 'e2e4',
+      }
+
+      await act(async () => { lastPublicationHandler?.(movedGame) })
+
+      // ChessBoard loads the FEN into chess.js and renders the normalized
+      // position; assert the piece placement reflects the opponent's e4.
+      await waitFor(() => {
+        const board = screen.getByTestId('chessboard') as HTMLElement
+        expect(board.dataset.position).toMatch(/^rnbqkbnr\/pppppppp\/8\/8\/4P3\/8\/PPPP1PPP\/RNBQKBNR/)
+      })
+    })
+
+    it('unsubscribes when leaving the game', async () => {
+      await enterOpponentsTurnGame()
+      await act(async () => { (await screen.findByText('Back to Lobby')).click() })
+      expect(subscription.unsubscribe).toHaveBeenCalled()
+    })
+
+    // Mount straight into the opponent's-turn game under fake timers so the
+    // 30s REST-poll fallback interval can be advanced deterministically.
+    async function mountOpponentsTurnGameWithFakeTimers() {
+      vi.useFakeTimers()
+      vi.mocked(api.fetchActiveChessGames).mockResolvedValue([opponentsTurnGame])
+      render(<Chess />)
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      await act(async () => { screen.getByText('Resume').click() })
+      expect(centrifugoClient.subscribe).toHaveBeenCalled()
+    }
+
+    it('refreshes the game via the REST poll fallback', async () => {
+      const polledGame = {
+        ...opponentsTurnGame,
+        fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+        moveCount: 1,
+        lastMove: 'e2e4',
+      }
+      vi.mocked(api.fetchChessGame).mockResolvedValue(polledGame)
+
+      try {
+        await mountOpponentsTurnGameWithFakeTimers()
+        await act(async () => { await vi.advanceTimersByTimeAsync(30000) })
+
+        expect(api.fetchChessGame).toHaveBeenCalledWith('pvp-uuid')
+        const board = screen.getByTestId('chessboard') as HTMLElement
+        expect(board.dataset.position).toMatch(/^rnbqkbnr\/pppppppp\/8\/8\/4P3\/8\/PPPP1PPP\/RNBQKBNR/)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('swallows poll errors without crashing', async () => {
+      vi.mocked(api.fetchChessGame).mockRejectedValue(new Error('network'))
+
+      try {
+        await mountOpponentsTurnGameWithFakeTimers()
+        await act(async () => { await vi.advanceTimersByTimeAsync(30000) })
+
+        expect(api.fetchChessGame).toHaveBeenCalledWith('pvp-uuid')
+        // Board still renders the pre-poll position.
+        expect(screen.getByTestId('chessboard')).toBeInTheDocument()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('does not subscribe when it is the player\'s turn', async () => {
+      const myTurnGame = { ...opponentsTurnGame, whitePlayerUuid: 'uuid-1', blackPlayerUuid: 'uuid-2' }
+      vi.mocked(api.fetchActiveChessGames).mockResolvedValue([myTurnGame])
+      render(<Chess />)
+      const resume = await screen.findByText('Resume')
+      await act(async () => { resume.click() })
+      await waitFor(() => expect(screen.getByTestId('chessboard')).toBeInTheDocument())
+      expect(centrifugoClient.subscribe).not.toHaveBeenCalled()
     })
   })
 })
