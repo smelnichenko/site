@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import App from './App';
-import { AuthProvider } from './contexts/AuthContext';
-import { LoadingProvider } from './contexts/LoadingContext';
+import { AuthProvider } from './contexts/AuthProvider';
+import { LoadingProvider } from './contexts/LoadingProvider';
 
 // Mock oidcClient to prevent actual OIDC calls
 vi.mock('./services/oidcClient', () => ({

@@ -1,4 +1,4 @@
-import { type SyntheticEvent, useEffect, useRef, useState } from 'react';
+import { type SyntheticEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   PageMonitorConfig,
@@ -667,7 +667,10 @@ function MonitorConfig() {
   const [testing, setTesting] = useState<string | null>(null);
   const { withLoading } = useLoading();
 
-  const loadData = async () => {
+  // Fetching and deep-link handling are separated on purpose. Folding the `?editPage=` handling into
+  // the loader would make the loader depend on searchParams — and since it also CLEARS them, the
+  // load effect would then re-run and refetch every time a deep link was consumed.
+  const loadData = useCallback(async () => {
     try {
       const [pages, feeds] = await Promise.all([
         fetchPageMonitorConfigs(),
@@ -675,35 +678,50 @@ function MonitorConfig() {
       ]);
       setPageMonitors(pages);
       setRssMonitors(feeds);
-
-      const editFeedId = searchParams.get('editFeed');
-      const editPageId = searchParams.get('editPage');
-      if (editFeedId) {
-        const match = feeds.find((f) => f.id === Number(editFeedId));
-        if (match) setEditingRss(match);
-      }
-      if (editPageId) {
-        const match = pages.find((p) => p.id === Number(editPageId));
-        if (match) setEditingPage(match);
-      }
-      if (editFeedId || editPageId) {
-        setSearchParams({}, { replace: true });
-      }
     } catch {
       /* ignore */
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Load once on mount via the shared loader; its state updates happen after the awaited fetch.
-  // Invoking it through an async IIFE keeps loadData a named fn (reused by the CRUD handlers below)
-  // while marking the returned promise handled (loadData catches its own errors internally).
+  // Load once: loadData is stable, so this effect's dependency is honest and it still runs on mount.
+  // The await-IIFE is not decoration — calling loadData() directly puts its (post-await) setStates on
+  // the effect's synchronous path as far as the compiler lint can see. Nothing here setStates
+  // synchronously, which is what separates this from the reset-wrapper anti-pattern.
   useEffect(() => {
     void (async () => {
       await loadData();
     })();
-  }, []);
+  }, [loadData]);
+
+  // A `?editFeed=`/`?editPage=` link opens that monitor's editor once its list has loaded. Applied
+  // during render (React's reset-on-change pattern) rather than in an effect, which would setState
+  // synchronously and cascade a render.
+  const editFeedId = searchParams.get('editFeed');
+  const editPageId = searchParams.get('editPage');
+  const deepLinkFeed = editFeedId
+    ? rssMonitors.find((f) => f.id === Number(editFeedId))
+    : undefined;
+  const deepLinkPage = editPageId
+    ? pageMonitors.find((p) => p.id === Number(editPageId))
+    : undefined;
+  const deepLinkKey = editFeedId ?? editPageId ?? null;
+  const [appliedDeepLink, setAppliedDeepLink] = useState<string | null>(null);
+  if (deepLinkKey && deepLinkKey !== appliedDeepLink && (deepLinkFeed ?? deepLinkPage)) {
+    // Wait for the list the link refers to; until it arrives this is skipped and retried next render.
+    setAppliedDeepLink(deepLinkKey);
+    if (deepLinkFeed) setEditingRss(deepLinkFeed);
+    if (deepLinkPage) setEditingPage(deepLinkPage);
+  }
+
+  // Drop the param once consumed, so a later reload doesn't reopen the editor. setSearchParams is
+  // router state, not this component's, so it belongs in an effect.
+  useEffect(() => {
+    if (appliedDeepLink) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [appliedDeepLink, setSearchParams]);
 
   const handleCreatePage = async (data: PageMonitorRequest) => {
     await createPageMonitor(data);

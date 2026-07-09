@@ -66,15 +66,21 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
     );
   };
 
-  const selectSquare = (sq: Square) => {
-    if (chess.get(sq)?.color === chess.turn()) {
-      setMoveFrom(sq);
-      setOptionSquares(getMoveOptions(sq));
-    } else {
-      setMoveFrom(null);
-      setOptionSquares({});
-    }
-  };
+  // Memoized so handleSquareClick can list it. As a plain function it was a new value every render,
+  // and omitting it from the deps meant the click handler kept calling whichever copy was captured
+  // when it was last memoized — a stale `chess` position after an opponent's move.
+  const selectSquare = useCallback(
+    (sq: Square) => {
+      if (chess.get(sq)?.color === chess.turn()) {
+        setMoveFrom(sq);
+        setOptionSquares(getMoveOptions(sq));
+      } else {
+        setMoveFrom(null);
+        setOptionSquares({});
+      }
+    },
+    [chess, getMoveOptions],
+  );
 
   const handleSquareClick = useCallback(
     async ({ square }: { square: string }) => {
@@ -110,7 +116,7 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
         setPendingMove(false);
       }
     },
-    [chess, disabled, pendingMove, isMyTurn, moveFrom, getMoveOptions, onMove],
+    [chess, disabled, pendingMove, isMyTurn, moveFrom, getMoveOptions, onMove, selectSquare],
   );
 
   const handlePieceDrop = useCallback(

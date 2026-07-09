@@ -1,4 +1,4 @@
-# CI: Run tests on push to non-main branches or PRs
+# CI: Run checks on push to non-main branches or PRs
 
 when:
   - event: push
@@ -13,27 +13,62 @@ clone:
       partial: false
       depth: 100
 
+# The checks are separate steps on purpose. Chained into one step, a formatting nit fails the whole
+# thing and hides whether the tests pass; you fix the format, push, and only then learn about a test
+# failure. Steps share the workspace volume, so `install` populates node_modules once and the rest
+# fan out from it in parallel, each with its own red/green signal.
 steps:
-  - name: test
+  - name: install
     image: git.pmon.dev/schnappy/sonar-scanner:latest
     commands:
       - npm ci --silent
-      - npx tsc --noEmit
-      # Lint after the type-check: ESLint's type-aware rules need a clean program, and a type error
-      # here produces a clearer message than the lint failure it would cascade into.
-      - npm run lint
-      - npm run format:check
-      - npm run test:coverage
     backend_options:
       kubernetes:
         resources:
-          requests: { cpu: 250m, memory: 1Gi }
+          requests: { cpu: 250m, memory: 512Mi }
           limits: { cpu: 2000m, memory: 2Gi }
         secrets:
           - name: woodpecker-ci-secrets
             key: nexus_npm_registry
             target:
               env: NPM_CONFIG_REGISTRY
+
+  - name: typecheck
+    image: git.pmon.dev/schnappy/sonar-scanner:latest
+    depends_on: [install]
+    commands:
+      - npx tsc --noEmit
+    backend_options:
+      kubernetes:
+        resources:
+          requests: { cpu: 250m, memory: 1Gi }
+          limits: { cpu: 2000m, memory: 2Gi }
+
+  - name: lint
+    image: git.pmon.dev/schnappy/sonar-scanner:latest
+    # After typecheck: ESLint's type-aware rules need a well-formed program, and a type error reports
+    # far more clearly from tsc than from the cascade of lint failures it would otherwise produce.
+    depends_on: [typecheck]
+    commands:
+      - npm run lint
+      - npm run format:check
+    backend_options:
+      kubernetes:
+        # Type-aware linting loads the whole TS program: measured ~1.0 GB peak RSS.
+        resources:
+          requests: { cpu: 500m, memory: 1280Mi }
+          limits: { cpu: 2000m, memory: 2Gi }
+
+  - name: test
+    image: git.pmon.dev/schnappy/sonar-scanner:latest
+    depends_on: [install]
+    commands:
+      - npm run test:coverage
+    backend_options:
+      kubernetes:
+        resources:
+          requests: { cpu: 250m, memory: 1Gi }
+          limits: { cpu: 2000m, memory: 2Gi }
 
   - name: sonar
     image: git.pmon.dev/schnappy/sonar-scanner:latest

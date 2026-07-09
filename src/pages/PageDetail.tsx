@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import ReactPaginate from 'react-paginate';
 import {
@@ -49,36 +49,42 @@ function PageDetailView() {
   const decodedPageName = pageName ? decodeURIComponent(pageName) : '';
   const totalPages = Math.ceil(totalElements / PAGE_SIZE);
 
-  async function loadData(page = 0) {
-    if (!decodedPageName) return;
+  // Memoized so the load effect can depend on it honestly. A plain function is a new value every
+  // render, so listing it would re-run the effect on every render; omitting it lets the effect
+  // capture a stale closure. useCallback is the only option that is both truthful and stable.
+  const loadData = useCallback(
+    async (page = 0) => {
+      if (!decodedPageName) return;
 
-    // Cancel previous request
-    if (controllerRef.current) {
-      controllerRef.current.abort();
-    }
-    controllerRef.current = new AbortController();
-    const signal = controllerRef.current.signal;
-
-    try {
-      const [resultsResponse, statsResponse, configList] = await Promise.all([
-        fetchResults(decodedPageName, page, PAGE_SIZE, signal),
-        fetchPageStats(decodedPageName, signal),
-        fetchPageMonitorConfigs(signal),
-      ]);
-      if (signal.aborted) return;
-      setResults(resultsResponse.content);
-      setTotalElements(resultsResponse.totalElements);
-      setStats(statsResponse);
-      const pageConfig = configList.find((c) => c.name === decodedPageName);
-      setConfig(pageConfig || null);
-    } catch {
-      if (signal.aborted) return;
-    } finally {
-      if (!signal.aborted) {
-        setLoading(false);
+      // Cancel previous request
+      if (controllerRef.current) {
+        controllerRef.current.abort();
       }
-    }
-  }
+      controllerRef.current = new AbortController();
+      const signal = controllerRef.current.signal;
+
+      try {
+        const [resultsResponse, statsResponse, configList] = await Promise.all([
+          fetchResults(decodedPageName, page, PAGE_SIZE, signal),
+          fetchPageStats(decodedPageName, signal),
+          fetchPageMonitorConfigs(signal),
+        ]);
+        if (signal.aborted) return;
+        setResults(resultsResponse.content);
+        setTotalElements(resultsResponse.totalElements);
+        setStats(statsResponse);
+        const pageConfig = configList.find((c) => c.name === decodedPageName);
+        setConfig(pageConfig || null);
+      } catch {
+        if (signal.aborted) return;
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [decodedPageName],
+  );
 
   useEffect(() => {
     // loadData catches its own errors (try/catch/finally) so its promise never
@@ -90,7 +96,7 @@ function PageDetailView() {
         controllerRef.current.abort();
       }
     };
-  }, [decodedPageName]);
+  }, [loadData]);
 
   function handlePageChange({ selected }: { selected: number }) {
     setError(null);

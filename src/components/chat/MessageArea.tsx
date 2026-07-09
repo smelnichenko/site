@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import {
   ChatMessage,
   ChatChannel,
@@ -108,26 +108,32 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
     };
   }, [channel.id, isEncrypted]);
 
-  async function decryptMessages(msgs: ChatMessage[]): Promise<ChatMessage[]> {
-    if (!isEncrypted) return msgs;
-    return Promise.all(
-      msgs.map(async (msg) => {
-        try {
-          const version = msg.keyVersion ?? channel.currentKeyVersion;
-          const key = keyStore.getChannelKey(channel.id, version);
-          if (!key) return { ...msg, content: '[Unable to decrypt]' };
-          const plaintext = await decryptMessage(msg.content, key);
-          const decrypted: ChatMessage = { ...msg, content: plaintext };
-          if (msg.editedContent) {
-            decrypted.editedContent = await decryptMessage(msg.editedContent, key);
+  // Memoized on primitives (id, key version, encrypted flag) so the message effect can depend on it
+  // without re-subscribing on every render. A plain function would be a new value each render, and
+  // omitting it from the deps left the effect decrypting with a stale key version after a rotation.
+  const decryptMessages = useCallback(
+    async (msgs: ChatMessage[]): Promise<ChatMessage[]> => {
+      if (!isEncrypted) return msgs;
+      return Promise.all(
+        msgs.map(async (msg) => {
+          try {
+            const version = msg.keyVersion ?? channel.currentKeyVersion;
+            const key = keyStore.getChannelKey(channel.id, version);
+            if (!key) return { ...msg, content: '[Unable to decrypt]' };
+            const plaintext = await decryptMessage(msg.content, key);
+            const decrypted: ChatMessage = { ...msg, content: plaintext };
+            if (msg.editedContent) {
+              decrypted.editedContent = await decryptMessage(msg.editedContent, key);
+            }
+            return decrypted;
+          } catch {
+            return { ...msg, content: '[Unable to decrypt]' };
           }
-          return decrypted;
-        } catch {
-          return { ...msg, content: '[Unable to decrypt]' };
-        }
-      }),
-    );
-  }
+        }),
+      );
+    },
+    [isEncrypted, channel.id, channel.currentKeyVersion],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -179,7 +185,7 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
     return () => {
       cancelled = true;
     };
-  }, [channel.id, keyLoaded]);
+  }, [channel.id, keyLoaded, isEncrypted, decryptMessages]);
 
   useEffect(() => {
     if (shouldScrollRef.current) {
