@@ -66,9 +66,11 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
     );
   };
 
-  // Memoized so handleSquareClick can list it. As a plain function it was a new value every render,
-  // and omitting it from the deps meant the click handler kept calling whichever copy was captured
-  // when it was last memoized — a stale `chess` position after an opponent's move.
+  // Memoized so handleSquareClick can list it honestly. This is NOT fixing a live bug: `chess` is a
+  // useState-held instance whose identity never changes and which is mutated in place, and
+  // getMoveOptions is memoized on it, so a stale copy of selectSquare reads the same live board and
+  // behaves identically. It captures no render-scoped value. The memoization keeps that true — if
+  // selectSquare ever closes over render state (moveFrom, isMyTurn), the deps will already be right.
   const selectSquare = useCallback(
     (sq: Square) => {
       if (chess.get(sq)?.color === chess.turn()) {
