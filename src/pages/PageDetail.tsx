@@ -18,7 +18,23 @@ function formatDate(dateString: string): string {
 
 const PAGE_SIZE = 20;
 
+/**
+ * Remount the view whenever the monitor changes.
+ *
+ * A `key` is React's own answer to "reset all state when the identity changes", and it is the only
+ * one that is race-free here. Resetting state during render instead would run BEFORE the effect
+ * cleanup that aborts the previous monitor's in-flight request: a pagination fetch still in flight
+ * would then resolve with its signal un-aborted, pass the `!signal.aborted` guards, and paint the
+ * OLD monitor's rows under the NEW monitor's header. Aborting from the render body to close that
+ * window is not allowed either — touching a ref during render is impure and breaks under
+ * StrictMode. Remounting sidesteps both: fresh state, and unmount cleanup aborts the old request.
+ */
 function PageDetail() {
+  const { pageName } = useParams<{ pageName: string }>();
+  return <PageDetailView key={pageName ?? ''} />;
+}
+
+function PageDetailView() {
   const { pageName } = useParams<{ pageName: string }>();
   const [results, setResults] = useState<MonitorResult[]>([]);
   const [config, setConfig] = useState<PageMonitorConfig | null>(null);
@@ -32,17 +48,6 @@ function PageDetail() {
 
   const decodedPageName = pageName ? decodeURIComponent(pageName) : '';
   const totalPages = Math.ceil(totalElements / PAGE_SIZE);
-
-  // Reset the view (spinner + first page) when navigating to a different page.
-  // Adjusting state during render is React's recommended alternative to a
-  // resetting effect and avoids the cascading render a synchronous effect setState causes.
-  const [prevPageName, setPrevPageName] = useState(decodedPageName);
-  if (decodedPageName !== prevPageName) {
-    setPrevPageName(decodedPageName);
-    setLoading(true);
-    setCurrentPage(0);
-    setError(null);
-  }
 
   async function loadData(page = 0) {
     if (!decodedPageName) return;

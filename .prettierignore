@@ -3,8 +3,3 @@ coverage
 node_modules
 public
 package-lock.json
-
-# Markdown is excluded on purpose. Prettier formats fenced blocks by their language tag, and this
-# repo's docs use ```ts fences for pseudo-code — it rewrote `authority: https://...` into a comment,
-# silently corrupting CLAUDE.md. Prose formatting is not worth that risk.
-*.md

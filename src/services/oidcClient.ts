@@ -152,11 +152,27 @@ export async function login(returnTo?: string): Promise<void> {
   globalThis.location.href = `${OIDC_CONFIG.authority}/protocol/openid-connect/auth?${params}`;
 }
 
+/**
+ * Decode the OAuth `state` we round-tripped through the IdP.
+ *
+ * The value comes back through the browser's URL, so it is attacker-influenced: asserting it is
+ * `{ returnTo: string }` would be a lie the type system then propagates into `navigate()`. Validate
+ * the shape and require a single-slash absolute path, so a crafted state cannot aim the
+ * post-login redirect at `//evil.example` (protocol-relative) or a non-string.
+ */
 export function parseState(stateParam: string | null): { returnTo: string } {
+  const fallback = { returnTo: '/' };
+  if (!stateParam) return fallback;
   try {
-    return stateParam ? (JSON.parse(atob(stateParam)) as { returnTo: string }) : { returnTo: '/' };
+    const parsed: unknown = JSON.parse(atob(stateParam));
+    if (typeof parsed !== 'object' || parsed === null) return fallback;
+    const { returnTo } = parsed as { returnTo?: unknown };
+    if (typeof returnTo !== 'string' || !returnTo.startsWith('/') || returnTo.startsWith('//')) {
+      return fallback;
+    }
+    return { returnTo };
   } catch {
-    return { returnTo: '/' };
+    return fallback;
   }
 }
 

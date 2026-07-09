@@ -126,4 +126,36 @@ describe('VerifyEmail', () => {
     });
     expect(await screen.findByText(/new verification link has been sent/i)).toBeInTheDocument();
   });
+  it('shows the spinner again and clears the old result when the token changes without a remount', async () => {
+    // React Router swaps ?token= in place, so this route re-verifies without remounting. The lazy
+    // useState initializer only covers the FIRST token; without a per-token reset the second
+    // verification runs with no spinner and the first attempt's result still on screen.
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ message: 'Verified' }),
+    });
+    const { rerender } = renderVerifyEmail();
+    expect(await screen.findByText(/verified successfully/i)).toBeInTheDocument();
+
+    let releaseSecondVerify!: (value: unknown) => void;
+    mockFetch.mockReturnValueOnce(
+      new Promise((resolve) => {
+        releaseSecondVerify = resolve;
+      }),
+    );
+    mockToken = 'second-token';
+    rerender(
+      <MemoryRouter>
+        <VerifyEmail />
+      </MemoryRouter>,
+    );
+
+    // positive: the spinner is back for the second token
+    expect(screen.getByText(/verifying your email/i)).toBeInTheDocument();
+    // negative: the first token's success must not still be on screen
+    expect(screen.queryByText(/verified successfully/i)).not.toBeInTheDocument();
+
+    releaseSecondVerify({ ok: true, json: () => Promise.resolve({ message: 'Verified' }) });
+    expect(await screen.findByText(/verified successfully/i)).toBeInTheDocument();
+  });
 });

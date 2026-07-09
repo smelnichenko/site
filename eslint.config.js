@@ -11,6 +11,11 @@ import prettier from 'eslint-config-prettier';
 // Flat config. Type-aware rules are enabled on purpose: `tsc --noEmit` already runs in CI, so the
 // value ESLint adds is the checks the compiler does NOT do — a promise left unawaited, an `any`
 // leaking out of a cast, a hook dependency that silently re-subscribes a WebSocket every render.
+//
+// The `lint` script pins `--max-warnings 9`, the count at adoption. Warnings otherwise rot: they pass
+// CI forever and nobody sees them. The number is a ratchet — it may only ever go DOWN. The 9 are 7
+// exhaustive-deps (each one changes when an effect re-subscribes, so each needs its own change and
+// its own test) and 2 only-export-components.
 export default tseslint.config(
   { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'public/**'] },
 

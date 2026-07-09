@@ -14,11 +14,14 @@ export default function LoadingButton({
   ...props
 }: Readonly<LoadingButtonProps>) {
   return (
-    <button {...props} disabled={disabled || loading}>
+    <button {...props} disabled={disabled || loading} aria-busy={loading}>
       {/*
-        The spinner is decorative: the button is disabled and its label already changes to
-        loadingLabel, so a screen reader announces the state without it. Giving it role="status"
-        would announce the same thing twice; aria-hidden keeps it visual-only.
+        The spinner is decorative — it duplicates what the label already says, so it is aria-hidden
+        rather than a role="status" live region that would announce the same state twice.
+
+        aria-busy carries the state instead. It is needed because `disabled` drops the button out of
+        the tab order and moves focus to <body>, so the label swap to loadingLabel is NOT reliably
+        announced on its own.
       */}
       {loading ? (
         <>

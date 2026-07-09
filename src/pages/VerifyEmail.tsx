@@ -25,6 +25,17 @@ function VerifyEmail() {
   const [resendLoading, setResendLoading] = useState(false);
   const { enabled: captchaEnabled, solving, solve: solveCaptcha } = useHashcash();
 
+  // The lazy initializer only covers the FIRST token. React Router swaps ?token= without
+  // remounting this route, so a second verification link would otherwise run with no spinner and
+  // the previous attempt's success/error still on screen. Reset per token, during render.
+  const [prevToken, setPrevToken] = useState(token);
+  if (token !== prevToken) {
+    setPrevToken(token);
+    setLoading(Boolean(token));
+    setSuccess(false);
+    setError(null);
+  }
+
   useEffect(() => {
     if (!token) return;
     fetch('/api/auth/verify-email', {
