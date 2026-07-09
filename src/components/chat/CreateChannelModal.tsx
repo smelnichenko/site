@@ -42,11 +42,13 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
         const publicKey = keyStore.getIdentityPublicKey();
         if (publicKey && uuid) {
           const wrapped = await wrapChannelKeyForMember(channelKey, publicKey);
-          await setChannelKeys(channel.id, [{
-            userUuid: uuid,
-            encryptedChannelKey: wrapped.encryptedChannelKey,
-            wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
-          }]);
+          await setChannelKeys(channel.id, [
+            {
+              userUuid: uuid,
+              encryptedChannelKey: wrapped.encryptedChannelKey,
+              wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
+            },
+          ]);
           keyStore.setChannelKey(channel.id, 1, channelKey);
         }
       }
@@ -102,7 +104,10 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
 
           {canEncrypt && (
             <div className="form-group">
-              <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label
+                className="toggle-label"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
                 <input
                   type="checkbox"
                   checked={encrypted}
@@ -119,11 +124,7 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
           <div className="form-actions">
             <div />
             <div>
-              <button
-                type="button"
-                className="status-badge action"
-                onClick={onClose}
-              >
+              <button type="button" className="status-badge action" onClick={onClose}>
                 Cancel
               </button>
               <button

@@ -96,24 +96,28 @@ function Chat() {
     <div>
       {error && <div className="error">{error}</div>}
 
-      <div style={{
-        display: 'flex',
-        background: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-        height: 'calc(100vh - 160px)',
-        minHeight: '400px',
-        overflow: 'hidden',
-      }}>
-        {/* Channel sidebar */}
-        <div style={{
-          width: '260px',
-          flexShrink: 0,
-          borderRight: '1px solid #eee',
-          overflow: 'hidden',
+      <div
+        style={{
           display: 'flex',
-          flexDirection: 'column',
-        }}>
+          background: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          height: 'calc(100vh - 160px)',
+          minHeight: '400px',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Channel sidebar */}
+        <div
+          style={{
+            width: '260px',
+            flexShrink: 0,
+            borderRight: '1px solid #eee',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           <ChannelList
             channels={channels}
             activeChannelId={activeChannelId}
@@ -131,14 +135,16 @@ function Chat() {
           {activeChannel ? (
             <MessageArea channel={activeChannel} />
           ) : (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: '#999',
-              fontSize: '0.95rem',
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                color: '#999',
+                fontSize: '0.95rem',
+              }}
+            >
               Select a channel to start chatting
             </div>
           )}

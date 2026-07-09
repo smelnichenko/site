@@ -29,7 +29,7 @@ export function useHashcash(): UseHashcashReturn {
 
   useEffect(() => {
     fetch('/api/captcha/config')
-      .then(res => res.json())
+      .then((res) => res.json())
       .then((config: CaptchaConfig) => setEnabled(config.enabled))
       .catch(() => setEnabled(false));
   }, []);
@@ -75,16 +75,15 @@ export function useHashcash(): UseHashcashReturn {
 function solveInWorker(
   workerRef: RefObject<Worker | null>,
   challenge: string,
-  difficulty: number
+  difficulty: number,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     // Terminate any previous worker
     workerRef.current?.terminate();
 
-    const worker = new Worker(
-      new URL('../workers/hashcash.worker.ts', import.meta.url),
-      { type: 'module' }
-    );
+    const worker = new Worker(new URL('../workers/hashcash.worker.ts', import.meta.url), {
+      type: 'module',
+    });
     workerRef.current = worker;
 
     worker.onmessage = (event: MessageEvent<{ nonce: string; iterations: number }>) => {

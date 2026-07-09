@@ -36,18 +36,22 @@ export function generateSalt(): Uint8Array {
 export async function deriveWrappingKey(
   password: string,
   salt: ArrayBuffer,
-  iterations: number
+  iterations: number,
 ): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
-    'raw', encoder.encode(password), 'PBKDF2', false, ['deriveKey']
+    'raw',
+    encoder.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveKey'],
   );
   return crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt, iterations, hash: PBKDF2_HASH },
     keyMaterial,
     AES_PARAMS,
     false,
-    ['encrypt', 'decrypt']
+    ['encrypt', 'decrypt'],
   );
 }
 
@@ -55,15 +59,11 @@ export async function deriveWrappingKey(
 
 export async function encryptPrivateKey(
   privateKey: CryptoKey,
-  wrappingKey: CryptoKey
+  wrappingKey: CryptoKey,
 ): Promise<string> {
   const pkcs8 = await exportPrivateKey(privateKey);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    wrappingKey,
-    pkcs8
-  );
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, wrappingKey, pkcs8);
   // Concatenate iv + ciphertext, return as base64
   const combined = new Uint8Array(iv.length + ciphertext.byteLength);
   combined.set(iv);
@@ -73,16 +73,12 @@ export async function encryptPrivateKey(
 
 export async function decryptPrivateKey(
   encrypted: string,
-  wrappingKey: CryptoKey
+  wrappingKey: CryptoKey,
 ): Promise<CryptoKey> {
   const combined = base64ToBuffer(encrypted);
   const iv = combined.slice(0, 12);
   const ciphertext = combined.slice(12);
-  const pkcs8 = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    wrappingKey,
-    ciphertext
-  );
+  const pkcs8 = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, wrappingKey, ciphertext);
   return importPrivateKey(pkcs8);
 }
 
@@ -104,7 +100,7 @@ export async function importChannelKey(raw: ArrayBuffer): Promise<CryptoKey> {
 
 export async function wrapChannelKeyForMember(
   channelKey: CryptoKey,
-  recipientPublicKey: CryptoKey
+  recipientPublicKey: CryptoKey,
 ): Promise<{ encryptedChannelKey: string; wrapperPublicKey: JsonWebKey }> {
   // Generate ephemeral key pair for this wrap operation
   const ephemeral = await crypto.subtle.generateKey(ECDH_PARAMS, true, ['deriveKey', 'deriveBits']);
@@ -115,17 +111,13 @@ export async function wrapChannelKeyForMember(
     ephemeral.privateKey,
     AES_PARAMS,
     false,
-    ['encrypt']
+    ['encrypt'],
   );
 
   // Export channel key and encrypt with shared secret
   const channelKeyRaw = await exportChannelKey(channelKey);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    sharedKey,
-    channelKeyRaw
-  );
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, sharedKey, channelKeyRaw);
 
   const combined = new Uint8Array(iv.length + ciphertext.byteLength);
   combined.set(iv);
@@ -140,7 +132,7 @@ export async function wrapChannelKeyForMember(
 export async function unwrapChannelKey(
   encryptedChannelKey: string,
   wrapperPublicKeyJwk: JsonWebKey,
-  recipientPrivateKey: CryptoKey
+  recipientPrivateKey: CryptoKey,
 ): Promise<CryptoKey> {
   const wrapperPublicKey = await importPublicKey(wrapperPublicKeyJwk);
 
@@ -150,34 +142,27 @@ export async function unwrapChannelKey(
     recipientPrivateKey,
     AES_PARAMS,
     false,
-    ['decrypt']
+    ['decrypt'],
   );
 
   const combined = base64ToBuffer(encryptedChannelKey);
   const iv = combined.slice(0, 12);
   const ciphertext = combined.slice(12);
 
-  const channelKeyRaw = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    sharedKey,
-    ciphertext
-  );
+  const channelKeyRaw = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, sharedKey, ciphertext);
 
   return importChannelKey(channelKeyRaw);
 }
 
 // --- Message Encrypt/Decrypt ---
 
-export async function encryptMessage(
-  plaintext: string,
-  channelKey: CryptoKey
-): Promise<string> {
+export async function encryptMessage(plaintext: string, channelKey: CryptoKey): Promise<string> {
   const encoder = new TextEncoder();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     channelKey,
-    encoder.encode(plaintext)
+    encoder.encode(plaintext),
   );
   const combined = new Uint8Array(iv.length + ciphertext.byteLength);
   combined.set(iv);
@@ -185,18 +170,11 @@ export async function encryptMessage(
   return bufferToBase64(combined);
 }
 
-export async function decryptMessage(
-  encrypted: string,
-  channelKey: CryptoKey
-): Promise<string> {
+export async function decryptMessage(encrypted: string, channelKey: CryptoKey): Promise<string> {
   const combined = base64ToBuffer(encrypted);
   const iv = combined.slice(0, 12);
   const ciphertext = combined.slice(12);
-  const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    channelKey,
-    ciphertext
-  );
+  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, channelKey, ciphertext);
   return new TextDecoder().decode(plaintext);
 }
 

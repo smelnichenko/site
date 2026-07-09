@@ -105,7 +105,10 @@ function VerifyEmail() {
           <>
             <div className="error">{error}</div>
             {resendSent ? (
-              <p>If an unverified account with that email exists, a new verification link has been sent.</p>
+              <p>
+                If an unverified account with that email exists, a new verification link has been
+                sent.
+              </p>
             ) : (
               <div style={{ marginTop: '1rem' }}>
                 <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>

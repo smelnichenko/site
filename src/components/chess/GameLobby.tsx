@@ -142,7 +142,10 @@ export default function GameLobby({ onGameSelected }: Readonly<GameLobbyProps>) 
                   {g.status === 'WAITING_FOR_OPPONENT' && (
                     <>
                       <span className="chess-waiting">Waiting...</span>
-                      <button className="btn-small btn-danger" onClick={() => handleAbandon(g.gameUuid)}>
+                      <button
+                        className="btn-small btn-danger"
+                        onClick={() => handleAbandon(g.gameUuid)}
+                      >
                         Cancel
                       </button>
                     </>

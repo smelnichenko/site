@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
-import ProtectedRoute from './ProtectedRoute'
-import { AuthProvider } from '../contexts/AuthContext'
-import * as oidcClient from '../services/oidcClient'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import ProtectedRoute from './ProtectedRoute';
+import { AuthProvider } from '../contexts/AuthContext';
+import * as oidcClient from '../services/oidcClient';
 
 vi.mock('../services/oidcClient', () => ({
   trySilentAuth: vi.fn(),
@@ -13,31 +13,34 @@ vi.mock('../services/oidcClient', () => ({
   login: vi.fn(),
   isAuthenticated: vi.fn().mockReturnValue(false),
   refreshAndGetUserInfo: vi.fn(),
-}))
+}));
 
 vi.mock('../services/keyStore', () => ({
   clear: vi.fn(),
-}))
+}));
 
 beforeEach(() => {
-  vi.mocked(oidcClient.trySilentAuth).mockReset()
-})
+  vi.mocked(oidcClient.trySilentAuth).mockReset();
+});
 
 function renderWithRoute(initialPath = '/protected') {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <AuthProvider>
         <Routes>
-          <Route path="/protected" element={
-            <ProtectedRoute>
-              <div>Protected Content</div>
-            </ProtectedRoute>
-          } />
+          <Route
+            path="/protected"
+            element={
+              <ProtectedRoute>
+                <div>Protected Content</div>
+              </ProtectedRoute>
+            }
+          />
           <Route path="/login" element={<div>Login Page</div>} />
         </Routes>
       </AuthProvider>
     </MemoryRouter>,
-  )
+  );
 }
 
 describe('ProtectedRoute', () => {
@@ -46,21 +49,21 @@ describe('ProtectedRoute', () => {
       email: 'test@example.com',
       uuid: 'uuid-1',
       permissions: ['METRICS'],
-    })
+    });
 
-    renderWithRoute()
+    renderWithRoute();
     await waitFor(() => {
-      expect(screen.getByText('Protected Content')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('Protected Content')).toBeInTheDocument();
+    });
+  });
 
   it('redirects to /login when not authenticated', async () => {
-    vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce(null)
+    vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce(null);
 
-    renderWithRoute()
+    renderWithRoute();
     await waitFor(() => {
-      expect(screen.queryByText('Protected Content')).not.toBeInTheDocument()
-      expect(screen.getByText('Login Page')).toBeInTheDocument()
-    })
-  })
-})
+      expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+      expect(screen.getByText('Login Page')).toBeInTheDocument();
+    });
+  });
+});

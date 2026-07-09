@@ -6,7 +6,13 @@ interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   label: string;
 }
 
-export default function LoadingButton({ loading, loadingLabel, label, disabled, ...props }: Readonly<LoadingButtonProps>) {
+export default function LoadingButton({
+  loading,
+  loadingLabel,
+  label,
+  disabled,
+  ...props
+}: Readonly<LoadingButtonProps>) {
   return (
     <button {...props} disabled={disabled || loading}>
       {/*
@@ -14,7 +20,14 @@ export default function LoadingButton({ loading, loadingLabel, label, disabled, 
         loadingLabel, so a screen reader announces the state without it. Giving it role="status"
         would announce the same thing twice; aria-hidden keeps it visual-only.
       */}
-      {loading ? <><span className="spinner" aria-hidden="true" data-testid="spinner" />{loadingLabel ?? label}</> : label}
+      {loading ? (
+        <>
+          <span className="spinner" aria-hidden="true" data-testid="spinner" />
+          {loadingLabel ?? label}
+        </>
+      ) : (
+        label
+      )}
     </button>
   );
 }

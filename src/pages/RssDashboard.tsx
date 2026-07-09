@@ -48,8 +48,8 @@ function RssDashboard() {
         setConfigs(configList);
 
         const [latestArr, chartArr] = await Promise.all([
-          Promise.all(configList.map(c => fetchRssLatestSafe(c.name, controller.signal))),
-          Promise.all(configList.map(c => fetchRssChartSafe(c.name, controller.signal))),
+          Promise.all(configList.map((c) => fetchRssLatestSafe(c.name, controller.signal))),
+          Promise.all(configList.map((c) => fetchRssChartSafe(c.name, controller.signal))),
         ]);
         if (cancelled) return;
 
@@ -84,7 +84,9 @@ function RssDashboard() {
   if (configs.length === 0) {
     return (
       <div className="card">
-        <p>No RSS feeds configured. <a href="/monitors">Add a feed monitor</a> to get started.</p>
+        <p>
+          No RSS feeds configured. <a href="/monitors">Add a feed monitor</a> to get started.
+        </p>
       </div>
     );
   }
@@ -102,13 +104,13 @@ function RssDashboard() {
                   {config.name}
                 </Link>
                 <div className="badge-group">
-                  <Link to={`/monitors?editFeed=${config.id}`} className="status-badge edit">Edit</Link>
+                  <Link to={`/monitors?editFeed=${config.id}`} className="status-badge edit">
+                    Edit
+                  </Link>
                   {result && !result.errorMessage && (
                     <span className="status-badge success">OK</span>
                   )}
-                  {result?.errorMessage && (
-                    <span className="status-badge error">Error</span>
-                  )}
+                  {result?.errorMessage && <span className="status-badge error">Error</span>}
                 </div>
               </div>
 

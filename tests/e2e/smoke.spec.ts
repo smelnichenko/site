@@ -129,7 +129,9 @@ test.describe('Navigation', () => {
 
     await expect(page.locator('a[href="/"]').filter({ hasText: 'Monitors' })).toBeVisible();
     await expect(page.locator('a[href="/rss"]')).toBeVisible();
-    await expect(page.locator('a[href="/monitors"]').filter({ hasText: 'Configuration' })).toBeVisible();
+    await expect(
+      page.locator('a[href="/monitors"]').filter({ hasText: 'Configuration' }),
+    ).toBeVisible();
 
     await page.click('text=RSS Feeds');
     await expect(page).toHaveURL(/\/rss/);

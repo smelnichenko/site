@@ -7,7 +7,12 @@ interface GameOverDialogProps {
   onBack: () => void;
 }
 
-export default function GameOverDialog({ game, uuid, onNewGame, onBack }: Readonly<GameOverDialogProps>) {
+export default function GameOverDialog({
+  game,
+  uuid,
+  onNewGame,
+  onBack,
+}: Readonly<GameOverDialogProps>) {
   if (game.status !== 'FINISHED' && game.status !== 'ABANDONED') return null;
 
   const getResultText = () => {
@@ -21,12 +26,18 @@ export default function GameOverDialog({ game, uuid, onNewGame, onBack }: Readon
 
   const getReasonText = () => {
     switch (game.resultReason) {
-      case 'CHECKMATE': return 'by checkmate';
-      case 'RESIGNATION': return 'by resignation';
-      case 'STALEMATE': return 'by stalemate';
-      case 'AGREEMENT': return 'by agreement';
-      case 'INSUFFICIENT_MATERIAL': return 'insufficient material';
-      default: return '';
+      case 'CHECKMATE':
+        return 'by checkmate';
+      case 'RESIGNATION':
+        return 'by resignation';
+      case 'STALEMATE':
+        return 'by stalemate';
+      case 'AGREEMENT':
+        return 'by agreement';
+      case 'INSUFFICIENT_MATERIAL':
+        return 'insufficient material';
+      default:
+        return '';
     }
   };
 
@@ -36,8 +47,12 @@ export default function GameOverDialog({ game, uuid, onNewGame, onBack }: Readon
         <h3>{getResultText()}</h3>
         {game.resultReason && <p>{getReasonText()}</p>}
         <div className="chess-game-over-actions">
-          <button className="btn-primary" onClick={onNewGame}>New Game</button>
-          <button className="btn-small" onClick={onBack}>Back to Lobby</button>
+          <button className="btn-primary" onClick={onNewGame}>
+            New Game
+          </button>
+          <button className="btn-small" onClick={onBack}>
+            Back to Lobby
+          </button>
         </div>
       </div>
     </div>

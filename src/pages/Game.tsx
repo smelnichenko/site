@@ -18,7 +18,9 @@ export default function Game() {
         _godotReceive?: (json: string) => void;
       };
       win?._godotReceive?.(JSON.stringify({ type, data }));
-    } catch { /* iframe not ready */ }
+    } catch {
+      /* iframe not ready */
+    }
   }, []);
 
   // Poll for Godot ready
@@ -30,7 +32,9 @@ export default function Game() {
           setGodotReady(true);
           clearInterval(interval);
         }
-      } catch { /* not ready */ }
+      } catch {
+        /* not ready */
+      }
     }, 200);
     return () => clearInterval(interval);
   }, []);
@@ -39,8 +43,8 @@ export default function Game() {
   useEffect(() => {
     if (!godotReady) return;
     fetchGameState()
-      .then(s => sendToGodot('state', s))
-      .catch(err => setError(String(err)));
+      .then((s) => sendToGodot('state', s))
+      .catch((err) => setError(String(err)));
   }, [godotReady, sendToGodot]);
 
   // Listen for messages from Godot (supports both postMessage and CustomEvent)
@@ -80,13 +84,17 @@ export default function Game() {
     globalThis.addEventListener('message', messageHandler);
     try {
       iframeWindow?.addEventListener('godotMessage', customEventHandler);
-    } catch { /* cross-origin */ }
+    } catch {
+      /* cross-origin */
+    }
 
     return () => {
       globalThis.removeEventListener('message', messageHandler);
       try {
         iframeWindow?.removeEventListener('godotMessage', customEventHandler);
-      } catch { /* already cleaned */ }
+      } catch {
+        /* already cleaned */
+      }
     };
   }, [godotReady, sendToGodot]);
 
@@ -105,7 +113,9 @@ export default function Game() {
           background: '#1a1a2e',
         }}
       />
-      {error && <div style={{ color: 'var(--danger)', textAlign: 'center', padding: '4px' }}>{error}</div>}
+      {error && (
+        <div style={{ color: 'var(--danger)', textAlign: 'center', padding: '4px' }}>{error}</div>
+      )}
     </div>
   );
 }

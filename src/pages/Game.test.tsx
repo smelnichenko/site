@@ -1,116 +1,155 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
-import Game from './Game'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, act } from '@testing-library/react';
+import Game from './Game';
 
 vi.mock('../services/api', () => ({
   fetchGameState: vi.fn(),
   spinGame: vi.fn(),
   resetGame: vi.fn(),
-}))
+}));
 
-const api = await import('../services/api')
+const api = await import('../services/api');
 
 beforeEach(() => {
-  vi.resetAllMocks()
-  vi.useFakeTimers()
-})
+  vi.resetAllMocks();
+  vi.useFakeTimers();
+});
 
 afterEach(() => {
-  vi.useRealTimers()
-})
+  vi.useRealTimers();
+});
 
 describe('Game', () => {
   it('renders iframe with game', () => {
-    render(<Game />)
-    const iframe = screen.getByTitle('Slot Machine Board Game')
-    expect(iframe).toBeInTheDocument()
-    expect(iframe).toHaveAttribute('src', '/game/index.html')
-  })
+    render(<Game />);
+    const iframe = screen.getByTitle('Slot Machine Board Game');
+    expect(iframe).toBeInTheDocument();
+    expect(iframe).toHaveAttribute('src', '/game/index.html');
+  });
 
   it('does not show error initially', () => {
-    render(<Game />)
-    expect(screen.queryByText(/Error/)).not.toBeInTheDocument()
-  })
+    render(<Game />);
+    expect(screen.queryByText(/Error/)).not.toBeInTheDocument();
+  });
 
   it('fetches and sends game state when godot is ready', async () => {
-    vi.mocked(api.fetchGameState).mockResolvedValue({ id: 1, player1Position: 0, player2Position: 0, currentTurn: 1, totalSpins: 0, completed: false, winner: null })
-    vi.useRealTimers()
+    vi.mocked(api.fetchGameState).mockResolvedValue({
+      id: 1,
+      player1Position: 0,
+      player2Position: 0,
+      currentTurn: 1,
+      totalSpins: 0,
+      completed: false,
+      winner: null,
+    });
+    vi.useRealTimers();
 
-    render(<Game />)
+    render(<Game />);
     // getByTitle's element type param is what types contentWindow onto the iframe.
-    const iframe = screen.getByTitle<HTMLIFrameElement>('Slot Machine Board Game')
-    const win = iframe.contentWindow as Window & { _gameReady?: boolean; _godotReceive?: unknown }
+    const iframe = screen.getByTitle<HTMLIFrameElement>('Slot Machine Board Game');
+    const win = iframe.contentWindow as Window & { _gameReady?: boolean; _godotReceive?: unknown };
     if (win) {
-      Object.defineProperty(win, '_gameReady', { value: true, writable: true, configurable: true })
-      Object.defineProperty(win, '_godotReceive', { value: vi.fn(), writable: true, configurable: true })
+      Object.defineProperty(win, '_gameReady', { value: true, writable: true, configurable: true });
+      Object.defineProperty(win, '_godotReceive', {
+        value: vi.fn(),
+        writable: true,
+        configurable: true,
+      });
     }
 
-    await waitFor(() => {
-      expect(api.fetchGameState).toHaveBeenCalled()
-    }, { timeout: 1000 })
-  })
+    await waitFor(
+      () => {
+        expect(api.fetchGameState).toHaveBeenCalled();
+      },
+      { timeout: 1000 },
+    );
+  });
 
   it('handles postMessage from Godot for spin', async () => {
-    vi.mocked(api.spinGame).mockResolvedValue({ colors: ['red'], player1Position: 3, player2Position: 0, currentTurn: 2, completed: false, winner: 0, totalSpins: 1 })
-    vi.useRealTimers()
+    vi.mocked(api.spinGame).mockResolvedValue({
+      colors: ['red'],
+      player1Position: 3,
+      player2Position: 0,
+      currentTurn: 2,
+      completed: false,
+      winner: 0,
+      totalSpins: 1,
+    });
+    vi.useRealTimers();
 
-    render(<Game />)
+    render(<Game />);
 
     act(() => {
-      globalThis.dispatchEvent(new MessageEvent('message', {
-        data: { source: 'godot', type: 'spin' },
-      }))
-    })
+      globalThis.dispatchEvent(
+        new MessageEvent('message', {
+          data: { source: 'godot', type: 'spin' },
+        }),
+      );
+    });
 
     await waitFor(() => {
-      expect(api.spinGame).toHaveBeenCalled()
-    })
-  })
+      expect(api.spinGame).toHaveBeenCalled();
+    });
+  });
 
   it('handles postMessage from Godot for reset', async () => {
-    vi.mocked(api.resetGame).mockResolvedValue({ id: 1, player1Position: 0, player2Position: 0, currentTurn: 1, totalSpins: 0, completed: false, winner: null })
-    vi.useRealTimers()
+    vi.mocked(api.resetGame).mockResolvedValue({
+      id: 1,
+      player1Position: 0,
+      player2Position: 0,
+      currentTurn: 1,
+      totalSpins: 0,
+      completed: false,
+      winner: null,
+    });
+    vi.useRealTimers();
 
-    render(<Game />)
+    render(<Game />);
 
     act(() => {
-      globalThis.dispatchEvent(new MessageEvent('message', {
-        data: { source: 'godot', type: 'reset' },
-      }))
-    })
+      globalThis.dispatchEvent(
+        new MessageEvent('message', {
+          data: { source: 'godot', type: 'reset' },
+        }),
+      );
+    });
 
     await waitFor(() => {
-      expect(api.resetGame).toHaveBeenCalled()
-    })
-  })
+      expect(api.resetGame).toHaveBeenCalled();
+    });
+  });
 
   it('ignores messages without godot source', () => {
-    vi.useRealTimers()
-    render(<Game />)
+    vi.useRealTimers();
+    render(<Game />);
 
     act(() => {
-      globalThis.dispatchEvent(new MessageEvent('message', {
-        data: { source: 'other', type: 'spin' },
-      }))
-    })
+      globalThis.dispatchEvent(
+        new MessageEvent('message', {
+          data: { source: 'other', type: 'spin' },
+        }),
+      );
+    });
 
-    expect(api.spinGame).not.toHaveBeenCalled()
-  })
+    expect(api.spinGame).not.toHaveBeenCalled();
+  });
 
   it('shows error when spin fails', async () => {
-    vi.mocked(api.spinGame).mockRejectedValue(new Error('Network error'))
-    vi.useRealTimers()
+    vi.mocked(api.spinGame).mockRejectedValue(new Error('Network error'));
+    vi.useRealTimers();
 
-    render(<Game />)
+    render(<Game />);
 
     act(() => {
-      globalThis.dispatchEvent(new MessageEvent('message', {
-        data: { source: 'godot', type: 'spin' },
-      }))
-    })
+      globalThis.dispatchEvent(
+        new MessageEvent('message', {
+          data: { source: 'godot', type: 'spin' },
+        }),
+      );
+    });
 
     await waitFor(() => {
-      expect(screen.getByText(/Network error/)).toBeInTheDocument()
-    })
-  })
-})
+      expect(screen.getByText(/Network error/)).toBeInTheDocument();
+    });
+  });
+});

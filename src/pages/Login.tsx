@@ -11,7 +11,9 @@ function Login() {
   }, [location]);
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+    <div
+      style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}
+    >
       <p>Redirecting to login...</p>
     </div>
   );

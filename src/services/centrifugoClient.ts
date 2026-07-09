@@ -73,9 +73,11 @@ export function subscribe<T>(channel: string, opts: SubscribeOptions<T>): Subscr
   const c = getCentrifugo();
   const existing = c.getSubscription(channel);
   // Reuse if the page already subscribed (e.g. StrictMode double-effect).
-  const sub = existing ?? c.newSubscription(channel, {
-    getToken: () => fetchSubToken(channel),
-  });
+  const sub =
+    existing ??
+    c.newSubscription(channel, {
+      getToken: () => fetchSubToken(channel),
+    });
 
   sub.on('publication', (ctx) => opts.onPublication(ctx.data as T));
   if (opts.onState) {

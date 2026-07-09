@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  ReactNode,
+} from 'react';
 import * as oidcClient from '../services/oidcClient';
 import type { UserInfo } from '../services/oidcClient';
 import * as keyStore from '../services/keyStore';
@@ -37,14 +45,14 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   // there is nothing to initialize — derive the initial flag instead of setting
   // it synchronously inside the effect.
   const [initializing, setInitializing] = useState(
-    () => globalThis.location.pathname !== '/auth/callback'
+    () => globalThis.location.pathname !== '/auth/callback',
   );
 
   const isAuthenticated = !!auth.email;
 
   const hasPermission = useCallback(
     (permission: string) => auth.permissions.includes(permission),
-    [auth.permissions]
+    [auth.permissions],
   );
 
   // On mount: check if we have tokens in memory (e.g., after token refresh)
@@ -71,7 +79,9 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleCallback = useCallback(async (code: string): Promise<void> => {
@@ -101,22 +111,30 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     }
   }, []);
 
-  const contextValue = useMemo(() => ({
-    ...auth,
-    handleCallback,
-    logout,
-    refreshPermissions,
-    isAuthenticated,
-    hasPermission,
-    getAccessToken,
-    initializing,
-  }), [auth, handleCallback, logout, refreshPermissions, isAuthenticated, hasPermission, getAccessToken, initializing]);
-
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+  const contextValue = useMemo(
+    () => ({
+      ...auth,
+      handleCallback,
+      logout,
+      refreshPermissions,
+      isAuthenticated,
+      hasPermission,
+      getAccessToken,
+      initializing,
+    }),
+    [
+      auth,
+      handleCallback,
+      logout,
+      refreshPermissions,
+      isAuthenticated,
+      hasPermission,
+      getAccessToken,
+      initializing,
+    ],
   );
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

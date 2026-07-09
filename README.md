@@ -31,17 +31,17 @@ Two Web Workers run alongside the SPA: a **Hashcash PoW solver** for the registr
 
 ## Pages
 
-| Route | Permission | Purpose |
-|-------|------------|---------|
-| `/login`, `/auth/callback`, `/verify-email` | public | OIDC login flow |
-| `/` | METRICS | Dashboard with monitoring charts |
-| `/page/:pageName`, `/rss`, `/rss/:feedName` | METRICS | Monitor detail views |
-| `/monitors` | METRICS | CRUD for page and RSS monitors |
-| `/chat`, `/chat/:channelId` | CHAT | Real-time messaging |
-| `/inbox` | EMAIL | Received emails |
-| `/chess` | PLAY | Chess (PvP + AI via Stockfish) |
-| `/game` | PLAY | Embedded Godot game |
-| `/admin` | MANAGE_USERS | User and group management |
+| Route                                       | Permission   | Purpose                          |
+| ------------------------------------------- | ------------ | -------------------------------- |
+| `/login`, `/auth/callback`, `/verify-email` | public       | OIDC login flow                  |
+| `/`                                         | METRICS      | Dashboard with monitoring charts |
+| `/page/:pageName`, `/rss`, `/rss/:feedName` | METRICS      | Monitor detail views             |
+| `/monitors`                                 | METRICS      | CRUD for page and RSS monitors   |
+| `/chat`, `/chat/:channelId`                 | CHAT         | Real-time messaging              |
+| `/inbox`                                    | EMAIL        | Received emails                  |
+| `/chess`                                    | PLAY         | Chess (PvP + AI via Stockfish)   |
+| `/game`                                     | PLAY         | Embedded Godot game              |
+| `/admin`                                    | MANAGE_USERS | User and group management        |
 
 `ProtectedRoute` enforces both authentication and the per-route permission. A registered user with no permissions yet sees a pending-approval banner instead of any protected route.
 

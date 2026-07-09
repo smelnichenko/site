@@ -42,7 +42,7 @@ function AuthCallback() {
 
     handleCallback(code)
       .then(() => navigate(returnTo, { replace: true }))
-      .catch(e => {
+      .catch((e) => {
         console.error('OIDC callback error:', e);
         setAsyncError(e instanceof Error ? e.message : 'OIDC login failed');
       });

@@ -42,7 +42,13 @@ function PendingApproval() {
         <h2>Registration Declined</h2>
         <p style={{ color: 'var(--text-secondary)', marginTop: 12 }}>
           Your registration could not be approved.
-          {reason && <><br /><br />Reason: {reason}</>}
+          {reason && (
+            <>
+              <br />
+              <br />
+              Reason: {reason}
+            </>
+          )}
         </p>
         <button className="btn-logout" onClick={logout} style={{ marginTop: 20 }}>
           Logout

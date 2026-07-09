@@ -142,7 +142,7 @@ export async function fetchResults(
   pageName?: string,
   page = 0,
   size = 100,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<PagedResponse<MonitorResult>> {
   const endpoint = pageName
     ? `${API_BASE}/monitor/results/${encodeURIComponent(pageName)}`
@@ -152,15 +152,23 @@ export async function fetchResults(
   return readJson(response);
 }
 
-export async function fetchLatestResult(pageName: string, signal?: AbortSignal): Promise<MonitorResult | null> {
-  const response = await apiFetch(`${API_BASE}/monitor/results/${encodeURIComponent(pageName)}/latest`, { signal });
+export async function fetchLatestResult(
+  pageName: string,
+  signal?: AbortSignal,
+): Promise<MonitorResult | null> {
+  const response = await apiFetch(
+    `${API_BASE}/monitor/results/${encodeURIComponent(pageName)}/latest`,
+    { signal },
+  );
   if (response.status === 404) return null;
   if (!response.ok) throw new Error('Failed to fetch latest result');
   return readJson(response);
 }
 
 export async function fetchPageStats(pageName: string, signal?: AbortSignal): Promise<PageStats> {
-  const response = await apiFetch(`${API_BASE}/monitor/stats/${encodeURIComponent(pageName)}`, { signal });
+  const response = await apiFetch(`${API_BASE}/monitor/stats/${encodeURIComponent(pageName)}`, {
+    signal,
+  });
   if (!response.ok) throw new Error('Failed to fetch stats');
   return readJson(response);
 }
@@ -239,18 +247,24 @@ export async function fetchRssResults(
   feedName: string,
   page = 0,
   size = 100,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<PagedResponse<RssFeedResult>> {
   const response = await apiFetch(
     `${API_BASE}/rss/results/${encodeURIComponent(feedName)}?page=${page}&size=${size}`,
-    { signal }
+    { signal },
   );
   if (!response.ok) throw new Error('Failed to fetch RSS results');
   return readJson(response);
 }
 
-export async function fetchRssLatestResult(feedName: string, signal?: AbortSignal): Promise<RssFeedResult | null> {
-  const response = await apiFetch(`${API_BASE}/rss/results/${encodeURIComponent(feedName)}/latest`, { signal });
+export async function fetchRssLatestResult(
+  feedName: string,
+  signal?: AbortSignal,
+): Promise<RssFeedResult | null> {
+  const response = await apiFetch(
+    `${API_BASE}/rss/results/${encodeURIComponent(feedName)}/latest`,
+    { signal },
+  );
   if (response.status === 404) return null;
   if (!response.ok) throw new Error('Failed to fetch latest RSS result');
   return readJson(response);
@@ -259,11 +273,11 @@ export async function fetchRssLatestResult(feedName: string, signal?: AbortSigna
 export async function fetchRssChartData(
   feedName: string,
   limit = 100,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<ChartDataByCollection> {
   const response = await apiFetch(
     `${API_BASE}/rss/results/${encodeURIComponent(feedName)}/chart-data?limit=${limit}`,
-    { signal }
+    { signal },
   );
   if (!response.ok) throw new Error('Failed to fetch RSS chart data');
   return readJson(response);
@@ -298,7 +312,10 @@ export async function createPageMonitor(request: PageMonitorRequest): Promise<Pa
   return readJson(response);
 }
 
-export async function updatePageMonitor(id: number, request: PageMonitorRequest): Promise<PageMonitorConfig> {
+export async function updatePageMonitor(
+  id: number,
+  request: PageMonitorRequest,
+): Promise<PageMonitorConfig> {
   const response = await apiFetch(`${API_BASE}/monitor/config/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -315,13 +332,17 @@ export async function deletePageMonitor(id: number): Promise<void> {
 
 // RSS Feed Monitor CRUD
 
-export async function fetchRssFeedMonitorConfigs(signal?: AbortSignal): Promise<RssFeedMonitorConfig[]> {
+export async function fetchRssFeedMonitorConfigs(
+  signal?: AbortSignal,
+): Promise<RssFeedMonitorConfig[]> {
   const response = await apiFetch(`${API_BASE}/rss/config`, { signal });
   if (!response.ok) throw new Error('Failed to fetch RSS feed monitor configs');
   return readJson(response);
 }
 
-export async function createRssFeedMonitor(request: RssFeedMonitorRequest): Promise<RssFeedMonitorConfig> {
+export async function createRssFeedMonitor(
+  request: RssFeedMonitorRequest,
+): Promise<RssFeedMonitorConfig> {
   const response = await apiFetch(`${API_BASE}/rss/config`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -334,7 +355,10 @@ export async function createRssFeedMonitor(request: RssFeedMonitorRequest): Prom
   return readJson(response);
 }
 
-export async function updateRssFeedMonitor(id: number, request: RssFeedMonitorRequest): Promise<RssFeedMonitorConfig> {
+export async function updateRssFeedMonitor(
+  id: number,
+  request: RssFeedMonitorRequest,
+): Promise<RssFeedMonitorConfig> {
   const response = await apiFetch(`${API_BASE}/rss/config/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -351,10 +375,18 @@ export async function deleteRssFeedMonitor(id: number): Promise<void> {
 
 // AI Collection Generation
 
-export interface GenerateCollectionsRequest { url: string; prompt: string }
-export interface GeneratedCollection { name: string; metrics: { name: string; keywords: string[] }[] }
+export interface GenerateCollectionsRequest {
+  url: string;
+  prompt: string;
+}
+export interface GeneratedCollection {
+  name: string;
+  metrics: { name: string; keywords: string[] }[];
+}
 
-export async function generateRssCollections(request: GenerateCollectionsRequest): Promise<GeneratedCollection[]> {
+export async function generateRssCollections(
+  request: GenerateCollectionsRequest,
+): Promise<GeneratedCollection[]> {
   const response = await apiFetch(`${API_BASE}/rss/generate-collections`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -437,7 +469,7 @@ export interface ReceivedEmail {
 export async function fetchInboxEmails(
   page = 0,
   size = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<PagedResponse<ReceivedEmail>> {
   const response = await apiFetch(`${API_BASE}/inbox/emails?page=${page}&size=${size}`, { signal });
   if (!response.ok) throw new Error('Failed to fetch emails');
@@ -461,7 +493,7 @@ export interface EmailAttachment {
 
 export async function fetchEmailAttachments(
   emailId: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<EmailAttachment[]> {
   const response = await apiFetch(`${API_BASE}/inbox/emails/${emailId}/attachments`, { signal });
   if (!response.ok) throw new Error('Failed to fetch attachments');
@@ -544,7 +576,9 @@ export async function createChatChannel(name: string, encrypted?: boolean): Prom
 }
 
 export async function leaveChatChannel(channelId: number): Promise<void> {
-  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/leave`, { method: 'POST' });
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/leave`, {
+    method: 'POST',
+  });
   if (!response.ok) throw new Error('Failed to leave channel');
 }
 
@@ -556,9 +590,12 @@ export async function deleteChatChannel(channelId: number): Promise<void> {
 export async function fetchChatMessages(
   channelId: number,
   limit = 50,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<ChatMessage[]> {
-  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/messages?limit=${limit}`, { signal });
+  const response = await apiFetch(
+    `${API_BASE}/chat/channels/${channelId}/messages?limit=${limit}`,
+    { signal },
+  );
   if (!response.ok) throw new Error('Failed to fetch messages');
   return readJson(response);
 }
@@ -567,7 +604,7 @@ export async function sendChatMessage(
   channelId: number,
   content: string,
   parentMessageId?: string,
-  keyVersion?: number
+  keyVersion?: number,
 ): Promise<ChatMessage> {
   const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/messages`, {
     method: 'POST',
@@ -582,7 +619,11 @@ export async function markChannelRead(channelId: number): Promise<void> {
   await apiFetch(`${API_BASE}/chat/channels/${channelId}/read`, { method: 'POST' });
 }
 
-export async function editChatMessage(channelId: number, messageId: string, content: string): Promise<void> {
+export async function editChatMessage(
+  channelId: number,
+  messageId: string,
+  content: string,
+): Promise<void> {
   const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/messages/${messageId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -594,13 +635,23 @@ export async function editChatMessage(channelId: number, messageId: string, cont
   }
 }
 
-export async function fetchMessageEdits(channelId: number, messageId: string, signal?: AbortSignal): Promise<MessageEdit[]> {
-  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/messages/${messageId}/edits`, { signal });
+export async function fetchMessageEdits(
+  channelId: number,
+  messageId: string,
+  signal?: AbortSignal,
+): Promise<MessageEdit[]> {
+  const response = await apiFetch(
+    `${API_BASE}/chat/channels/${channelId}/messages/${messageId}/edits`,
+    { signal },
+  );
   if (!response.ok) throw new Error('Failed to fetch edits');
   return readJson(response);
 }
 
-export async function verifyChannelChain(channelId: number, signal?: AbortSignal): Promise<ChainVerification> {
+export async function verifyChannelChain(
+  channelId: number,
+  signal?: AbortSignal,
+): Promise<ChainVerification> {
   const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/verify`, { signal });
   if (!response.ok) throw new Error('Failed to verify chain');
   return readJson(response);
@@ -631,7 +682,10 @@ export interface ChannelMember {
   joinedAt: string;
 }
 
-export async function fetchChannelMembers(channelId: number, signal?: AbortSignal): Promise<ChannelMember[]> {
+export async function fetchChannelMembers(
+  channelId: number,
+  signal?: AbortSignal,
+): Promise<ChannelMember[]> {
   const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/members`, { signal });
   if (!response.ok) throw new Error('Failed to fetch members');
   return readJson(response);
@@ -714,8 +768,11 @@ export async function updateUserKeys(request: {
   if (!response.ok) throw new Error('Failed to update keys');
 }
 
-export async function fetchPublicKeys(userUuids: string[], signal?: AbortSignal): Promise<PublicKeyInfo[]> {
-  const params = userUuids.map(id => `userUuids=${id}`).join('&');
+export async function fetchPublicKeys(
+  userUuids: string[],
+  signal?: AbortSignal,
+): Promise<PublicKeyInfo[]> {
+  const params = userUuids.map((id) => `userUuids=${id}`).join('&');
   const response = await apiFetch(`${API_BASE}/chat/keys/public?${params}`, { signal });
   if (!response.ok) throw new Error('Failed to fetch public keys');
   return readJson(response);
@@ -724,18 +781,17 @@ export async function fetchPublicKeys(userUuids: string[], signal?: AbortSignal)
 export async function fetchChannelKeys(
   channelId: number,
   keyVersion?: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<ChannelKeyBundleResponse[]> {
   const params = keyVersion == null ? '' : `?keyVersion=${keyVersion}`;
-  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/keys${params}`, { signal });
+  const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/keys${params}`, {
+    signal,
+  });
   if (!response.ok) throw new Error('Failed to fetch channel keys');
   return readJson(response);
 }
 
-export async function setChannelKeys(
-  channelId: number,
-  bundles: MemberKeyBundle[]
-): Promise<void> {
+export async function setChannelKeys(channelId: number, bundles: MemberKeyBundle[]): Promise<void> {
   const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/keys`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -746,7 +802,7 @@ export async function setChannelKeys(
 
 export async function rotateChannelKeys(
   channelId: number,
-  bundles: MemberKeyBundle[]
+  bundles: MemberKeyBundle[],
 ): Promise<{ newKeyVersion: number }> {
   const response = await apiFetch(`${API_BASE}/chat/channels/${channelId}/keys/rotate`, {
     method: 'POST',
@@ -765,7 +821,8 @@ export interface ChessGameDto {
   pgn: string | null;
   status: 'WAITING_FOR_OPPONENT' | 'IN_PROGRESS' | 'FINISHED' | 'ABANDONED';
   result: 'WHITE_WINS' | 'BLACK_WINS' | 'DRAW' | null;
-  resultReason: 'CHECKMATE' | 'RESIGNATION' | 'STALEMATE' | 'AGREEMENT' | 'INSUFFICIENT_MATERIAL' | null;
+  resultReason:
+    'CHECKMATE' | 'RESIGNATION' | 'STALEMATE' | 'AGREEMENT' | 'INSUFFICIENT_MATERIAL' | null;
   gameType: 'AI' | 'PVP';
   moveCount: number;
   lastMove: string | null;
@@ -776,7 +833,10 @@ export interface ChessGameDto {
   updatedAt: string;
 }
 
-export async function createChessGame(type: 'AI' | 'PVP', difficulty?: number): Promise<ChessGameDto> {
+export async function createChessGame(
+  type: 'AI' | 'PVP',
+  difficulty?: number,
+): Promise<ChessGameDto> {
   const response = await apiFetch(`${API_BASE}/chess/games`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -807,9 +867,11 @@ export async function fetchOpenChessGames(signal?: AbortSignal): Promise<ChessGa
 export async function fetchChessHistory(
   page = 0,
   size = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<PagedResponse<ChessGameDto>> {
-  const response = await apiFetch(`${API_BASE}/chess/games/history?page=${page}&size=${size}`, { signal });
+  const response = await apiFetch(`${API_BASE}/chess/games/history?page=${page}&size=${size}`, {
+    signal,
+  });
   if (!response.ok) throw new Error('Failed to fetch history');
   return readJson(response);
 }
@@ -859,13 +921,17 @@ export async function offerChessDraw(uuid: string): Promise<ChessGameDto> {
 }
 
 export async function acceptChessDraw(uuid: string): Promise<ChessGameDto> {
-  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/draw/accept`, { method: 'POST' });
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/draw/accept`, {
+    method: 'POST',
+  });
   if (!response.ok) throw new Error('Failed to accept draw');
   return readJson(response);
 }
 
 export async function declineChessDraw(uuid: string): Promise<ChessGameDto> {
-  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/draw/decline`, { method: 'POST' });
+  const response = await apiFetch(`${API_BASE}/chess/games/${uuid}/draw/decline`, {
+    method: 'POST',
+  });
   if (!response.ok) throw new Error('Failed to decline draw');
   return readJson(response);
 }
@@ -950,7 +1016,11 @@ export async function fetchAdminGroups(signal?: AbortSignal): Promise<AppGroup[]
   return readJson(response);
 }
 
-export async function createGroup(name: string, description: string, permissions: string[]): Promise<AppGroup> {
+export async function createGroup(
+  name: string,
+  description: string,
+  permissions: string[],
+): Promise<AppGroup> {
   const response = await apiFetch(`${API_BASE}/admin/groups`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -963,7 +1033,12 @@ export async function createGroup(name: string, description: string, permissions
   return readJson(response);
 }
 
-export async function updateGroup(id: number, name: string, description: string, permissions: string[]): Promise<AppGroup> {
+export async function updateGroup(
+  id: number,
+  name: string,
+  description: string,
+  permissions: string[],
+): Promise<AppGroup> {
   const response = await apiFetch(`${API_BASE}/admin/groups/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

@@ -51,14 +51,19 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
       });
       return options;
     },
-    [chess]
+    [chess],
   );
 
-  const isPromotion = (piece: { type: string; color: string } | null | undefined, targetSquare: string): boolean => {
+  const isPromotion = (
+    piece: { type: string; color: string } | null | undefined,
+    targetSquare: string,
+  ): boolean => {
     return (
-      piece?.type === 'p' &&
-      ((piece.color === 'w' && targetSquare[1] === '8') || (piece.color === 'b' && targetSquare[1] === '1'))
-    ) ?? false;
+      (piece?.type === 'p' &&
+        ((piece.color === 'w' && targetSquare[1] === '8') ||
+          (piece.color === 'b' && targetSquare[1] === '1'))) ??
+      false
+    );
   };
 
   const selectSquare = (sq: Square) => {
@@ -105,11 +110,18 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
         setPendingMove(false);
       }
     },
-    [chess, disabled, pendingMove, isMyTurn, moveFrom, getMoveOptions, onMove]
+    [chess, disabled, pendingMove, isMyTurn, moveFrom, getMoveOptions, onMove],
   );
 
   const handlePieceDrop = useCallback(
-    ({ sourceSquare, targetSquare }: { piece: unknown; sourceSquare: string; targetSquare: string | null }): boolean => {
+    ({
+      sourceSquare,
+      targetSquare,
+    }: {
+      piece: unknown;
+      sourceSquare: string;
+      targetSquare: string | null;
+    }): boolean => {
       if (disabled || pendingMove || !isMyTurn || !targetSquare) return false;
 
       const piece = chess.get(sourceSquare as Square);
@@ -126,7 +138,7 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
         return false;
       }
     },
-    [chess, disabled, pendingMove, isMyTurn, onMove]
+    [chess, disabled, pendingMove, isMyTurn, onMove],
   );
 
   return (
@@ -134,7 +146,9 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
       <Chessboard
         options={{
           position,
-          onSquareClick: (args: { square: string }) => { void handleSquareClick(args); },
+          onSquareClick: (args: { square: string }) => {
+            void handleSquareClick(args);
+          },
           onPieceDrop: handlePieceDrop,
           boardOrientation: orientation,
           squareStyles: optionSquares,

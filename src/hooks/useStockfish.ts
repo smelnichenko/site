@@ -49,7 +49,7 @@ export function useStockfish({ skillLevel, moveTimeMs = 1000 }: StockfishOptions
         worker.postMessage(`go movetime ${moveTimeMs}`);
       });
     },
-    [skillLevel, moveTimeMs]
+    [skillLevel, moveTimeMs],
   );
 
   const stop = useCallback(() => {

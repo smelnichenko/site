@@ -131,28 +131,49 @@ function Inbox() {
                   <tr>
                     <td colSpan={3} style={{ padding: '1rem', background: '#f8f9fa' }}>
                       <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
-                        <strong>From:</strong> {email.fromAddress}<br />
-                        <strong>To:</strong> {email.toAddresses}<br />
+                        <strong>From:</strong> {email.fromAddress}
+                        <br />
+                        <strong>To:</strong> {email.toAddresses}
+                        <br />
                         <strong>Date:</strong> {formatDate(email.receivedAt)}
                       </div>
                       {email.bodyHtml && (
                         <iframe
                           srcDoc={email.bodyHtml}
                           sandbox=""
-                          style={{ width: '100%', minHeight: '300px', border: '1px solid #ddd', background: '#fff' }}
+                          style={{
+                            width: '100%',
+                            minHeight: '300px',
+                            border: '1px solid #ddd',
+                            background: '#fff',
+                          }}
                           title="Email body"
                         />
                       )}
                       {!email.bodyHtml && email.bodyText && (
-                        <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{email.bodyText}</pre>
+                        <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                          {email.bodyText}
+                        </pre>
                       )}
                       {!email.bodyHtml && !email.bodyText && (
                         <p style={{ color: '#999' }}>No body content available.</p>
                       )}
                       {attachments[email.id] && attachments[email.id].length > 0 && (
-                        <div style={{ marginTop: '0.75rem', borderTop: '1px solid #ddd', paddingTop: '0.5rem' }}>
+                        <div
+                          style={{
+                            marginTop: '0.75rem',
+                            borderTop: '1px solid #ddd',
+                            paddingTop: '0.5rem',
+                          }}
+                        >
                           <strong style={{ fontSize: '0.85rem' }}>Attachments:</strong>
-                          <ul style={{ margin: '0.25rem 0', paddingLeft: '1.25rem', listStyle: 'none' }}>
+                          <ul
+                            style={{
+                              margin: '0.25rem 0',
+                              paddingLeft: '1.25rem',
+                              listStyle: 'none',
+                            }}
+                          >
                             {attachments[email.id].map((att) => (
                               <li key={att.id} style={{ fontSize: '0.85rem', margin: '0.2rem 0' }}>
                                 <a
@@ -180,22 +201,16 @@ function Inbox() {
         </table>
 
         {data.totalPages > 1 && (
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-            <button
-              className="btn"
-              disabled={data.first}
-              onClick={() => setPage(p => p - 1)}
-            >
+          <div
+            style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}
+          >
+            <button className="btn" disabled={data.first} onClick={() => setPage((p) => p - 1)}>
               Previous
             </button>
             <span style={{ alignSelf: 'center', fontSize: '0.85rem', color: '#666' }}>
               Page {data.pageable.pageNumber + 1} of {data.totalPages}
             </span>
-            <button
-              className="btn"
-              disabled={data.last}
-              onClick={() => setPage(p => p + 1)}
-            >
+            <button className="btn" disabled={data.last} onClick={() => setPage((p) => p + 1)}>
               Next
             </button>
           </div>

@@ -20,7 +20,14 @@ interface InviteModalProps {
   onInvited: () => void;
 }
 
-function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onClose, onInvited }: Readonly<InviteModalProps>) {
+function InviteModal({
+  channelId,
+  channelName,
+  encrypted,
+  currentKeyVersion,
+  onClose,
+  onInvited,
+}: Readonly<InviteModalProps>) {
   const [users, setUsers] = useState<ChatUser[]>([]);
   const [memberIds, setMemberIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -52,9 +59,7 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
     return () => controller.abort();
   }, [channelId]);
 
-  const filtered = users.filter((u) =>
-    u.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = users.filter((u) => u.email.toLowerCase().includes(search.toLowerCase()));
 
   const handleInvite = async (userUuid: string) => {
     setError('');
@@ -69,14 +74,16 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
           const pubKeys = await fetchPublicKeys([userUuid]);
           if (pubKeys.length > 0) {
             const recipientPubKey = await importPublicKey(
-              JSON.parse(pubKeys[0].publicKey) as JsonWebKey
+              JSON.parse(pubKeys[0].publicKey) as JsonWebKey,
             );
             const wrapped = await wrapChannelKeyForMember(channelKey, recipientPubKey);
-            await setChannelKeys(channelId, [{
-              userUuid,
-              encryptedChannelKey: wrapped.encryptedChannelKey,
-              wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
-            }]);
+            await setChannelKeys(channelId, [
+              {
+                userUuid,
+                encryptedChannelKey: wrapped.encryptedChannelKey,
+                wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
+              },
+            ]);
           }
         }
       }
@@ -135,7 +142,8 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
               {search ? 'No matching users' : 'No users to invite'}
             </div>
           )}
-          {!loading && filtered.length > 0 &&
+          {!loading &&
+            filtered.length > 0 &&
             filtered.map((user) => {
               const isMember = memberIds.has(user.uuid);
               return (
@@ -169,8 +177,7 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
                   )}
                 </div>
               );
-            })
-          }
+            })}
         </div>
       </div>
     </dialog>

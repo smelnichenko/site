@@ -64,7 +64,7 @@ function PageDetail() {
       setResults(resultsResponse.content);
       setTotalElements(resultsResponse.totalElements);
       setStats(statsResponse);
-      const pageConfig = configList.find(c => c.name === decodedPageName);
+      const pageConfig = configList.find((c) => c.name === decodedPageName);
       setConfig(pageConfig || null);
     } catch {
       if (signal.aborted) return;
@@ -119,7 +119,9 @@ function PageDetail() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <Link to="/" className="status-badge edit">&larr; Back to Dashboard</Link>
+        <Link to="/" className="status-badge edit">
+          &larr; Back to Dashboard
+        </Link>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -128,15 +130,13 @@ function PageDetail() {
         <div className="card-header">
           <span className="card-title">{decodedPageName}</span>
           <div className="badge-group">
-            <button
-              className="status-badge action"
-              onClick={handleManualCheck}
-              disabled={checking}
-            >
+            <button className="status-badge action" onClick={handleManualCheck} disabled={checking}>
               {checking ? 'Checking...' : 'Check Now'}
             </button>
             {config && (
-              <Link to={`/monitors?editPage=${config.id}`} className="status-badge edit">Edit</Link>
+              <Link to={`/monitors?editPage=${config.id}`} className="status-badge edit">
+                Edit
+              </Link>
             )}
             {results.length > 0 && (
               <span className={`status-badge ${results[0].matched ? 'success' : 'error'}`}>
@@ -189,14 +189,10 @@ function PageDetail() {
               <tr key={result.id}>
                 <td>{formatDate(result.checkedAt)}</td>
                 <td>
-                  {result.extractedValue === null
-                    ? '-'
-                    : result.extractedValue.toLocaleString()}
+                  {result.extractedValue === null ? '-' : result.extractedValue.toLocaleString()}
                 </td>
                 <td>
-                  <span
-                    className={`status-badge ${result.matched ? 'success' : 'error'}`}
-                  >
+                  <span className={`status-badge ${result.matched ? 'success' : 'error'}`}>
                     {result.matched ? 'OK' : 'Failed'}
                   </span>
                 </td>
@@ -221,7 +217,8 @@ function PageDetail() {
               nextLabel="Next →"
             />
             <div className="pagination-info">
-              Showing {currentPage * PAGE_SIZE + 1}-{Math.min((currentPage + 1) * PAGE_SIZE, totalElements)} of {totalElements}
+              Showing {currentPage * PAGE_SIZE + 1}-
+              {Math.min((currentPage + 1) * PAGE_SIZE, totalElements)} of {totalElements}
             </div>
           </>
         )}

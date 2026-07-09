@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchLatestResult, fetchResults, fetchPageMonitorConfigs, MonitorResult, PageMonitorConfig } from '../services/api';
+import {
+  fetchLatestResult,
+  fetchResults,
+  fetchPageMonitorConfigs,
+  MonitorResult,
+  PageMonitorConfig,
+} from '../services/api';
 import PageCard from '../components/PageCard';
 import ValueChart from '../components/ValueChart';
 
@@ -22,10 +28,10 @@ function Dashboard() {
         if (cancelled) return;
         setConfigs(configList);
 
-        const pageNames = configList.map(c => c.name);
+        const pageNames = configList.map((c) => c.name);
 
         const [latestArr, allResultsResponse] = await Promise.all([
-          Promise.all(pageNames.map(name => fetchLatestSafe(name, controller.signal))),
+          Promise.all(pageNames.map((name) => fetchLatestSafe(name, controller.signal))),
           fetchResults(undefined, 0, 50, controller.signal),
         ]);
         if (cancelled) return;

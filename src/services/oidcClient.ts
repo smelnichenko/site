@@ -53,7 +53,7 @@ function parseJwt(token: string): Record<string, unknown> {
     atob(base64)
       .split('')
       .map((c) => '%' + ('00' + (c.codePointAt(0) ?? 0).toString(16)).slice(-2))
-      .join('')
+      .join(''),
   );
   return JSON.parse(jsonPayload) as Record<string, unknown>;
 }
@@ -61,9 +61,7 @@ function parseJwt(token: string): Record<string, unknown> {
 function extractUserInfo(token: string): UserInfo {
   const claims = parseJwt(token);
   const realmAccess = claims.realm_access as { roles?: string[] } | undefined;
-  const roles = (realmAccess?.roles || []).filter(
-    (r: string) => !KEYCLOAK_DEFAULT_ROLES.has(r)
-  );
+  const roles = (realmAccess?.roles || []).filter((r: string) => !KEYCLOAK_DEFAULT_ROLES.has(r));
   return {
     email: claims.email as string,
     uuid: claims.sub as string,
@@ -75,7 +73,7 @@ function scheduleRefresh(): void {
   cancelRefresh();
   const now = Date.now();
   // Refresh 60 seconds before expiry, minimum 5 seconds from now
-  const delay = Math.max((expiresAt - now) - 60_000, 5_000);
+  const delay = Math.max(expiresAt - now - 60_000, 5_000);
   refreshTimer = globalThis.setTimeout(() => {
     void silentRefresh();
   }, delay) as unknown as number;
@@ -95,14 +93,11 @@ interface TokenResponse {
 }
 
 async function tokenRequest(params: URLSearchParams): Promise<TokenResponse> {
-  const response = await fetch(
-    `${OIDC_CONFIG.authority}/protocol/openid-connect/token`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-    }
-  );
+  const response = await fetch(`${OIDC_CONFIG.authority}/protocol/openid-connect/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  });
   if (!response.ok) {
     const error = await response.text().catch(() => 'Token request failed');
     console.error('Token request failed:', response.status, error);
@@ -159,9 +154,7 @@ export async function login(returnTo?: string): Promise<void> {
 
 export function parseState(stateParam: string | null): { returnTo: string } {
   try {
-    return stateParam
-      ? (JSON.parse(atob(stateParam)) as { returnTo: string })
-      : { returnTo: '/' };
+    return stateParam ? (JSON.parse(atob(stateParam)) as { returnTo: string }) : { returnTo: '/' };
   } catch {
     return { returnTo: '/' };
   }

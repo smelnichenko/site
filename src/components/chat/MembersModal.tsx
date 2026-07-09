@@ -6,7 +6,11 @@ import {
   fetchPublicKeys,
   rotateChannelKeys,
 } from '../../services/api';
-import { generateChannelKey, wrapChannelKeyForMember, importPublicKey } from '../../services/crypto';
+import {
+  generateChannelKey,
+  wrapChannelKeyForMember,
+  importPublicKey,
+} from '../../services/crypto';
 import * as keyStore from '../../services/keyStore';
 
 interface MembersModalProps {
@@ -17,7 +21,13 @@ interface MembersModalProps {
   onKicked: () => void;
 }
 
-function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: Readonly<MembersModalProps>) {
+function MembersModal({
+  channelId,
+  channelName,
+  encrypted,
+  onClose,
+  onKicked,
+}: Readonly<MembersModalProps>) {
   const [members, setMembers] = useState<ChannelMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [kicking, setKicking] = useState<string | null>(null);
@@ -62,7 +72,7 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
               encryptedChannelKey: wrapped.encryptedChannelKey,
               wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
             };
-          })
+          }),
         );
         if (bundles.length > 0) {
           const result = await rotateChannelKeys(channelId, bundles);
@@ -111,7 +121,8 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
           {!loading && members.length === 0 && (
             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>No members</div>
           )}
-          {!loading && members.length > 0 &&
+          {!loading &&
+            members.length > 0 &&
             members.map((member) => (
               <div
                 key={member.id}
@@ -135,8 +146,7 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
                   </button>
                 )}
               </div>
-            ))
-          }
+            ))}
         </div>
       </div>
     </dialog>

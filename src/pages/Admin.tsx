@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
-  AdminUser, AppGroup,
-  fetchAdminUsers, fetchAdminGroups,
-  setUserEnabled, setUserGroups,
-  createGroup, updateGroup, deleteGroup,
+  AdminUser,
+  AppGroup,
+  fetchAdminUsers,
+  fetchAdminGroups,
+  setUserEnabled,
+  setUserGroups,
+  createGroup,
+  updateGroup,
+  deleteGroup,
 } from '../services/api';
 
 const ALL_PERMISSIONS = ['PLAY', 'CHAT', 'EMAIL', 'METRICS', 'MANAGE_USERS'];
@@ -47,7 +52,9 @@ function Admin() {
   useEffect(() => {
     // load() sets state only after its awaited fetches resolve, and it catches
     // its own errors, so it never rejects — void the deferred call.
-    const run = async () => { await load(); };
+    const run = async () => {
+      await load();
+    };
     void run();
   }, []);
 
@@ -63,9 +70,7 @@ function Admin() {
 
   const startEditGroups = (user: AdminUser) => {
     setEditingUserId(user.uuid);
-    setSelectedGroupIds(
-      groups.filter(g => user.groups.includes(g.name)).map(g => g.id)
-    );
+    setSelectedGroupIds(groups.filter((g) => user.groups.includes(g.name)).map((g) => g.id));
   };
 
   const saveUserGroups = async () => {
@@ -81,10 +86,8 @@ function Admin() {
   };
 
   const toggleGroupSelection = (groupId: number) => {
-    setSelectedGroupIds(prev =>
-      prev.includes(groupId)
-        ? prev.filter(id => id !== groupId)
-        : [...prev, groupId]
+    setSelectedGroupIds((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId],
     );
   };
 
@@ -97,7 +100,7 @@ function Admin() {
       id: group.id,
       name: group.name,
       description: group.description || '',
-      permissions: group.permissions.map(p => p.permission),
+      permissions: group.permissions.map((p) => p.permission),
     });
   };
 
@@ -106,7 +109,12 @@ function Admin() {
     setError('');
     try {
       if (groupForm.id) {
-        await updateGroup(groupForm.id, groupForm.name, groupForm.description, groupForm.permissions);
+        await updateGroup(
+          groupForm.id,
+          groupForm.name,
+          groupForm.description,
+          groupForm.permissions,
+        );
       } else {
         await createGroup(groupForm.name, groupForm.description, groupForm.permissions);
       }
@@ -133,7 +141,7 @@ function Admin() {
     setGroupForm({
       ...groupForm,
       permissions: groupForm.permissions.includes(perm)
-        ? groupForm.permissions.filter(p => p !== perm)
+        ? groupForm.permissions.filter((p) => p !== perm)
         : [...groupForm.permissions, perm],
     });
   };
@@ -144,14 +152,20 @@ function Admin() {
         <button
           className="status-badge action"
           onClick={() => setTab('users')}
-          style={{ background: tab === 'users' ? '#004085' : undefined, color: tab === 'users' ? 'white' : undefined }}
+          style={{
+            background: tab === 'users' ? '#004085' : undefined,
+            color: tab === 'users' ? 'white' : undefined,
+          }}
         >
           Users
         </button>
         <button
           className="status-badge action"
           onClick={() => setTab('groups')}
-          style={{ background: tab === 'groups' ? '#004085' : undefined, color: tab === 'groups' ? 'white' : undefined }}
+          style={{
+            background: tab === 'groups' ? '#004085' : undefined,
+            color: tab === 'groups' ? 'white' : undefined,
+          }}
         >
           Groups
         </button>
@@ -175,13 +189,13 @@ function Admin() {
               </tr>
             </thead>
             <tbody>
-              {users.map(user => (
+              {users.map((user) => (
                 <tr key={user.uuid}>
                   <td>{user.email}</td>
                   <td>
                     {editingUserId === user.uuid ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {groups.map(g => (
+                        {groups.map((g) => (
                           <label key={g.id} className="toggle-label">
                             <input
                               type="checkbox"
@@ -192,18 +206,37 @@ function Admin() {
                           </label>
                         ))}
                         <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                          <button className="status-badge action" onClick={saveUserGroups}>Save</button>
-                          <button className="status-badge action" onClick={() => setEditingUserId(null)}>Cancel</button>
+                          <button className="status-badge action" onClick={saveUserGroups}>
+                            Save
+                          </button>
+                          <button
+                            className="status-badge action"
+                            onClick={() => setEditingUserId(null)}
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </div>
                     ) : (
                       <button
                         type="button"
-                        style={{ cursor: 'pointer', textDecoration: 'underline dotted', background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit' }}
+                        style={{
+                          cursor: 'pointer',
+                          textDecoration: 'underline dotted',
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          font: 'inherit',
+                          color: 'inherit',
+                        }}
                         onClick={() => startEditGroups(user)}
                         title="Click to edit groups"
                       >
-                        {user.groups.length > 0 ? user.groups.join(', ') : <em style={{ color: '#888' }}>None</em>}
+                        {user.groups.length > 0 ? (
+                          user.groups.join(', ')
+                        ) : (
+                          <em style={{ color: '#888' }}>None</em>
+                        )}
                       </button>
                     )}
                   </td>
@@ -233,18 +266,22 @@ function Admin() {
           <div className="card">
             <div className="card-header">
               <span className="card-title">Groups</span>
-              <button className="status-badge add" onClick={startCreateGroup}>+ New Group</button>
+              <button className="status-badge add" onClick={startCreateGroup}>
+                + New Group
+              </button>
             </div>
 
             {groupForm && (
               <div className="config-form" style={{ marginBottom: 16 }}>
-                <strong style={{ display: 'block', marginBottom: 12 }}>{groupForm.id ? 'Edit Group' : 'New Group'}</strong>
+                <strong style={{ display: 'block', marginBottom: 12 }}>
+                  {groupForm.id ? 'Edit Group' : 'New Group'}
+                </strong>
                 <div className="form-group">
                   <label htmlFor="group-name">Name</label>
                   <input
                     id="group-name"
                     value={groupForm.name}
-                    onChange={e => setGroupForm({ ...groupForm, name: e.target.value })}
+                    onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
                     placeholder="Group name"
                   />
                 </div>
@@ -253,14 +290,14 @@ function Admin() {
                   <input
                     id="group-description"
                     value={groupForm.description}
-                    onChange={e => setGroupForm({ ...groupForm, description: e.target.value })}
+                    onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
                     placeholder="Optional description"
                   />
                 </div>
                 <div className="form-group">
                   <label htmlFor="perm-PLAY">Permissions</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {ALL_PERMISSIONS.map(p => (
+                    {ALL_PERMISSIONS.map((p) => (
                       <label key={p} htmlFor={`perm-${p}`} className="toggle-label">
                         <input
                           id={`perm-${p}`}
@@ -276,28 +313,45 @@ function Admin() {
                 <div className="form-actions">
                   <div />
                   <div>
-                    <button className="status-badge action" onClick={() => setGroupForm(null)}>Cancel</button>
-                    <button className="status-badge add" onClick={saveGroup} disabled={!groupForm.name.trim()}>Save</button>
+                    <button className="status-badge action" onClick={() => setGroupForm(null)}>
+                      Cancel
+                    </button>
+                    <button
+                      className="status-badge add"
+                      onClick={saveGroup}
+                      disabled={!groupForm.name.trim()}
+                    >
+                      Save
+                    </button>
                   </div>
                 </div>
               </div>
             )}
 
             <div className="config-list">
-              {groups.map(group => (
+              {groups.map((group) => (
                 <div key={group.id} className="config-item">
                   <div className="config-item-row">
                     <div className="config-item-info">
                       <strong>{group.name}</strong>
-                      {group.description && <span className="config-detail">{group.description}</span>}
+                      {group.description && (
+                        <span className="config-detail">{group.description}</span>
+                      )}
                       <span className="config-detail">
-                        {group.permissions.map(p => p.permission).join(', ') || 'No permissions'}
+                        {group.permissions.map((p) => p.permission).join(', ') || 'No permissions'}
                       </span>
                     </div>
                     <div className="config-item-actions">
-                      <button className="status-badge action" onClick={() => startEditGroup(group)}>Edit</button>
+                      <button className="status-badge action" onClick={() => startEditGroup(group)}>
+                        Edit
+                      </button>
                       {group.name !== 'Admins' && (
-                        <button className="status-badge danger" onClick={() => handleDeleteGroup(group)}>Delete</button>
+                        <button
+                          className="status-badge danger"
+                          onClick={() => handleDeleteGroup(group)}
+                        >
+                          Delete
+                        </button>
                       )}
                     </div>
                   </div>

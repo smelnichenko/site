@@ -5,8 +5,9 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans',
+    'Droid Sans', 'Helvetica Neue', sans-serif;
   background-color: #f5f5f5;
   color: #333;
   line-height: 1.6;
@@ -102,7 +103,9 @@ a.card-title {
   font-family: inherit;
   border-radius: 20px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .btn-logout:hover {
@@ -122,7 +125,9 @@ a.card-title {
   font-weight: 500;
   color: #ddd;
   text-decoration: none;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .nav a:hover {
@@ -278,7 +283,6 @@ a.card-title {
   cursor: not-allowed;
 }
 
-
 .loading {
   text-align: center;
   padding: 40px;
@@ -286,7 +290,9 @@ a.card-title {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .spinner {
@@ -443,7 +449,6 @@ a.card-title {
   box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
 }
 
-
 .auth-link {
   margin-top: 16px;
   text-align: center;
@@ -558,7 +563,6 @@ a.card-title {
   font-size: 0.9rem;
   cursor: pointer;
 }
-
 
 .empty-state {
   color: #888;
@@ -738,7 +742,7 @@ a.card-title {
   color: #555;
 }
 
-.chess-difficulty input[type="range"] {
+.chess-difficulty input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
@@ -749,7 +753,7 @@ a.card-title {
   outline: none;
 }
 
-.chess-difficulty input[type="range"]::-webkit-slider-thumb {
+.chess-difficulty input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 18px;
@@ -761,7 +765,7 @@ a.card-title {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
-.chess-difficulty input[type="range"]::-moz-range-thumb {
+.chess-difficulty input[type='range']::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -785,7 +789,9 @@ a.card-title {
   background: #f9fafb;
   border-radius: 6px;
   border: 1px solid #eee;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .chess-game-item:hover {
