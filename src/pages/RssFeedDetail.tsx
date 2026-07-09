@@ -69,9 +69,17 @@ function RssFeedDetail() {
   }
 
   useEffect(() => {
-    setLoading(true);
-    setCurrentPage(0);
-    loadData(0);
+    // Reset UI state and load the first page whenever the feed changes. The
+    // reset + load are wrapped in an async function so the setState calls run
+    // as part of the async load flow rather than synchronously in the effect
+    // body, and so the load promise is awaited. loadData swallows its own
+    // errors internally, so reload never rejects.
+    async function reload() {
+      setLoading(true);
+      setCurrentPage(0);
+      await loadData(0);
+    }
+    void reload();
 
     return () => {
       if (controllerRef.current) {
@@ -82,7 +90,8 @@ function RssFeedDetail() {
 
   function handlePageChange({ selected }: { selected: number }) {
     setCurrentPage(selected);
-    loadData(selected);
+    // loadData handles its own errors internally, so the promise is safe to drop.
+    void loadData(selected);
   }
 
   async function handleManualCheck() {
@@ -113,7 +122,9 @@ function RssFeedDetail() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <Link to="/rss" className="status-badge edit">&larr; Back to RSS Dashboard</Link>
+        <Link to="/rss" className="status-badge edit">
+          &larr; Back to RSS Dashboard
+        </Link>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -122,27 +133,26 @@ function RssFeedDetail() {
         <div className="card-header">
           <span className="card-title">{decodedFeedName}</span>
           <div className="badge-group">
-            <button
-              className="status-badge action"
-              onClick={handleManualCheck}
-              disabled={checking}
-            >
+            <button className="status-badge action" onClick={handleManualCheck} disabled={checking}>
               {checking ? 'Checking...' : 'Check Now'}
             </button>
             {config && (
-              <Link to={`/monitors?editFeed=${config.id}`} className="status-badge edit">Edit</Link>
+              <Link to={`/monitors?editFeed=${config.id}`} className="status-badge edit">
+                Edit
+              </Link>
             )}
             {latestResult && !latestResult.errorMessage && (
               <span className="status-badge success">OK</span>
             )}
-            {latestResult?.errorMessage && (
-              <span className="status-badge error">Error</span>
-            )}
+            {latestResult?.errorMessage && <span className="status-badge error">Error</span>}
           </div>
         </div>
 
         {latestResult && (
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginTop: '1rem' }}>
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginTop: '1rem' }}
+          >
             <div>
               <div className="stat-value">{latestResult.articleCount ?? 0}</div>
               <div className="stat-label">Articles (last check)</div>
@@ -161,10 +171,14 @@ function RssFeedDetail() {
         {config && (
           <div style={{ marginTop: '1rem' }}>
             <div style={{ fontSize: '0.85rem', color: '#666' }}>
-              URL: <a href={config.url} target="_blank" rel="noopener noreferrer">{config.url}</a>
+              URL:{' '}
+              <a href={config.url} target="_blank" rel="noopener noreferrer">
+                {config.url}
+              </a>
             </div>
             <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
-              Schedule: {config.cron} | Fetch content: {config.fetchContent ? 'Yes' : 'No'} | Max articles: {config.maxArticles}
+              Schedule: {config.cron} | Fetch content: {config.fetchContent ? 'Yes' : 'No'} | Max
+              articles: {config.maxArticles}
             </div>
           </div>
         )}
@@ -206,16 +220,17 @@ function RssFeedDetail() {
                 <td>{result.articleCount ?? '-'}</td>
                 <td>{result.responseTimeMs ?? '-'}ms</td>
                 <td>
-                  <span
-                    className={`status-badge ${result.errorMessage ? 'error' : 'success'}`}
-                  >
+                  <span className={`status-badge ${result.errorMessage ? 'error' : 'success'}`}>
                     {result.errorMessage ? 'Error' : 'OK'}
                   </span>
                 </td>
                 <td>
                   {result.metricCounts && result.metricCounts.length > 0 ? (
                     <span style={{ fontSize: '0.85rem' }}>
-                      {result.metricCounts.slice(0, 3).map((m) => `${m.metricName}: ${m.count}`).join(', ')}
+                      {result.metricCounts
+                        .slice(0, 3)
+                        .map((m) => `${m.metricName}: ${m.count}`)
+                        .join(', ')}
                       {result.metricCounts.length > 3 && '...'}
                     </span>
                   ) : (
@@ -241,7 +256,8 @@ function RssFeedDetail() {
               nextLabel="Next →"
             />
             <div className="pagination-info">
-              Showing {currentPage * PAGE_SIZE + 1}-{Math.min((currentPage + 1) * PAGE_SIZE, totalElements)} of {totalElements}
+              Showing {currentPage * PAGE_SIZE + 1}-
+              {Math.min((currentPage + 1) * PAGE_SIZE, totalElements)} of {totalElements}
             </div>
           </>
         )}

@@ -24,8 +24,12 @@ function PendingApproval() {
       }
     }
 
-    poll();
-    const interval = setInterval(poll, 5000);
+    // poll() handles all its own errors internally (try/catch), so its
+    // promise never rejects — void the initial call and the interval tick.
+    void poll();
+    const interval = setInterval(() => {
+      void poll();
+    }, 5000);
     return () => {
       controller.abort();
       clearInterval(interval);
@@ -38,7 +42,13 @@ function PendingApproval() {
         <h2>Registration Declined</h2>
         <p style={{ color: 'var(--text-secondary)', marginTop: 12 }}>
           Your registration could not be approved.
-          {reason && <><br /><br />Reason: {reason}</>}
+          {reason && (
+            <>
+              <br />
+              <br />
+              Reason: {reason}
+            </>
+          )}
         </p>
         <button className="btn-logout" onClick={logout} style={{ marginTop: 20 }}>
           Logout

@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  ReactNode,
+} from 'react';
 import * as oidcClient from '../services/oidcClient';
 import type { UserInfo } from '../services/oidcClient';
 import * as keyStore from '../services/keyStore';
@@ -33,24 +41,31 @@ const EMPTY_STATE: AuthState = { email: null, uuid: null, permissions: [] };
 
 export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [auth, setAuth] = useState<AuthState>(EMPTY_STATE);
-  const [initializing, setInitializing] = useState(true);
+  // On the callback page silent auth is skipped (handleCallback sets auth), so
+  // there is nothing to initialize — derive the initial flag instead of setting
+  // it synchronously inside the effect.
+  const [initializing, setInitializing] = useState(
+    () => globalThis.location.pathname !== '/auth/callback',
+  );
 
   const isAuthenticated = !!auth.email;
 
   const hasPermission = useCallback(
     (permission: string) => auth.permissions.includes(permission),
-    [auth.permissions]
+    [auth.permissions],
   );
 
   // On mount: check if we have tokens in memory (e.g., after token refresh)
   useEffect(() => {
-    // Skip silent auth if we're on the callback page (handleCallback will set auth)
+    // Skip silent auth if we're on the callback page (handleCallback will set
+    // auth). `initializing` already starts false for that path (see useState).
     if (globalThis.location.pathname === '/auth/callback') {
-      setInitializing(false);
       return;
     }
     let cancelled = false;
-    (async () => {
+    // Rejections are handled by the try/catch/finally below, so this
+    // fire-and-forget async work is intentionally not awaited.
+    void (async () => {
       try {
         const userInfo = await oidcClient.trySilentAuth();
         if (!cancelled && userInfo) {
@@ -64,7 +79,9 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleCallback = useCallback(async (code: string): Promise<void> => {
@@ -94,22 +111,30 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     }
   }, []);
 
-  const contextValue = useMemo(() => ({
-    ...auth,
-    handleCallback,
-    logout,
-    refreshPermissions,
-    isAuthenticated,
-    hasPermission,
-    getAccessToken,
-    initializing,
-  }), [auth, handleCallback, logout, refreshPermissions, isAuthenticated, hasPermission, getAccessToken, initializing]);
-
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+  const contextValue = useMemo(
+    () => ({
+      ...auth,
+      handleCallback,
+      logout,
+      refreshPermissions,
+      isAuthenticated,
+      hasPermission,
+      getAccessToken,
+      initializing,
+    }),
+    [
+      auth,
+      handleCallback,
+      logout,
+      refreshPermissions,
+      isAuthenticated,
+      hasPermission,
+      getAccessToken,
+      initializing,
+    ],
   );
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

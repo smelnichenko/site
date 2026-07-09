@@ -47,7 +47,11 @@ function App() {
 
   useEffect(() => {
     const publicPaths = ['/login', '/verify-email', '/auth/callback'];
-    if (isAuthenticated && !publicPaths.includes(location.pathname) && location.pathname !== lastSavedPath.current) {
+    if (
+      isAuthenticated &&
+      !publicPaths.includes(location.pathname) &&
+      location.pathname !== lastSavedPath.current
+    ) {
       lastSavedPath.current = location.pathname;
       saveLastPath(location.pathname).catch(() => {});
     }
@@ -63,7 +67,9 @@ function App() {
             <div className="header-side" />
           </div>
         </header>
-        <div className="loading-overlay"><div className="loading-spinner" /></div>
+        <div className="loading-overlay">
+          <div className="loading-spinner" />
+        </div>
       </div>
     );
   }
@@ -80,16 +86,25 @@ function App() {
                     <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
                       Monitors
                     </Link>
-                    <Link to="/rss" className={location.pathname.startsWith('/rss') ? 'active' : ''}>
+                    <Link
+                      to="/rss"
+                      className={location.pathname.startsWith('/rss') ? 'active' : ''}
+                    >
                       RSS Feeds
                     </Link>
-                    <Link to="/monitors" className={location.pathname === '/monitors' ? 'active' : ''}>
+                    <Link
+                      to="/monitors"
+                      className={location.pathname === '/monitors' ? 'active' : ''}
+                    >
                       Configuration
                     </Link>
                   </>
                 )}
                 {hasPermission('CHAT') && (
-                  <Link to="/chat" className={location.pathname.startsWith('/chat') ? 'active' : ''}>
+                  <Link
+                    to="/chat"
+                    className={location.pathname.startsWith('/chat') ? 'active' : ''}
+                  >
                     Chat
                   </Link>
                 )}
@@ -121,7 +136,9 @@ function App() {
             {isAuthenticated && (
               <div className="header-user">
                 <span className="header-username">{email}</span>
-                <button className="btn-logout" onClick={logout} disabled={loading}>Logout</button>
+                <button className="btn-logout" onClick={logout} disabled={loading}>
+                  Logout
+                </button>
               </div>
             )}
           </div>
@@ -136,23 +153,106 @@ function App() {
         {hasPendingApproval ? (
           <PendingApproval />
         ) : (
-          <Suspense fallback={<div className="loading-overlay"><div className="loading-spinner" /></div>}>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/" element={<ProtectedRoute permission="METRICS"><Dashboard /></ProtectedRoute>} />
-            <Route path="/page/:pageName" element={<ProtectedRoute permission="METRICS"><PageDetail /></ProtectedRoute>} />
-            <Route path="/rss" element={<ProtectedRoute permission="METRICS"><RssDashboard /></ProtectedRoute>} />
-            <Route path="/rss/:feedName" element={<ProtectedRoute permission="METRICS"><RssFeedDetail /></ProtectedRoute>} />
-            <Route path="/monitors" element={<ProtectedRoute permission="METRICS"><MonitorConfig /></ProtectedRoute>} />
-            <Route path="/chat" element={<ProtectedRoute permission="CHAT"><Chat /></ProtectedRoute>} />
-            <Route path="/chat/:channelId" element={<ProtectedRoute permission="CHAT"><Chat /></ProtectedRoute>} />
-            <Route path="/inbox" element={<ProtectedRoute permission="EMAIL"><Inbox /></ProtectedRoute>} />
-            <Route path="/chess" element={<ProtectedRoute permission="PLAY"><Chess /></ProtectedRoute>} />
-            <Route path="/game" element={<ProtectedRoute permission="PLAY"><Game /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute permission="MANAGE_USERS"><Admin /></ProtectedRoute>} />
-          </Routes>
+          <Suspense
+            fallback={
+              <div className="loading-overlay">
+                <div className="loading-spinner" />
+              </div>
+            }
+          >
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute permission="METRICS">
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/page/:pageName"
+                element={
+                  <ProtectedRoute permission="METRICS">
+                    <PageDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/rss"
+                element={
+                  <ProtectedRoute permission="METRICS">
+                    <RssDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/rss/:feedName"
+                element={
+                  <ProtectedRoute permission="METRICS">
+                    <RssFeedDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/monitors"
+                element={
+                  <ProtectedRoute permission="METRICS">
+                    <MonitorConfig />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/chat"
+                element={
+                  <ProtectedRoute permission="CHAT">
+                    <Chat />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/chat/:channelId"
+                element={
+                  <ProtectedRoute permission="CHAT">
+                    <Chat />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/inbox"
+                element={
+                  <ProtectedRoute permission="EMAIL">
+                    <Inbox />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/chess"
+                element={
+                  <ProtectedRoute permission="PLAY">
+                    <Chess />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/game"
+                element={
+                  <ProtectedRoute permission="PLAY">
+                    <Game />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute permission="MANAGE_USERS">
+                    <Admin />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
           </Suspense>
         )}
       </main>

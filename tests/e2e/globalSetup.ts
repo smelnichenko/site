@@ -9,6 +9,6 @@
  * TODO: implement Keycloak-based E2E test user bootstrap
  */
 
-export default async function globalSetup() {
+export default function globalSetup() {
   console.log('[globalSetup] Keycloak E2E auth setup not yet implemented');
 }

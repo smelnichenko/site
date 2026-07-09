@@ -39,6 +39,12 @@ function formatDateSeparator(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+interface ApprovalMeta {
+  type?: string;
+  approvalId?: number;
+  status?: string;
+}
+
 interface MessageAreaProps {
   channel: ChatChannel;
 }
@@ -55,6 +61,7 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
   const [keyLoaded, setKeyLoaded] = useState(!channel.encrypted);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const shouldScrollRef = useRef(true);
 
   const currentUserEmail = localStorage.getItem('email');
@@ -62,8 +69,10 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
 
   // Load channel key for encrypted channels
   useEffect(() => {
+    // Unencrypted channels never need a key. The message-load gate below
+    // already short-circuits on `!isEncrypted`, and keyLoaded is seeded to
+    // its correct value at init, so no synchronous state update is needed.
     if (!isEncrypted) {
-      setKeyLoaded(true);
       return;
     }
 
@@ -82,8 +91,8 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
         for (const bundle of bundles) {
           const channelKey = await unwrapChannelKey(
             bundle.encryptedChannelKey,
-            JSON.parse(bundle.wrapperPublicKey),
-            privateKey
+            JSON.parse(bundle.wrapperPublicKey) as JsonWebKey,
+            privateKey,
           );
           keyStore.setChannelKey(channel.id, bundle.keyVersion, channelKey);
         }
@@ -92,27 +101,32 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
         console.warn('Failed to load channel key:', e);
       }
     }
-    loadChannelKey();
-    return () => { cancelled = true; };
+    // loadChannelKey swallows its own errors (try/catch), so it never rejects.
+    void loadChannelKey();
+    return () => {
+      cancelled = true;
+    };
   }, [channel.id, isEncrypted]);
 
   async function decryptMessages(msgs: ChatMessage[]): Promise<ChatMessage[]> {
     if (!isEncrypted) return msgs;
-    return Promise.all(msgs.map(async (msg) => {
-      try {
-        const version = msg.keyVersion ?? channel.currentKeyVersion;
-        const key = keyStore.getChannelKey(channel.id, version);
-        if (!key) return { ...msg, content: '[Unable to decrypt]' };
-        const plaintext = await decryptMessage(msg.content, key);
-        const decrypted: ChatMessage = { ...msg, content: plaintext };
-        if (msg.editedContent) {
-          decrypted.editedContent = await decryptMessage(msg.editedContent, key);
+    return Promise.all(
+      msgs.map(async (msg) => {
+        try {
+          const version = msg.keyVersion ?? channel.currentKeyVersion;
+          const key = keyStore.getChannelKey(channel.id, version);
+          if (!key) return { ...msg, content: '[Unable to decrypt]' };
+          const plaintext = await decryptMessage(msg.content, key);
+          const decrypted: ChatMessage = { ...msg, content: plaintext };
+          if (msg.editedContent) {
+            decrypted.editedContent = await decryptMessage(msg.editedContent, key);
+          }
+          return decrypted;
+        } catch {
+          return { ...msg, content: '[Unable to decrypt]' };
         }
-        return decrypted;
-      } catch {
-        return { ...msg, content: '[Unable to decrypt]' };
-      }
-    }));
+      }),
+    );
   }
 
   useEffect(() => {
@@ -136,7 +150,8 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
       // Initial REST fetch + subscribe to live publications. Backend
       // publishes the same ChatMessage shape on `chat:room:<id>` as
       // /api returns, so the sub handler can splice into local state.
-      loadMessages();
+      // loadMessages handles its own errors internally, so it never rejects.
+      void loadMessages();
 
       const handlePublication = async (msg: ChatMessage) => {
         if (cancelled) return;
@@ -150,7 +165,9 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
 
       // Fallback poll kept while we soak the subscription path; drop
       // once we're confident every page hands off cleanly.
-      const interval = setInterval(loadMessages, 30000);
+      const interval = setInterval(() => {
+        void loadMessages();
+      }, 30000);
 
       return () => {
         cancelled = true;
@@ -159,7 +176,9 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
         sub.unsubscribe();
       };
     }
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [channel.id, keyLoaded]);
 
   useEffect(() => {
@@ -171,6 +190,14 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView();
   }, [channel.id]);
+
+  // Accessible equivalent of autoFocus: move focus into the inline edit box
+  // only when the user opens it, never on initial mount.
+  useEffect(() => {
+    if (editingId) {
+      editTextareaRef.current?.focus();
+    }
+  }, [editingId]);
 
   const handleScroll = () => {
     const container = messagesContainerRef.current;
@@ -213,7 +240,8 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      // handleSend catches its own errors, so the promise never rejects.
+      void handleSend();
     }
   };
 
@@ -242,9 +270,7 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
       }
       await editChatMessage(channel.id, messageId, contentToSend);
       setMessages((prev) =>
-        prev.map((m) =>
-          m.messageId === messageId ? { ...m, editedContent: content } : m
-        )
+        prev.map((m) => (m.messageId === messageId ? { ...m, editedContent: content } : m)),
       );
       setEditingId(null);
       setEditContent('');
@@ -256,7 +282,8 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
   const handleEditKeyDown = (e: React.KeyboardEvent, messageId: string) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSaveEdit(messageId);
+      // handleSaveEdit catches its own errors, so the promise never rejects.
+      void handleSaveEdit(messageId);
     }
     if (e.key === 'Escape') {
       handleCancelEdit();
@@ -292,31 +319,34 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
     }
   };
 
-  let lastDate = '';
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Channel header */}
-      <div style={{
-        padding: '12px 16px',
-        borderBottom: '1px solid #eee',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-      }}>
+      <div
+        style={{
+          padding: '12px 16px',
+          borderBottom: '1px solid #eee',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
         <span style={{ fontWeight: 600, fontSize: '1rem' }}>
-          {isEncrypted ? '\uD83D\uDD12 ' : '# '}{channel.name}
+          {isEncrypted ? '\uD83D\uDD12 ' : '# '}
+          {channel.name}
         </span>
         <span style={{ fontSize: '0.8rem', color: '#999' }}>
           {channel.memberCount} member{channel.memberCount === 1 ? '' : 's'}
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
           {chainStatus && (
-            <span style={{
-              fontSize: '0.75rem',
-              color: chainStatus.intact ? '#28a745' : '#dc3545',
-              fontWeight: 600,
-            }}>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                color: chainStatus.intact ? '#28a745' : '#dc3545',
+                fontWeight: 600,
+              }}
+            >
               {chainStatus.intact
                 ? `Chain OK (${chainStatus.messageCount} msgs)`
                 : `Chain broken at ${chainStatus.validCount}/${chainStatus.messageCount}`}
@@ -347,50 +377,58 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
         }}
       >
         {messages.length === 0 && (
-          <div style={{ color: '#999', textAlign: 'center', padding: '40px 0', fontSize: '0.9rem' }}>
+          <div
+            style={{ color: '#999', textAlign: 'center', padding: '40px 0', fontSize: '0.9rem' }}
+          >
             No messages yet. Start the conversation!
           </div>
         )}
-        {messages.map((msg) => {
+        {messages.map((msg, index) => {
           const msgDate = new Date(msg.createdAt).toDateString();
-          let showDateSeparator = false;
-          if (msgDate !== lastDate) {
-            showDateSeparator = true;
-            lastDate = msgDate;
-          }
+          const prevDate =
+            index > 0 ? new Date(messages[index - 1].createdAt).toDateString() : null;
+          const showDateSeparator = msgDate !== prevDate;
           const isSystemMessage = msg.messageType === 'SYSTEM';
           const isOwnMessage = msg.username === currentUserEmail;
           const isEdited = msg.editedContent != null;
           const displayContent = msg.editedContent || msg.content;
 
-          let approvalMeta: { type?: string; approvalId?: number; status?: string } | null = null;
+          let approvalMeta: ApprovalMeta | null = null;
           if (isSystemMessage && msg.metadata) {
-            try { approvalMeta = JSON.parse(msg.metadata); } catch { /* ignore */ }
+            try {
+              approvalMeta = JSON.parse(msg.metadata) as ApprovalMeta;
+            } catch {
+              /* ignore */
+            }
           }
 
           return (
             <div key={msg.messageId}>
               {showDateSeparator && (
-                <div style={{
-                  textAlign: 'center',
-                  padding: '12px 0 8px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  color: '#999',
-                }}>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '12px 0 8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: '#999',
+                  }}
+                >
                   {formatDateSeparator(msg.createdAt)}
                 </div>
               )}
               {isSystemMessage ? (
-                <div style={{
-                  padding: '8px 16px',
-                  margin: '4px 0',
-                  background: '#f8f9fa',
-                  borderRadius: '6px',
-                  borderLeft: '3px solid #6c757d',
-                  fontSize: '0.85rem',
-                  color: '#555',
-                }}>
+                <div
+                  style={{
+                    padding: '8px 16px',
+                    margin: '4px 0',
+                    background: '#f8f9fa',
+                    borderRadius: '6px',
+                    borderLeft: '3px solid #6c757d',
+                    fontSize: '0.85rem',
+                    color: '#555',
+                  }}
+                >
                   <div style={{ lineHeight: 1.5 }}>{displayContent}</div>
                   {approvalMeta?.type === 'approval' && approvalMeta.status === 'PENDING' && (
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
@@ -411,12 +449,14 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
                     </div>
                   )}
                   {approvalMeta?.type === 'approval' && approvalMeta.status !== 'PENDING' && (
-                    <div style={{
-                      marginTop: '4px',
-                      fontSize: '0.75rem',
-                      color: approvalMeta.status === 'APPROVED' ? '#28a745' : '#dc3545',
-                      fontWeight: 600,
-                    }}>
+                    <div
+                      style={{
+                        marginTop: '4px',
+                        fontSize: '0.75rem',
+                        color: approvalMeta.status === 'APPROVED' ? '#28a745' : '#dc3545',
+                        fontWeight: 600,
+                      }}
+                    >
                       {approvalMeta.status === 'APPROVED' ? 'Approved' : 'Declined'}
                     </div>
                   )}
@@ -425,95 +465,99 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
                   </div>
                 </div>
               ) : (
-              <div
-                style={{ padding: '4px 0', position: 'relative' }}
-                className="chat-message"
-              >
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#333' }}>
-                    {msg.username}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: '#999' }}>
-                    {formatTime(msg.createdAt)}
-                  </span>
-                  {isEdited && (
-                    <span style={{ fontSize: '0.7rem', color: '#999', fontStyle: 'italic' }}>
-                      (edited)
+                <div style={{ padding: '4px 0', position: 'relative' }} className="chat-message">
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#333' }}>
+                      {msg.username}
                     </span>
-                  )}
-                  {isOwnMessage && editingId !== msg.messageId && (
-                    <button
-                      onClick={() => handleStartEdit(msg)}
+                    <span style={{ fontSize: '0.75rem', color: '#999' }}>
+                      {formatTime(msg.createdAt)}
+                    </span>
+                    {isEdited && (
+                      <span style={{ fontSize: '0.7rem', color: '#999', fontStyle: 'italic' }}>
+                        (edited)
+                      </span>
+                    )}
+                    {isOwnMessage && editingId !== msg.messageId && (
+                      <button
+                        onClick={() => handleStartEdit(msg)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#999',
+                          cursor: 'pointer',
+                          fontSize: '0.7rem',
+                          padding: '0 4px',
+                        }}
+                      >
+                        edit
+                      </button>
+                    )}
+                  </div>
+                  {editingId === msg.messageId ? (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                      <textarea
+                        ref={editTextareaRef}
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        onKeyDown={(e) => handleEditKeyDown(e, msg.messageId)}
+                        rows={1}
+                        style={{
+                          flex: 1,
+                          padding: '6px 10px',
+                          border: '1px solid #0066cc',
+                          borderRadius: '4px',
+                          fontSize: '0.9rem',
+                          fontFamily: 'inherit',
+                          resize: 'none',
+                          outline: 'none',
+                          lineHeight: 1.5,
+                        }}
+                      />
+                      <button
+                        className="status-badge action"
+                        onClick={() => handleSaveEdit(msg.messageId)}
+                        style={{ fontSize: '0.7rem', padding: '2px 8px', alignSelf: 'flex-end' }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        className="status-badge danger"
+                        onClick={handleCancelEdit}
+                        style={{ fontSize: '0.7rem', padding: '2px 8px', alignSelf: 'flex-end' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div
                       style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#999',
-                        cursor: 'pointer',
-                        fontSize: '0.7rem',
-                        padding: '0 4px',
+                        fontSize: '0.9rem',
+                        color: '#333',
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap',
                       }}
                     >
-                      edit
-                    </button>
+                      {displayContent}
+                    </div>
+                  )}
+                  {msg.hash && (
+                    <div
+                      style={{
+                        fontSize: '0.65rem',
+                        color: '#ccc',
+                        fontFamily: 'monospace',
+                        marginTop: '2px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={`hash: ${msg.hash}\nprev: ${msg.prevHash}`}
+                    >
+                      {msg.hash?.substring(0, 16)}...
+                    </div>
                   )}
                 </div>
-                {editingId === msg.messageId ? (
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                    <textarea
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      onKeyDown={(e) => handleEditKeyDown(e, msg.messageId)}
-                      autoFocus
-                      rows={1}
-                      style={{
-                        flex: 1,
-                        padding: '6px 10px',
-                        border: '1px solid #0066cc',
-                        borderRadius: '4px',
-                        fontSize: '0.9rem',
-                        fontFamily: 'inherit',
-                        resize: 'none',
-                        outline: 'none',
-                        lineHeight: 1.5,
-                      }}
-                    />
-                    <button
-                      className="status-badge action"
-                      onClick={() => handleSaveEdit(msg.messageId)}
-                      style={{ fontSize: '0.7rem', padding: '2px 8px', alignSelf: 'flex-end' }}
-                    >
-                      Save
-                    </button>
-                    <button
-                      className="status-badge danger"
-                      onClick={handleCancelEdit}
-                      style={{ fontSize: '0.7rem', padding: '2px 8px', alignSelf: 'flex-end' }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                    {displayContent}
-                  </div>
-                )}
-                {msg.hash && (
-                  <div
-                    style={{
-                      fontSize: '0.65rem',
-                      color: '#ccc',
-                      fontFamily: 'monospace',
-                      marginTop: '2px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                    title={`hash: ${msg.hash}\nprev: ${msg.prevHash}`}
-                  >
-                    {msg.hash?.substring(0, 16)}...
-                  </div>
-                )}
-              </div>
               )}
             </div>
           );
@@ -525,12 +569,14 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
       {error && (
         <div style={{ padding: '4px 16px', fontSize: '0.8rem', color: '#721c24' }}>{error}</div>
       )}
-      <div style={{
-        padding: '12px 16px',
-        borderTop: '1px solid #eee',
-        display: 'flex',
-        gap: '8px',
-      }}>
+      <div
+        style={{
+          padding: '12px 16px',
+          borderTop: '1px solid #eee',
+          display: 'flex',
+          gap: '8px',
+        }}
+      >
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -548,8 +594,12 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
             outline: 'none',
             lineHeight: 1.5,
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = '#0066cc'; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = '#ddd'; }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = '#0066cc';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = '#ddd';
+          }}
         />
         <button
           className="status-badge action"

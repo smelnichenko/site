@@ -29,13 +29,15 @@ function ChannelList({
 }: Readonly<ChannelListProps>) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '12px 16px',
-        borderBottom: '1px solid #eee',
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '12px 16px',
+          borderBottom: '1px solid #eee',
+        }}
+      >
         <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Channels</span>
         <button
           className="status-badge action"
@@ -75,14 +77,17 @@ function ChannelList({
                   padding: 0,
                 }}
               >
-                <div style={{
-                  fontWeight: activeChannelId === channel.id ? 600 : 400,
-                  fontSize: '0.9rem',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {channelIcon(channel)}{channel.name}
+                <div
+                  style={{
+                    fontWeight: activeChannelId === channel.id ? 600 : 400,
+                    fontSize: '0.9rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {channelIcon(channel)}
+                  {channel.name}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#999' }}>
                   {channel.memberCount} member{channel.memberCount === 1 ? '' : 's'}
@@ -90,16 +95,18 @@ function ChannelList({
               </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                 {channel.unreadCount > 0 && (
-                  <span style={{
-                    background: '#0066cc',
-                    color: 'white',
-                    borderRadius: '10px',
-                    padding: '1px 7px',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    minWidth: '18px',
-                    textAlign: 'center',
-                  }}>
+                  <span
+                    style={{
+                      background: '#0066cc',
+                      color: 'white',
+                      borderRadius: '10px',
+                      padding: '1px 7px',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      minWidth: '18px',
+                      textAlign: 'center',
+                    }}
+                  >
                     {channel.unreadCount}
                   </span>
                 )}
@@ -121,32 +128,42 @@ function ChannelList({
                     Invite
                   </button>
                 )}
-                {!channel.isSystem && (channel.isOwner ? (
-                  <button
-                    className="status-badge danger"
-                    onClick={() => {
-                      if (confirm(`Delete #${channel.name}? All messages will be permanently lost.`)) {
-                        onDeleteChannel(channel.id);
-                      }
-                    }}
-                    style={{ fontSize: '0.7rem', padding: '2px 8px' }}
-                  >
-                    Delete
-                  </button>
-                ) : (
-                  <button
-                    className="status-badge danger"
-                    onClick={() => onLeaveChannel(channel.id)}
-                    style={{ fontSize: '0.7rem', padding: '2px 8px' }}
-                  >
-                    Leave
-                  </button>
-                ))}
+                {!channel.isSystem &&
+                  (channel.isOwner ? (
+                    <button
+                      className="status-badge danger"
+                      onClick={() => {
+                        if (
+                          confirm(`Delete #${channel.name}? All messages will be permanently lost.`)
+                        ) {
+                          onDeleteChannel(channel.id);
+                        }
+                      }}
+                      style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+                    >
+                      Delete
+                    </button>
+                  ) : (
+                    <button
+                      className="status-badge danger"
+                      onClick={() => onLeaveChannel(channel.id)}
+                      style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+                    >
+                      Leave
+                    </button>
+                  ))}
               </div>
             </div>
           ))
         ) : (
-          <div style={{ padding: '20px 16px', color: '#999', textAlign: 'center', fontSize: '0.85rem' }}>
+          <div
+            style={{
+              padding: '20px 16px',
+              color: '#999',
+              textAlign: 'center',
+              fontSize: '0.85rem',
+            }}
+          >
             No channels yet. Create one to get started.
           </div>
         )}

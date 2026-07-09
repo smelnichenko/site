@@ -24,15 +24,16 @@ export function LoadingProvider({ children }: Readonly<{ children: React.ReactNo
     }
   }, []);
 
-  const contextValue = useMemo(() => ({
-    loading, setLoading, withLoading,
-  }), [loading, withLoading]);
-
-  return (
-    <LoadingContext.Provider value={contextValue}>
-      {children}
-    </LoadingContext.Provider>
+  const contextValue = useMemo(
+    () => ({
+      loading,
+      setLoading,
+      withLoading,
+    }),
+    [loading, withLoading],
   );
+
+  return <LoadingContext.Provider value={contextValue}>{children}</LoadingContext.Provider>;
 }
 
 export function useLoading() {

@@ -18,7 +18,23 @@ function formatDate(dateString: string): string {
 
 const PAGE_SIZE = 20;
 
+/**
+ * Remount the view whenever the monitor changes.
+ *
+ * A `key` is React's own answer to "reset all state when the identity changes", and it is the only
+ * one that is race-free here. Resetting state during render instead would run BEFORE the effect
+ * cleanup that aborts the previous monitor's in-flight request: a pagination fetch still in flight
+ * would then resolve with its signal un-aborted, pass the `!signal.aborted` guards, and paint the
+ * OLD monitor's rows under the NEW monitor's header. Aborting from the render body to close that
+ * window is not allowed either — touching a ref during render is impure and breaks under
+ * StrictMode. Remounting sidesteps both: fresh state, and unmount cleanup aborts the old request.
+ */
 function PageDetail() {
+  const { pageName } = useParams<{ pageName: string }>();
+  return <PageDetailView key={pageName ?? ''} />;
+}
+
+function PageDetailView() {
   const { pageName } = useParams<{ pageName: string }>();
   const [results, setResults] = useState<MonitorResult[]>([]);
   const [config, setConfig] = useState<PageMonitorConfig | null>(null);
@@ -44,7 +60,6 @@ function PageDetail() {
     const signal = controllerRef.current.signal;
 
     try {
-      setError(null);
       const [resultsResponse, statsResponse, configList] = await Promise.all([
         fetchResults(decodedPageName, page, PAGE_SIZE, signal),
         fetchPageStats(decodedPageName, signal),
@@ -54,7 +69,7 @@ function PageDetail() {
       setResults(resultsResponse.content);
       setTotalElements(resultsResponse.totalElements);
       setStats(statsResponse);
-      const pageConfig = configList.find(c => c.name === decodedPageName);
+      const pageConfig = configList.find((c) => c.name === decodedPageName);
       setConfig(pageConfig || null);
     } catch {
       if (signal.aborted) return;
@@ -66,9 +81,9 @@ function PageDetail() {
   }
 
   useEffect(() => {
-    setLoading(true);
-    setCurrentPage(0);
-    loadData(0);
+    // loadData catches its own errors (try/catch/finally) so its promise never
+    // rejects — void is the deliberate choice for this fire-and-forget load.
+    void loadData(0);
 
     return () => {
       if (controllerRef.current) {
@@ -78,8 +93,9 @@ function PageDetail() {
   }, [decodedPageName]);
 
   function handlePageChange({ selected }: { selected: number }) {
+    setError(null);
     setCurrentPage(selected);
-    loadData(selected);
+    void loadData(selected);
   }
 
   async function handleManualCheck() {
@@ -108,7 +124,9 @@ function PageDetail() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <Link to="/" className="status-badge edit">&larr; Back to Dashboard</Link>
+        <Link to="/" className="status-badge edit">
+          &larr; Back to Dashboard
+        </Link>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -117,15 +135,13 @@ function PageDetail() {
         <div className="card-header">
           <span className="card-title">{decodedPageName}</span>
           <div className="badge-group">
-            <button
-              className="status-badge action"
-              onClick={handleManualCheck}
-              disabled={checking}
-            >
+            <button className="status-badge action" onClick={handleManualCheck} disabled={checking}>
               {checking ? 'Checking...' : 'Check Now'}
             </button>
             {config && (
-              <Link to={`/monitors?editPage=${config.id}`} className="status-badge edit">Edit</Link>
+              <Link to={`/monitors?editPage=${config.id}`} className="status-badge edit">
+                Edit
+              </Link>
             )}
             {results.length > 0 && (
               <span className={`status-badge ${results[0].matched ? 'success' : 'error'}`}>
@@ -178,14 +194,10 @@ function PageDetail() {
               <tr key={result.id}>
                 <td>{formatDate(result.checkedAt)}</td>
                 <td>
-                  {result.extractedValue === null
-                    ? '-'
-                    : result.extractedValue.toLocaleString()}
+                  {result.extractedValue === null ? '-' : result.extractedValue.toLocaleString()}
                 </td>
                 <td>
-                  <span
-                    className={`status-badge ${result.matched ? 'success' : 'error'}`}
-                  >
+                  <span className={`status-badge ${result.matched ? 'success' : 'error'}`}>
                     {result.matched ? 'OK' : 'Failed'}
                   </span>
                 </td>
@@ -210,7 +222,8 @@ function PageDetail() {
               nextLabel="Next →"
             />
             <div className="pagination-info">
-              Showing {currentPage * PAGE_SIZE + 1}-{Math.min((currentPage + 1) * PAGE_SIZE, totalElements)} of {totalElements}
+              Showing {currentPage * PAGE_SIZE + 1}-
+              {Math.min((currentPage + 1) * PAGE_SIZE, totalElements)} of {totalElements}
             </div>
           </>
         )}

@@ -32,7 +32,7 @@ function base64urlEncode(buffer: ArrayBuffer): string {
   return btoa(str).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 }
 
-async function generateCodeVerifier(): Promise<string> {
+function generateCodeVerifier(): string {
   const buffer = new Uint8Array(32);
   crypto.getRandomValues(buffer);
   return base64urlEncode(buffer.buffer);
@@ -53,17 +53,15 @@ function parseJwt(token: string): Record<string, unknown> {
     atob(base64)
       .split('')
       .map((c) => '%' + ('00' + (c.codePointAt(0) ?? 0).toString(16)).slice(-2))
-      .join('')
+      .join(''),
   );
-  return JSON.parse(jsonPayload);
+  return JSON.parse(jsonPayload) as Record<string, unknown>;
 }
 
 function extractUserInfo(token: string): UserInfo {
   const claims = parseJwt(token);
   const realmAccess = claims.realm_access as { roles?: string[] } | undefined;
-  const roles = (realmAccess?.roles || []).filter(
-    (r: string) => !KEYCLOAK_DEFAULT_ROLES.has(r)
-  );
+  const roles = (realmAccess?.roles || []).filter((r: string) => !KEYCLOAK_DEFAULT_ROLES.has(r));
   return {
     email: claims.email as string,
     uuid: claims.sub as string,
@@ -75,7 +73,7 @@ function scheduleRefresh(): void {
   cancelRefresh();
   const now = Date.now();
   // Refresh 60 seconds before expiry, minimum 5 seconds from now
-  const delay = Math.max((expiresAt - now) - 60_000, 5_000);
+  const delay = Math.max(expiresAt - now - 60_000, 5_000);
   refreshTimer = globalThis.setTimeout(() => {
     void silentRefresh();
   }, delay) as unknown as number;
@@ -88,25 +86,24 @@ function cancelRefresh(): void {
   }
 }
 
-async function tokenRequest(params: URLSearchParams): Promise<{
+interface TokenResponse {
   access_token: string;
   refresh_token?: string;
   expires_in: number;
-}> {
-  const response = await fetch(
-    `${OIDC_CONFIG.authority}/protocol/openid-connect/token`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-    }
-  );
+}
+
+async function tokenRequest(params: URLSearchParams): Promise<TokenResponse> {
+  const response = await fetch(`${OIDC_CONFIG.authority}/protocol/openid-connect/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  });
   if (!response.ok) {
     const error = await response.text().catch(() => 'Token request failed');
     console.error('Token request failed:', response.status, error);
     throw new Error(error);
   }
-  return response.json();
+  return response.json() as Promise<TokenResponse>;
 }
 
 async function silentRefresh(): Promise<boolean> {
@@ -137,7 +134,7 @@ async function silentRefresh(): Promise<boolean> {
 // Public API
 
 export async function login(returnTo?: string): Promise<void> {
-  const verifier = await generateCodeVerifier();
+  const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
   sessionStorage.setItem('oidc_code_verifier', verifier);
 
@@ -155,11 +152,27 @@ export async function login(returnTo?: string): Promise<void> {
   globalThis.location.href = `${OIDC_CONFIG.authority}/protocol/openid-connect/auth?${params}`;
 }
 
+/**
+ * Decode the OAuth `state` we round-tripped through the IdP.
+ *
+ * The value comes back through the browser's URL, so it is attacker-influenced: asserting it is
+ * `{ returnTo: string }` would be a lie the type system then propagates into `navigate()`. Validate
+ * the shape and require a single-slash absolute path, so a crafted state cannot aim the
+ * post-login redirect at `//evil.example` (protocol-relative) or a non-string.
+ */
 export function parseState(stateParam: string | null): { returnTo: string } {
+  const fallback = { returnTo: '/' };
+  if (!stateParam) return fallback;
   try {
-    return stateParam ? JSON.parse(atob(stateParam)) : { returnTo: '/' };
+    const parsed: unknown = JSON.parse(atob(stateParam));
+    if (typeof parsed !== 'object' || parsed === null) return fallback;
+    const { returnTo } = parsed as { returnTo?: unknown };
+    if (typeof returnTo !== 'string' || !returnTo.startsWith('/') || returnTo.startsWith('//')) {
+      return fallback;
+    }
+    return { returnTo };
   } catch {
-    return { returnTo: '/' };
+    return fallback;
   }
 }
 

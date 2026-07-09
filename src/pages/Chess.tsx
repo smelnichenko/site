@@ -47,15 +47,19 @@ export default function Chess() {
     });
 
     // Fallback poll — slow cadence; primary path is the subscription.
-    pollRef.current = setInterval(async () => {
-      try {
-        const updated = await fetchChessGame(currentGame.gameUuid);
-        if (updated.fen !== currentGame.fen || updated.status !== currentGame.status) {
-          setCurrentGame(updated);
+    // setInterval expects a void callback; the async work is self-contained
+    // (its own try/catch swallows errors), so void-invoke it.
+    pollRef.current = setInterval(() => {
+      void (async () => {
+        try {
+          const updated = await fetchChessGame(currentGame.gameUuid);
+          if (updated.fen !== currentGame.fen || updated.status !== currentGame.status) {
+            setCurrentGame(updated);
+          }
+        } catch {
+          // Ignore poll errors
         }
-      } catch {
-        // Ignore poll errors
-      }
+      })();
     }, 30000);
 
     return () => {
@@ -73,7 +77,11 @@ export default function Chess() {
         setCurrentGame(updated);
 
         // For AI games: if game is still in progress and it's AI's turn, get Stockfish move
-        if (updated.gameType === 'AI' && updated.status === 'IN_PROGRESS' && updated.fen.includes(' b ')) {
+        if (
+          updated.gameType === 'AI' &&
+          updated.status === 'IN_PROGRESS' &&
+          updated.fen.includes(' b ')
+        ) {
           setAiThinking(true);
           try {
             const aiMove = await getBestMove(updated.fen);
@@ -89,7 +97,7 @@ export default function Chess() {
         setError(e instanceof Error ? e.message : 'Move failed');
       }
     },
-    [currentGame, getBestMove]
+    [currentGame, getBestMove],
   );
 
   const handleResign = useCallback(async () => {
@@ -154,15 +162,8 @@ export default function Chess() {
 
       <div className="chess-game-layout">
         <div className="chess-board-panel">
-          <div className="chess-turn-indicator">
-            {aiThinking ? 'AI is thinking...' : turnLabel}
-          </div>
-          <ChessBoard
-            game={currentGame}
-            uuid={uuid}
-            onMove={handleMove}
-            disabled={aiThinking}
-          />
+          <div className="chess-turn-indicator">{aiThinking ? 'AI is thinking...' : turnLabel}</div>
+          <ChessBoard game={currentGame} uuid={uuid} onMove={handleMove} disabled={aiThinking} />
         </div>
 
         <div className="chess-side-panel">
@@ -188,12 +189,7 @@ export default function Chess() {
         </div>
       </div>
 
-      <GameOverDialog
-        game={currentGame}
-        uuid={uuid}
-        onNewGame={handleBack}
-        onBack={handleBack}
-      />
+      <GameOverDialog game={currentGame} uuid={uuid} onNewGame={handleBack} onBack={handleBack} />
     </div>
   );
 }

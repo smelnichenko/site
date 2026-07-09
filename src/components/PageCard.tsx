@@ -30,12 +30,12 @@ function PageCard({ pageName, latestResult, editUrl }: Readonly<PageCardProps>) 
         </Link>
         <div className="badge-group">
           {editUrl && (
-            <Link to={editUrl} className="status-badge edit">Edit</Link>
+            <Link to={editUrl} className="status-badge edit">
+              Edit
+            </Link>
           )}
           {latestResult && (
-            <span
-              className={`status-badge ${latestResult.matched ? 'success' : 'error'}`}
-            >
+            <span className={`status-badge ${latestResult.matched ? 'success' : 'error'}`}>
               {latestResult.matched ? 'OK' : 'Failed'}
             </span>
           )}
@@ -50,9 +50,7 @@ function PageCard({ pageName, latestResult, editUrl }: Readonly<PageCardProps>) 
               ? 'N/A'
               : latestResult.extractedValue.toLocaleString()}
           </div>
-          <div className="stat-label">
-            Last checked: {formatTimeAgo(latestResult.checkedAt)}
-          </div>
+          <div className="stat-label">Last checked: {formatTimeAgo(latestResult.checkedAt)}</div>
           {latestResult.errorMessage && (
             <div className="error" style={{ marginTop: 12, fontSize: '0.85rem' }}>
               {latestResult.errorMessage}

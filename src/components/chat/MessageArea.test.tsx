@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import MessageArea from './MessageArea'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import MessageArea from './MessageArea';
 
 vi.mock('../../services/api', () => ({
   fetchChatMessages: vi.fn(),
@@ -10,37 +10,37 @@ vi.mock('../../services/api', () => ({
   markChannelRead: vi.fn(),
   verifyChannelChain: vi.fn(),
   fetchChannelKeys: vi.fn(),
-}))
+}));
 
 vi.mock('../../services/crypto', () => ({
   encryptMessage: vi.fn(),
   decryptMessage: vi.fn(),
   unwrapChannelKey: vi.fn(),
-}))
+}));
 
 vi.mock('../../services/keyStore', () => ({
   getLatestChannelKey: vi.fn(),
   getChannelKey: vi.fn(),
   setChannelKey: vi.fn(),
   getIdentityPrivateKey: vi.fn(),
-}))
+}));
 
 // Capture the publication handler so tests can push a live message and assert
 // the subscription is torn down on unmount.
-const subscription = { unsubscribe: vi.fn() }
-let lastPublicationHandler: ((msg: ChatMessage) => void) | null = null
+const subscription = { unsubscribe: vi.fn() };
+let lastPublicationHandler: ((msg: ChatMessage) => void) | null = null;
 vi.mock('../../services/centrifugoClient', () => ({
   subscribe: vi.fn((_channel: string, opts: { onPublication: (msg: ChatMessage) => void }) => {
-    lastPublicationHandler = opts.onPublication
-    return subscription
+    lastPublicationHandler = opts.onPublication;
+    return subscription;
   }),
-}))
+}));
 
-const api = await import('../../services/api')
-const crypto = await import('../../services/crypto')
-const keyStoreModule = await import('../../services/keyStore')
-const centrifugoClient = await import('../../services/centrifugoClient')
-type ChatMessage = Awaited<ReturnType<typeof api.fetchChatMessages>>[number]
+const api = await import('../../services/api');
+const crypto = await import('../../services/crypto');
+const keyStoreModule = await import('../../services/keyStore');
+const centrifugoClient = await import('../../services/centrifugoClient');
+type ChatMessage = Awaited<ReturnType<typeof api.fetchChatMessages>>[number];
 
 const baseChannel = {
   id: 1,
@@ -55,12 +55,17 @@ const baseChannel = {
   joined: true,
   isOwner: false,
   isSystem: false,
-}
+};
 
-const makeMsg = (id: string, username: string, content: string, createdAt = '2026-01-15T10:30:00Z') => ({
+const makeMsg = (
+  id: string,
+  username: string,
+  content: string,
+  createdAt = '2026-01-15T10:30:00Z',
+) => ({
   messageId: id,
   channelId: 1,
-  userUuid: "uuid-1",
+  userUuid: 'uuid-1',
   username,
   content,
   createdAt,
@@ -70,327 +75,329 @@ const makeMsg = (id: string, username: string, content: string, createdAt = '202
   deleted: false,
   editedContent: undefined as string | undefined,
   keyVersion: undefined as number | undefined,
-})
+});
 
 // jsdom doesn't support scrollIntoView
-Element.prototype.scrollIntoView = vi.fn()
+Element.prototype.scrollIntoView = vi.fn();
 
 beforeEach(() => {
-  vi.mocked(api.fetchChatMessages).mockReset()
-  vi.mocked(api.sendChatMessage).mockReset()
-  vi.mocked(api.editChatMessage).mockReset()
-  vi.mocked(api.markChannelRead).mockResolvedValue(undefined)
-  vi.mocked(api.verifyChannelChain).mockReset()
-  vi.mocked(api.fetchChannelKeys).mockReset()
-  vi.mocked(crypto.encryptMessage).mockReset()
-  vi.mocked(crypto.decryptMessage).mockReset()
-  vi.mocked(crypto.unwrapChannelKey).mockReset()
-  vi.mocked(keyStoreModule.getLatestChannelKey).mockReturnValue(null)
-  vi.mocked(keyStoreModule.getChannelKey).mockReturnValue(null)
-  vi.mocked(keyStoreModule.getIdentityPrivateKey).mockReturnValue(null)
-  vi.mocked(centrifugoClient.subscribe).mockClear()
-  subscription.unsubscribe.mockClear()
-  lastPublicationHandler = null
-  localStorage.setItem('email', 'me@test.com')
-})
+  vi.mocked(api.fetchChatMessages).mockReset();
+  vi.mocked(api.sendChatMessage).mockReset();
+  vi.mocked(api.editChatMessage).mockReset();
+  vi.mocked(api.markChannelRead).mockResolvedValue(undefined);
+  vi.mocked(api.verifyChannelChain).mockReset();
+  vi.mocked(api.fetchChannelKeys).mockReset();
+  vi.mocked(crypto.encryptMessage).mockReset();
+  vi.mocked(crypto.decryptMessage).mockReset();
+  vi.mocked(crypto.unwrapChannelKey).mockReset();
+  vi.mocked(keyStoreModule.getLatestChannelKey).mockReturnValue(null);
+  vi.mocked(keyStoreModule.getChannelKey).mockReturnValue(null);
+  vi.mocked(keyStoreModule.getIdentityPrivateKey).mockReturnValue(null);
+  vi.mocked(centrifugoClient.subscribe).mockClear();
+  subscription.unsubscribe.mockClear();
+  lastPublicationHandler = null;
+  localStorage.setItem('email', 'me@test.com');
+});
 
 describe('MessageArea', () => {
   it('renders channel header with name and member count', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled())
-    expect(screen.getByText('# general')).toBeInTheDocument()
-    expect(screen.getByText('3 members')).toBeInTheDocument()
-  })
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    render(<MessageArea channel={baseChannel} />);
+    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled());
+    expect(screen.getByText('# general')).toBeInTheDocument();
+    expect(screen.getByText('3 members')).toBeInTheDocument();
+  });
 
   it('shows empty state when no messages', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    render(<MessageArea channel={baseChannel} />)
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    render(<MessageArea channel={baseChannel} />);
     await waitFor(() => {
-      expect(screen.getByText('No messages yet. Start the conversation!')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('No messages yet. Start the conversation!')).toBeInTheDocument();
+    });
+  });
 
   it('renders messages', async () => {
     vi.mocked(api.fetchChatMessages).mockResolvedValue([
       makeMsg('1', 'alice@test.com', 'Hello world'),
       makeMsg('2', 'bob@test.com', 'Hi there'),
-    ])
-    render(<MessageArea channel={baseChannel} />)
+    ]);
+    render(<MessageArea channel={baseChannel} />);
     await waitFor(() => {
-      expect(screen.getByText('Hello world')).toBeInTheDocument()
-      expect(screen.getByText('Hi there')).toBeInTheDocument()
-      expect(screen.getByText('alice@test.com')).toBeInTheDocument()
-      expect(screen.getByText('bob@test.com')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('Hello world')).toBeInTheDocument();
+      expect(screen.getByText('Hi there')).toBeInTheDocument();
+      expect(screen.getByText('alice@test.com')).toBeInTheDocument();
+      expect(screen.getByText('bob@test.com')).toBeInTheDocument();
+    });
+  });
 
   it('shows input placeholder with channel name', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled())
-    expect(screen.getByPlaceholderText('Message #general')).toBeInTheDocument()
-  })
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    render(<MessageArea channel={baseChannel} />);
+    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled());
+    expect(screen.getByPlaceholderText('Message #general')).toBeInTheDocument();
+  });
 
   it('sends a message on button click', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    const sentMsg = makeMsg('new', 'me@test.com', 'My message')
-    vi.mocked(api.sendChatMessage).mockResolvedValue(sentMsg)
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    const sentMsg = makeMsg('new', 'me@test.com', 'My message');
+    vi.mocked(api.sendChatMessage).mockResolvedValue(sentMsg);
 
-    const user = userEvent.setup()
-    render(<MessageArea channel={baseChannel} />)
+    const user = userEvent.setup();
+    render(<MessageArea channel={baseChannel} />);
 
-    const textarea = screen.getByPlaceholderText('Message #general')
-    await user.type(textarea, 'My message')
-    await user.click(screen.getByText('Send'))
+    const textarea = screen.getByPlaceholderText('Message #general');
+    await user.type(textarea, 'My message');
+    await user.click(screen.getByText('Send'));
 
-    expect(api.sendChatMessage).toHaveBeenCalledWith(1, 'My message', undefined, undefined)
-  })
+    expect(api.sendChatMessage).toHaveBeenCalledWith(1, 'My message', undefined, undefined);
+  });
 
   it('sends message on Enter key', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    vi.mocked(api.sendChatMessage).mockResolvedValue(makeMsg('new', 'me@test.com', 'Enter msg'))
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    vi.mocked(api.sendChatMessage).mockResolvedValue(makeMsg('new', 'me@test.com', 'Enter msg'));
 
-    const user = userEvent.setup()
-    render(<MessageArea channel={baseChannel} />)
+    const user = userEvent.setup();
+    render(<MessageArea channel={baseChannel} />);
 
-    const textarea = screen.getByPlaceholderText('Message #general')
-    await user.type(textarea, 'Enter msg{Enter}')
+    const textarea = screen.getByPlaceholderText('Message #general');
+    await user.type(textarea, 'Enter msg{Enter}');
 
-    expect(api.sendChatMessage).toHaveBeenCalledWith(1, 'Enter msg', undefined, undefined)
-  })
+    expect(api.sendChatMessage).toHaveBeenCalledWith(1, 'Enter msg', undefined, undefined);
+  });
 
   it('disables Send button when input is empty', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled())
-    expect(screen.getByText('Send')).toBeDisabled()
-  })
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    render(<MessageArea channel={baseChannel} />);
+    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled());
+    expect(screen.getByText('Send')).toBeDisabled();
+  });
 
   it('shows edit button only for own messages', async () => {
     vi.mocked(api.fetchChatMessages).mockResolvedValue([
       makeMsg('1', 'me@test.com', 'My message'),
       makeMsg('2', 'other@test.com', 'Their message'),
-    ])
-    render(<MessageArea channel={baseChannel} />)
+    ]);
+    render(<MessageArea channel={baseChannel} />);
     await waitFor(() => {
-      expect(screen.getAllByText('edit').length).toBe(1)
-    })
-  })
+      expect(screen.getAllByText('edit').length).toBe(1);
+    });
+  });
 
   it('enters edit mode on edit button click', async () => {
     vi.mocked(api.fetchChatMessages).mockResolvedValue([
       makeMsg('1', 'me@test.com', 'Original text'),
-    ])
-    const user = userEvent.setup()
-    render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => screen.getByText('edit'))
+    ]);
+    const user = userEvent.setup();
+    render(<MessageArea channel={baseChannel} />);
+    await screen.findByText('edit');
 
-    await user.click(screen.getByText('edit'))
-    expect(screen.getByText('Save')).toBeInTheDocument()
-    expect(screen.getByText('Cancel')).toBeInTheDocument()
-  })
+    await user.click(screen.getByText('edit'));
+    expect(screen.getByText('Save')).toBeInTheDocument();
+    expect(screen.getByText('Cancel')).toBeInTheDocument();
+  });
 
   it('saves an edited message', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([
-      makeMsg('1', 'me@test.com', 'Original'),
-    ])
-    vi.mocked(api.editChatMessage).mockResolvedValue(undefined)
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([makeMsg('1', 'me@test.com', 'Original')]);
+    vi.mocked(api.editChatMessage).mockResolvedValue(undefined);
 
-    const user = userEvent.setup()
-    render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => screen.getByText('edit'))
-    await user.click(screen.getByText('edit'))
+    const user = userEvent.setup();
+    render(<MessageArea channel={baseChannel} />);
+    await screen.findByText('edit');
+    await user.click(screen.getByText('edit'));
 
-    const editTextarea = screen.getByDisplayValue('Original')
-    await user.clear(editTextarea)
-    await user.type(editTextarea, 'Edited text')
-    await user.click(screen.getByText('Save'))
+    const editTextarea = screen.getByDisplayValue('Original');
+    await user.clear(editTextarea);
+    await user.type(editTextarea, 'Edited text');
+    await user.click(screen.getByText('Save'));
 
-    expect(api.editChatMessage).toHaveBeenCalledWith(1, '1', 'Edited text')
-  })
+    expect(api.editChatMessage).toHaveBeenCalledWith(1, '1', 'Edited text');
+  });
 
   it('cancels edit mode', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([
-      makeMsg('1', 'me@test.com', 'Original'),
-    ])
-    const user = userEvent.setup()
-    render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => screen.getByText('edit'))
-    await user.click(screen.getByText('edit'))
-    await user.click(screen.getByText('Cancel'))
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([makeMsg('1', 'me@test.com', 'Original')]);
+    const user = userEvent.setup();
+    render(<MessageArea channel={baseChannel} />);
+    await screen.findByText('edit');
+    await user.click(screen.getByText('edit'));
+    await user.click(screen.getByText('Cancel'));
 
-    expect(screen.queryByText('Save')).not.toBeInTheDocument()
-    expect(screen.getByText('Original')).toBeInTheDocument()
-  })
+    expect(screen.queryByText('Save')).not.toBeInTheDocument();
+    expect(screen.getByText('Original')).toBeInTheDocument();
+  });
 
   it('shows (edited) badge for edited messages', async () => {
-    const msg = makeMsg('1', 'alice@test.com', 'Original')
-    msg.editedContent = 'Edited version'
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([msg])
+    const msg = makeMsg('1', 'alice@test.com', 'Original');
+    msg.editedContent = 'Edited version';
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([msg]);
 
-    render(<MessageArea channel={baseChannel} />)
+    render(<MessageArea channel={baseChannel} />);
     await waitFor(() => {
-      expect(screen.getByText('(edited)')).toBeInTheDocument()
-      expect(screen.getByText('Edited version')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('(edited)')).toBeInTheDocument();
+      expect(screen.getByText('Edited version')).toBeInTheDocument();
+    });
+  });
 
   it('verifies chain and shows status', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
     vi.mocked(api.verifyChannelChain).mockResolvedValue({
       intact: true,
       messageCount: 42,
       validCount: 42,
-    })
+    });
 
-    const user = userEvent.setup()
-    render(<MessageArea channel={baseChannel} />)
-    await user.click(screen.getByText('Verify'))
+    const user = userEvent.setup();
+    render(<MessageArea channel={baseChannel} />);
+    await user.click(screen.getByText('Verify'));
 
     await waitFor(() => {
-      expect(screen.getByText('Chain OK (42 msgs)')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('Chain OK (42 msgs)')).toBeInTheDocument();
+    });
+  });
 
   it('shows broken chain status', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
     vi.mocked(api.verifyChannelChain).mockResolvedValue({
       intact: false,
       messageCount: 10,
       validCount: 7,
-    })
+    });
 
-    const user = userEvent.setup()
-    render(<MessageArea channel={baseChannel} />)
-    await user.click(screen.getByText('Verify'))
+    const user = userEvent.setup();
+    render(<MessageArea channel={baseChannel} />);
+    await user.click(screen.getByText('Verify'));
 
     await waitFor(() => {
-      expect(screen.getByText('Chain broken at 7/10')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('Chain broken at 7/10')).toBeInTheDocument();
+    });
+  });
 
   it('shows hash for messages with hash', async () => {
-    const msg = makeMsg('1', 'alice@test.com', 'Hello')
-    msg.hash = 'abcdef1234567890abcdef'
-    msg.prevHash = 'prev1234567890'
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([msg])
+    const msg = makeMsg('1', 'alice@test.com', 'Hello');
+    msg.hash = 'abcdef1234567890abcdef';
+    msg.prevHash = 'prev1234567890';
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([msg]);
 
-    render(<MessageArea channel={baseChannel} />)
+    render(<MessageArea channel={baseChannel} />);
     await waitFor(() => {
-      expect(screen.getByText('abcdef1234567890...')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('abcdef1234567890...')).toBeInTheDocument();
+    });
+  });
 
   it('shows date separators between different days', async () => {
     vi.mocked(api.fetchChatMessages).mockResolvedValue([
       makeMsg('1', 'alice@test.com', 'Day 1 msg', '2026-01-14T10:00:00Z'),
       makeMsg('2', 'alice@test.com', 'Day 2 msg', '2026-01-15T10:00:00Z'),
-    ])
+    ]);
 
-    render(<MessageArea channel={baseChannel} />)
+    render(<MessageArea channel={baseChannel} />);
     await waitFor(() => {
-      expect(screen.getByText('Day 1 msg')).toBeInTheDocument()
-      expect(screen.getByText('Day 2 msg')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('Day 1 msg')).toBeInTheDocument();
+      expect(screen.getByText('Day 2 msg')).toBeInTheDocument();
+    });
+  });
 
   it('shows lock icon for encrypted channel', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    vi.mocked(api.fetchChannelKeys).mockResolvedValue([])
-    const encryptedChannel = { ...baseChannel, encrypted: true, currentKeyVersion: 1 }
-    render(<MessageArea channel={encryptedChannel} />)
-    await waitFor(() => expect(api.fetchChannelKeys).toHaveBeenCalled())
-    expect(screen.getByText(/general/)).toBeInTheDocument()
-  })
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    vi.mocked(api.fetchChannelKeys).mockResolvedValue([]);
+    const encryptedChannel = { ...baseChannel, encrypted: true, currentKeyVersion: 1 };
+    render(<MessageArea channel={encryptedChannel} />);
+    await waitFor(() => expect(api.fetchChannelKeys).toHaveBeenCalled());
+    expect(screen.getByText(/general/)).toBeInTheDocument();
+  });
 
   it('shows singular member for count of 1', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    render(<MessageArea channel={{ ...baseChannel, memberCount: 1 }} />)
-    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled())
-    expect(screen.getByText('1 member')).toBeInTheDocument()
-  })
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    render(<MessageArea channel={{ ...baseChannel, memberCount: 1 }} />);
+    await waitFor(() => expect(api.fetchChatMessages).toHaveBeenCalled());
+    expect(screen.getByText('1 member')).toBeInTheDocument();
+  });
 
   it('shows error when send fails', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    vi.mocked(api.sendChatMessage).mockRejectedValue(new Error('fail'))
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    vi.mocked(api.sendChatMessage).mockRejectedValue(new Error('fail'));
 
-    const user = userEvent.setup()
-    render(<MessageArea channel={baseChannel} />)
+    const user = userEvent.setup();
+    render(<MessageArea channel={baseChannel} />);
 
-    const textarea = screen.getByPlaceholderText('Message #general')
-    await user.type(textarea, 'test')
-    await user.click(screen.getByText('Send'))
+    const textarea = screen.getByPlaceholderText('Message #general');
+    await user.type(textarea, 'test');
+    await user.click(screen.getByText('Send'));
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to send message')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('Failed to send message')).toBeInTheDocument();
+    });
+  });
 
   it('shows error when verify fails', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    vi.mocked(api.verifyChannelChain).mockRejectedValue(new Error('fail'))
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    vi.mocked(api.verifyChannelChain).mockRejectedValue(new Error('fail'));
 
-    const user = userEvent.setup()
-    render(<MessageArea channel={baseChannel} />)
-    await user.click(screen.getByText('Verify'))
+    const user = userEvent.setup();
+    render(<MessageArea channel={baseChannel} />);
+    await user.click(screen.getByText('Verify'));
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to verify chain')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('Failed to verify chain')).toBeInTheDocument();
+    });
+  });
 
   it('marks channel as read on load', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    render(<MessageArea channel={baseChannel} />)
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    render(<MessageArea channel={baseChannel} />);
     await waitFor(() => {
-      expect(api.markChannelRead).toHaveBeenCalledWith(1)
-    })
-  })
+      expect(api.markChannelRead).toHaveBeenCalledWith(1);
+    });
+  });
 
   it('subscribes to the channel realtime topic on load', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    render(<MessageArea channel={baseChannel} />)
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    render(<MessageArea channel={baseChannel} />);
     await waitFor(() => {
       expect(centrifugoClient.subscribe).toHaveBeenCalledWith(
         'chat:room:1',
-        expect.objectContaining({ onPublication: expect.any(Function) }),
-      )
-    })
-  })
+        expect.objectContaining({
+          onPublication: expect.any(Function) as (msg: ChatMessage) => void,
+        }),
+      );
+    });
+  });
 
   it('appends a live publication to the message list', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => expect(centrifugoClient.subscribe).toHaveBeenCalled())
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    render(<MessageArea channel={baseChannel} />);
+    await waitFor(() => expect(centrifugoClient.subscribe).toHaveBeenCalled());
 
     await act(async () => {
-      lastPublicationHandler?.(makeMsg('live-1', 'alice@test.com', 'Realtime hello'))
-    })
+      lastPublicationHandler?.(makeMsg('live-1', 'alice@test.com', 'Realtime hello'));
+      // The publication handler decrypts asynchronously before calling setState,
+      // so yield a microtask to let `act` drain that update before we assert.
+      await Promise.resolve();
+    });
 
-    expect(screen.getByText('Realtime hello')).toBeInTheDocument()
-  })
+    expect(screen.getByText('Realtime hello')).toBeInTheDocument();
+  });
 
   it('ignores duplicate publications already in the list', async () => {
     vi.mocked(api.fetchChatMessages).mockResolvedValue([
       makeMsg('dup', 'alice@test.com', 'Only once'),
-    ])
-    render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => expect(screen.getByText('Only once')).toBeInTheDocument())
+    ]);
+    render(<MessageArea channel={baseChannel} />);
+    expect(await screen.findByText('Only once')).toBeInTheDocument();
 
     await act(async () => {
-      lastPublicationHandler?.(makeMsg('dup', 'alice@test.com', 'Only once'))
-    })
+      lastPublicationHandler?.(makeMsg('dup', 'alice@test.com', 'Only once'));
+      await Promise.resolve();
+    });
 
-    expect(screen.getAllByText('Only once')).toHaveLength(1)
-  })
+    expect(screen.getAllByText('Only once')).toHaveLength(1);
+  });
 
   it('unsubscribes on unmount', async () => {
-    vi.mocked(api.fetchChatMessages).mockResolvedValue([])
-    const { unmount } = render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => expect(centrifugoClient.subscribe).toHaveBeenCalled())
+    vi.mocked(api.fetchChatMessages).mockResolvedValue([]);
+    const { unmount } = render(<MessageArea channel={baseChannel} />);
+    await waitFor(() => expect(centrifugoClient.subscribe).toHaveBeenCalled());
 
-    unmount()
-    expect(subscription.unsubscribe).toHaveBeenCalled()
-  })
-})
+    unmount();
+    expect(subscription.unsubscribe).toHaveBeenCalled();
+  });
+});

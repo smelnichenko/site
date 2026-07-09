@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import App from './App'
-import { AuthProvider } from './contexts/AuthContext'
-import { LoadingProvider } from './contexts/LoadingContext'
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import App from './App';
+import { AuthProvider } from './contexts/AuthContext';
+import { LoadingProvider } from './contexts/LoadingContext';
 
 // Mock oidcClient to prevent actual OIDC calls
 vi.mock('./services/oidcClient', () => ({
@@ -14,31 +14,34 @@ vi.mock('./services/oidcClient', () => ({
   login: vi.fn(),
   isAuthenticated: vi.fn().mockReturnValue(false),
   refreshAndGetUserInfo: vi.fn(),
-}))
+}));
 
 // Mock location.href to prevent jsdom navigation errors from Keycloak redirect
-const originalLocation = globalThis.location
+const originalLocation = globalThis.location;
 beforeAll(() => {
   Object.defineProperty(globalThis, 'location', {
     value: { ...originalLocation, href: originalLocation.href },
     writable: true,
     configurable: true,
-  })
-})
+  });
+});
 afterAll(() => {
   Object.defineProperty(globalThis, 'location', {
     value: originalLocation,
     writable: true,
     configurable: true,
-  })
-})
+  });
+});
 
 // Mock fetch to prevent network calls
-vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-  ok: false,
-  status: 200,
-  json: () => Promise.resolve({}),
-}))
+vi.stubGlobal(
+  'fetch',
+  vi.fn().mockResolvedValue({
+    ok: false,
+    status: 200,
+    json: () => Promise.resolve({}),
+  }),
+);
 
 function renderApp(route = '/login') {
   return render(
@@ -49,21 +52,21 @@ function renderApp(route = '/login') {
         </LoadingProvider>
       </AuthProvider>
     </MemoryRouter>,
-  )
+  );
 }
 
 describe('App', () => {
   it('renders without crashing', async () => {
-    renderApp()
+    renderApp();
     await waitFor(() => {
-      expect(screen.getByText('Redirecting to login...')).toBeInTheDocument()
-    })
-  })
+      expect(screen.getByText('Redirecting to login...')).toBeInTheDocument();
+    });
+  });
 
   it('renders login redirect at /login route', async () => {
-    renderApp('/login')
+    renderApp('/login');
     await waitFor(() => {
-      expect(screen.getByText('Redirecting to login...')).toBeInTheDocument()
-    })
-  })
-})
+      expect(screen.getByText('Redirecting to login...')).toBeInTheDocument();
+    });
+  });
+});

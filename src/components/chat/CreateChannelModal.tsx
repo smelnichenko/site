@@ -15,6 +15,7 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const { uuid } = useAuth();
   const canEncrypt = keyStore.hasIdentityKeys();
@@ -22,6 +23,8 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
+    // Focus the primary input on open — the accessible equivalent of autoFocus.
+    nameInputRef.current?.focus();
   }, []);
 
   const handleSubmit = async (e: SyntheticEvent) => {
@@ -39,11 +42,13 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
         const publicKey = keyStore.getIdentityPublicKey();
         if (publicKey && uuid) {
           const wrapped = await wrapChannelKeyForMember(channelKey, publicKey);
-          await setChannelKeys(channel.id, [{
-            userUuid: uuid,
-            encryptedChannelKey: wrapped.encryptedChannelKey,
-            wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
-          }]);
+          await setChannelKeys(channel.id, [
+            {
+              userUuid: uuid,
+              encryptedChannelKey: wrapped.encryptedChannelKey,
+              wrapperPublicKey: JSON.stringify(wrapped.wrapperPublicKey),
+            },
+          ]);
           keyStore.setChannelKey(channel.id, 1, channelKey);
         }
       }
@@ -86,12 +91,12 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
           <div className="form-group">
             <label htmlFor="channel-name">Channel Name</label>
             <input
+              ref={nameInputRef}
               id="channel-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. general"
-              autoFocus
               required
               maxLength={50}
             />
@@ -99,7 +104,10 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
 
           {canEncrypt && (
             <div className="form-group">
-              <label className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label
+                className="toggle-label"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
                 <input
                   type="checkbox"
                   checked={encrypted}
@@ -116,11 +124,7 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
           <div className="form-actions">
             <div />
             <div>
-              <button
-                type="button"
-                className="status-badge action"
-                onClick={onClose}
-              >
+              <button type="button" className="status-badge action" onClick={onClose}>
                 Cancel
               </button>
               <button

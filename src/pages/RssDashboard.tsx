@@ -29,7 +29,7 @@ function fetchRssLatestSafe(name: string, signal: AbortSignal): Promise<RssFeedR
 }
 
 function fetchRssChartSafe(name: string, signal: AbortSignal): Promise<ChartDataByCollection> {
-  return fetchRssChartData(name, 50, signal).catch(() => ({} as ChartDataByCollection));
+  return fetchRssChartData(name, 50, signal).catch(() => ({}));
 }
 
 function RssDashboard() {
@@ -48,8 +48,8 @@ function RssDashboard() {
         setConfigs(configList);
 
         const [latestArr, chartArr] = await Promise.all([
-          Promise.all(configList.map(c => fetchRssLatestSafe(c.name, controller.signal))),
-          Promise.all(configList.map(c => fetchRssChartSafe(c.name, controller.signal))),
+          Promise.all(configList.map((c) => fetchRssLatestSafe(c.name, controller.signal))),
+          Promise.all(configList.map((c) => fetchRssChartSafe(c.name, controller.signal))),
         ]);
         if (cancelled) return;
 
@@ -66,8 +66,10 @@ function RssDashboard() {
       }
     }
 
-    loadData();
-    const interval = setInterval(loadData, 60000);
+    void loadData();
+    const interval = setInterval(() => {
+      void loadData();
+    }, 60000);
     return () => {
       cancelled = true;
       controller.abort();
@@ -82,7 +84,9 @@ function RssDashboard() {
   if (configs.length === 0) {
     return (
       <div className="card">
-        <p>No RSS feeds configured. <a href="/monitors">Add a feed monitor</a> to get started.</p>
+        <p>
+          No RSS feeds configured. <a href="/monitors">Add a feed monitor</a> to get started.
+        </p>
       </div>
     );
   }
@@ -100,13 +104,13 @@ function RssDashboard() {
                   {config.name}
                 </Link>
                 <div className="badge-group">
-                  <Link to={`/monitors?editFeed=${config.id}`} className="status-badge edit">Edit</Link>
+                  <Link to={`/monitors?editFeed=${config.id}`} className="status-badge edit">
+                    Edit
+                  </Link>
                   {result && !result.errorMessage && (
                     <span className="status-badge success">OK</span>
                   )}
-                  {result?.errorMessage && (
-                    <span className="status-badge error">Error</span>
-                  )}
+                  {result?.errorMessage && <span className="status-badge error">Error</span>}
                 </div>
               </div>
 

@@ -73,16 +73,21 @@ export function subscribe<T>(channel: string, opts: SubscribeOptions<T>): Subscr
   const c = getCentrifugo();
   const existing = c.getSubscription(channel);
   // Reuse if the page already subscribed (e.g. StrictMode double-effect).
-  const sub = existing ?? c.newSubscription(channel, {
-    getToken: () => fetchSubToken(channel),
-  });
+  const sub =
+    existing ??
+    c.newSubscription(channel, {
+      getToken: () => fetchSubToken(channel),
+    });
 
   sub.on('publication', (ctx) => opts.onPublication(ctx.data as T));
   if (opts.onState) {
     sub.on('state', (ctx) => opts.onState!(ctx.newState));
   }
 
-  if (sub.state !== 'subscribed' && sub.state !== 'subscribing') {
+  // SubscriptionState's runtime values are the string literals below; compare
+  // on the primitive so we don't pull the enum in as a runtime value.
+  const state = String(sub.state);
+  if (state !== 'subscribed' && state !== 'subscribing') {
     sub.subscribe();
   }
   return sub;

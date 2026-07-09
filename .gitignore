@@ -11,3 +11,6 @@ node_modules/
 /playwright/.auth/
 ../tests/e2e/.auth.json
 dist/
+
+# lint/format caches
+.eslintcache

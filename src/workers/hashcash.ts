@@ -47,7 +47,7 @@ export async function solve(challenge: string, difficulty: number): Promise<Solv
 
     // Yield to message loop periodically so worker can be terminated
     if (nonce % 10000 === 0) {
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
   }
 }

@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useHashcash } from '../hooks/useHashcash';
 
+interface VerifyEmailResponse {
+  error?: string;
+}
+
 function resendButtonLabel(solving: boolean, loading: boolean) {
   if (solving) return 'Verifying...';
   if (loading) return 'Sending...';
@@ -13,22 +17,34 @@ function VerifyEmail() {
   const token = searchParams.get('token') || '';
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // Start in the loading state whenever a token is present so the effect
+  // doesn't have to setState synchronously on mount (which cascades renders).
+  const [loading, setLoading] = useState(Boolean(token));
   const [resendEmail, setResendEmail] = useState('');
   const [resendSent, setResendSent] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const { enabled: captchaEnabled, solving, solve: solveCaptcha } = useHashcash();
 
+  // The lazy initializer only covers the FIRST token. React Router swaps ?token= without
+  // remounting this route, so a second verification link would otherwise run with no spinner and
+  // the previous attempt's success/error still on screen. Reset per token, during render.
+  const [prevToken, setPrevToken] = useState(token);
+  if (token !== prevToken) {
+    setPrevToken(token);
+    setLoading(Boolean(token));
+    setSuccess(false);
+    setError(null);
+  }
+
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
     fetch('/api/auth/verify-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
     })
       .then(async (response) => {
-        const data = await response.json();
+        const data = (await response.json()) as VerifyEmailResponse;
         if (!response.ok) {
           throw new Error(data.error || 'Verification failed');
         }
@@ -100,7 +116,10 @@ function VerifyEmail() {
           <>
             <div className="error">{error}</div>
             {resendSent ? (
-              <p>If an unverified account with that email exists, a new verification link has been sent.</p>
+              <p>
+                If an unverified account with that email exists, a new verification link has been
+                sent.
+              </p>
             ) : (
               <div style={{ marginTop: '1rem' }}>
                 <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>

@@ -63,16 +63,8 @@ function ValueChart({ data, title }: Readonly<ValueChartProps>) {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-            <XAxis
-              dataKey="time"
-              tick={{ fontSize: 12 }}
-              tickMargin={10}
-            />
-            <YAxis
-              tick={{ fontSize: 12 }}
-              tickMargin={10}
-              domain={['auto', 'auto']}
-            />
+            <XAxis dataKey="time" tick={{ fontSize: 12 }} tickMargin={10} />
+            <YAxis tick={{ fontSize: 12 }} tickMargin={10} domain={['auto', 'auto']} />
             <Tooltip
               contentStyle={{
                 background: 'white',
