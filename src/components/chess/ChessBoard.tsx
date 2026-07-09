@@ -66,15 +66,23 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
     );
   };
 
-  const selectSquare = (sq: Square) => {
-    if (chess.get(sq)?.color === chess.turn()) {
-      setMoveFrom(sq);
-      setOptionSquares(getMoveOptions(sq));
-    } else {
-      setMoveFrom(null);
-      setOptionSquares({});
-    }
-  };
+  // Memoized so handleSquareClick can list it honestly. This is NOT fixing a live bug: `chess` is a
+  // useState-held instance whose identity never changes and which is mutated in place, and
+  // getMoveOptions is memoized on it, so a stale copy of selectSquare reads the same live board and
+  // behaves identically. It captures no render-scoped value. The memoization keeps that true — if
+  // selectSquare ever closes over render state (moveFrom, isMyTurn), the deps will already be right.
+  const selectSquare = useCallback(
+    (sq: Square) => {
+      if (chess.get(sq)?.color === chess.turn()) {
+        setMoveFrom(sq);
+        setOptionSquares(getMoveOptions(sq));
+      } else {
+        setMoveFrom(null);
+        setOptionSquares({});
+      }
+    },
+    [chess, getMoveOptions],
+  );
 
   const handleSquareClick = useCallback(
     async ({ square }: { square: string }) => {
@@ -110,7 +118,7 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
         setPendingMove(false);
       }
     },
-    [chess, disabled, pendingMove, isMyTurn, moveFrom, getMoveOptions, onMove],
+    [chess, disabled, pendingMove, isMyTurn, moveFrom, getMoveOptions, onMove, selectSquare],
   );
 
   const handlePieceDrop = useCallback(

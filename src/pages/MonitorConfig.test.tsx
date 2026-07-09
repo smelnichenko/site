@@ -73,6 +73,14 @@ function renderConfig() {
   );
 }
 
+function renderConfigAt(entry: string) {
+  return render(
+    <MemoryRouter initialEntries={[entry]}>
+      <MonitorConfig />
+    </MemoryRouter>,
+  );
+}
+
 describe('MonitorConfig', () => {
   it('shows loading state', () => {
     vi.mocked(api.fetchPageMonitorConfigs).mockReturnValue(new Promise(() => {}));
@@ -766,5 +774,29 @@ describe('MonitorConfig', () => {
     expect(screen.getByLabelText(/URL/)).toHaveAttribute('id', 'rss-url');
     expect(screen.getByLabelText(/Cron/)).toHaveAttribute('id', 'rss-cron');
     expect(screen.getByLabelText(/Max Articles/)).toHaveAttribute('id', 'rss-max-articles');
+  });
+  describe('?editPage= deep link', () => {
+    it('opens the editor for the monitor the link names, once its list has loaded', async () => {
+      vi.mocked(api.fetchPageMonitorConfigs).mockResolvedValue(mockPageMonitors);
+      vi.mocked(api.fetchRssFeedMonitorConfigs).mockResolvedValue([]);
+
+      renderConfigAt('/monitors?editPage=1');
+
+      // The editor replaces the row, so the add button is hidden and the form's fields appear.
+      expect(await screen.findByLabelText(/Pattern/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Add Page Monitor/i })).not.toBeInTheDocument();
+    });
+
+    it('leaves the editor closed when the id matches no monitor', async () => {
+      // negative: an unknown id must not open an editor, and must not wedge the page in a
+      // retry loop waiting for a monitor that will never arrive.
+      vi.mocked(api.fetchPageMonitorConfigs).mockResolvedValue(mockPageMonitors);
+      vi.mocked(api.fetchRssFeedMonitorConfigs).mockResolvedValue([]);
+
+      renderConfigAt('/monitors?editPage=999');
+
+      expect(await screen.findByRole('button', { name: /Add Page Monitor/i })).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Pattern/i)).not.toBeInTheDocument();
+    });
   });
 });

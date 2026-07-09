@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { parseState } from '../services/oidcClient';
@@ -23,7 +23,10 @@ function AuthCallback() {
 
   // These values come from the OAuth redirect URL, which is fixed for this component's
   // lifetime, so the synchronous error is derivable during render rather than set in an effect.
-  const params = new URLSearchParams(globalThis.location.search);
+  // Memoized: a fresh URLSearchParams each render would make the effect's dependency list churn.
+  // The query string cannot change without a navigation, which remounts this route anyway.
+  const search = globalThis.location.search;
+  const params = useMemo(() => new URLSearchParams(search), [search]);
   const code = params.get('code');
   const errorParam = params.get('error');
   const errorDescription = params.get('error_description');
@@ -33,20 +36,26 @@ function AuthCallback() {
   // Only the async token-exchange failure needs to be state, since it resolves after render.
   const [asyncError, setAsyncError] = useState<string | null>(null);
 
+  // The authorization code is single-use: exchanging it twice fails the second time and would strand
+  // the user on this page. A ref guard enforces exactly-once, which lets the dependency list be
+  // honest instead of an empty array with the lint switched off.
+  const exchangeStartedRef = useRef(false);
+
   useEffect(() => {
-    if (paramError || !code) {
+    if (paramError || !code || exchangeStartedRef.current) {
       return;
     }
+    exchangeStartedRef.current = true;
 
     const { returnTo } = parseState(params.get('state'));
 
     handleCallback(code)
       .then(() => navigate(returnTo, { replace: true }))
-      .catch((e) => {
+      .catch((e: unknown) => {
         console.error('OIDC callback error:', e);
         setAsyncError(e instanceof Error ? e.message : 'OIDC login failed');
       });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [paramError, code, params, handleCallback, navigate]);
 
   const error = paramError ?? asyncError;
 

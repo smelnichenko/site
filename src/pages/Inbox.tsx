@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, useRef } from 'react';
 import {
   fetchInboxEmails,
   fetchEmailAttachments,
@@ -75,13 +75,23 @@ function Inbox() {
     };
   }, [page]);
 
+  // Which ids we have already asked for. Reading `attachments` here instead would force it into the
+  // dependency list, and the effect would then re-run on every load — refetching an id whose first
+  // request had not yet resolved. A ref of requested ids keeps the dependency honest AND single-shot.
+  const requestedAttachmentsRef = useRef<Set<number>>(new Set());
+
   useEffect(() => {
-    if (expandedId === null) return;
-    if (attachments[expandedId]) return; // Already loaded
+    if (expandedId === null || requestedAttachmentsRef.current.has(expandedId)) return;
+    const requested = requestedAttachmentsRef.current;
+    requested.add(expandedId);
+
     const controller = new AbortController();
     fetchEmailAttachments(expandedId, controller.signal)
       .then((atts) => setAttachments((prev) => ({ ...prev, [expandedId]: atts })))
-      .catch(() => {}); // Ignore aborted
+      .catch(() => {
+        // Aborted or failed — forget it, so re-expanding retries rather than showing nothing forever.
+        requested.delete(expandedId);
+      });
     return () => controller.abort();
   }, [expandedId]);
 

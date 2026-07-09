@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import ReactPaginate from 'react-paginate';
 import {
@@ -18,7 +18,17 @@ function formatDate(dateString: string): string {
 
 const PAGE_SIZE = 20;
 
+/**
+ * Remount the view whenever the feed changes — the same reason as PageDetail: a `key` resets all
+ * state race-free, while an in-effect reset runs before the cleanup that aborts the previous feed's
+ * in-flight request.
+ */
 function RssFeedDetail() {
+  const { feedName } = useParams<{ feedName: string }>();
+  return <RssFeedDetailView key={feedName ?? ''} />;
+}
+
+function RssFeedDetailView() {
   const { feedName } = useParams<{ feedName: string }>();
   const [results, setResults] = useState<RssFeedResult[]>([]);
   const [config, setConfig] = useState<RssFeedConfig | null>(null);
@@ -33,62 +43,60 @@ function RssFeedDetail() {
   const decodedFeedName = feedName ? decodeURIComponent(feedName) : '';
   const totalPages = Math.ceil(totalElements / PAGE_SIZE);
 
-  async function loadData(page = 0) {
-    if (!decodedFeedName) return;
+  // Memoized so the load effect can depend on it honestly (see PageDetail).
+  const loadData = useCallback(
+    async (page = 0) => {
+      if (!decodedFeedName) return;
 
-    // Cancel previous request
-    if (controllerRef.current) {
-      controllerRef.current.abort();
-    }
-    controllerRef.current = new AbortController();
-    const signal = controllerRef.current.signal;
-
-    try {
-      setError(null);
-      const [resultsResponse, chartDataResponse, configList] = await Promise.all([
-        fetchRssResults(decodedFeedName, page, PAGE_SIZE, signal),
-        fetchRssChartData(decodedFeedName, 100, signal),
-        fetchRssConfig(signal),
-      ]);
-      if (signal.aborted) return;
-      setResults(resultsResponse.content);
-      setTotalElements(resultsResponse.totalElements);
-      setChartData(chartDataResponse);
-
-      if (configList) {
-        const feedConfig = configList.find((c) => c.name === decodedFeedName);
-        setConfig(feedConfig || null);
+      // Cancel previous request
+      if (controllerRef.current) {
+        controllerRef.current.abort();
       }
-    } catch {
-      if (signal.aborted) return;
-    } finally {
-      if (!signal.aborted) {
-        setLoading(false);
+      controllerRef.current = new AbortController();
+      const signal = controllerRef.current.signal;
+
+      try {
+        // NB: no setState before the first await — the load effect calls this directly, and a
+        // synchronous setState there is a cascading render. Callers clear `error` themselves.
+        const [resultsResponse, chartDataResponse, configList] = await Promise.all([
+          fetchRssResults(decodedFeedName, page, PAGE_SIZE, signal),
+          fetchRssChartData(decodedFeedName, 100, signal),
+          fetchRssConfig(signal),
+        ]);
+        if (signal.aborted) return;
+        setResults(resultsResponse.content);
+        setTotalElements(resultsResponse.totalElements);
+        setChartData(chartDataResponse);
+
+        if (configList) {
+          const feedConfig = configList.find((c) => c.name === decodedFeedName);
+          setConfig(feedConfig || null);
+        }
+      } catch {
+        if (signal.aborted) return;
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
-    }
-  }
+    },
+    [decodedFeedName],
+  );
 
   useEffect(() => {
-    // Reset UI state and load the first page whenever the feed changes. The
-    // reset + load are wrapped in an async function so the setState calls run
-    // as part of the async load flow rather than synchronously in the effect
-    // body, and so the load promise is awaited. loadData swallows its own
-    // errors internally, so reload never rejects.
-    async function reload() {
-      setLoading(true);
-      setCurrentPage(0);
-      await loadData(0);
-    }
-    void reload();
+    // No reset needed: the `key` above remounts this view per feed, so state starts fresh.
+    // loadData swallows its own errors internally, so the dropped promise never rejects.
+    void loadData(0);
 
     return () => {
       if (controllerRef.current) {
         controllerRef.current.abort();
       }
     };
-  }, [decodedFeedName]);
+  }, [loadData]);
 
   function handlePageChange({ selected }: { selected: number }) {
+    setError(null);
     setCurrentPage(selected);
     // loadData handles its own errors internally, so the promise is safe to drop.
     void loadData(selected);

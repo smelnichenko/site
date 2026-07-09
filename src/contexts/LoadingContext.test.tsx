@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { LoadingProvider, useLoading } from './LoadingContext';
+import { useLoading } from './LoadingContext';
+import { LoadingProvider } from './LoadingProvider';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <LoadingProvider>{children}</LoadingProvider>;

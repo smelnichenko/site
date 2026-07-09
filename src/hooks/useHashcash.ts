@@ -34,9 +34,16 @@ export function useHashcash(): UseHashcashReturn {
       .catch(() => setEnabled(false));
   }, []);
 
-  // Cleanup worker on unmount
+  // Terminate the worker on unmount, killing a hash that would otherwise keep burning a core after
+  // the user navigated away.
+  //
+  // This must read the ref at CLEANUP time, not effect time: no worker exists when the effect runs —
+  // solve() creates it later. The lint's advice, "copy ref.current into a variable", is written for
+  // refs holding a React-rendered node; obeying it here would capture null and leak the worker. This
+  // is the one suppression in the codebase, and it is a documented false positive, not a silenced bug.
   useEffect(() => {
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- see above: the worker is assigned after this effect runs
       workerRef.current?.terminate();
     };
   }, []);
