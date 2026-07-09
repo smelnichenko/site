@@ -28,10 +28,13 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
+    // Focus the primary search input on open (accessible equivalent of autoFocus)
+    searchInputRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -65,7 +68,9 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
         if (channelKey) {
           const pubKeys = await fetchPublicKeys([userUuid]);
           if (pubKeys.length > 0) {
-            const recipientPubKey = await importPublicKey(JSON.parse(pubKeys[0].publicKey));
+            const recipientPubKey = await importPublicKey(
+              JSON.parse(pubKeys[0].publicKey) as JsonWebKey
+            );
             const wrapped = await wrapChannelKeyForMember(channelKey, recipientPubKey);
             await setChannelKeys(channelId, [{
               userUuid,
@@ -113,11 +118,11 @@ function InviteModal({ channelId, channelName, encrypted, currentKeyVersion, onC
 
         <div className="form-group">
           <input
+            ref={searchInputRef}
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search users..."
-            autoFocus
           />
         </div>
 

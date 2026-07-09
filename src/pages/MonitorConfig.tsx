@@ -435,7 +435,14 @@ function MonitorConfig() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  // Load once on mount via the shared loader; its state updates happen after the awaited fetch.
+  // Invoking it through an async IIFE keeps loadData a named fn (reused by the CRUD handlers below)
+  // while marking the returned promise handled (loadData catches its own errors internally).
+  useEffect(() => {
+    void (async () => {
+      await loadData();
+    })();
+  }, []);
 
   const handleCreatePage = async (data: PageMonitorRequest) => {
     await createPageMonitor(data);

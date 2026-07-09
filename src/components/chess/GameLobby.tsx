@@ -30,7 +30,11 @@ export default function GameLobby({ onGameSelected }: Readonly<GameLobbyProps>) 
   }, []);
 
   useEffect(() => {
-    loadGames();
+    // Effects can't be async; run the loader via a local async boundary so its
+    // post-fetch setState stays asynchronous. loadGames owns its error handling.
+    void (async () => {
+      await loadGames();
+    })();
   }, [loadGames]);
 
   const handleCreateAi = async () => {
@@ -73,7 +77,7 @@ export default function GameLobby({ onGameSelected }: Readonly<GameLobbyProps>) 
     setError(null);
     try {
       await abandonChessGame(uuid);
-      loadGames();
+      await loadGames();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to abandon game');
     }

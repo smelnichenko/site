@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchGameState, spinGame, resetGame } from '../services/api';
 
+// Shape of the messages Godot posts back to the host (via postMessage or CustomEvent).
+interface GodotMessage {
+  source?: string;
+  type?: string;
+}
+
 export default function Game() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [godotReady, setGodotReady] = useState(false);
@@ -54,26 +60,32 @@ export default function Game() {
       }
     };
 
-    // postMessage handler (new Godot exports)
+    // postMessage handler (new Godot exports). MessageEvent.data is typed `any`,
+    // so narrow it to the known payload shape before touching fields.
     const messageHandler = (e: MessageEvent) => {
-      if (e.data?.source === 'godot') handleGodotAction(e.data.type);
+      const data = e.data as GodotMessage | null;
+      // handleGodotAction owns its own try/catch, so its promise never rejects;
+      // void-ing it satisfies the void-returning listener contract.
+      if (data?.source === 'godot' && data.type) void handleGodotAction(data.type);
     };
 
     // CustomEvent handler (old Godot exports dispatch on iframe window)
     const customEventHandler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.source === 'godot') handleGodotAction(detail.type);
+      const detail = (e as CustomEvent<GodotMessage>).detail;
+      if (detail?.source === 'godot' && detail.type) void handleGodotAction(detail.type);
     };
 
+    // Capture the ref so add and remove target the same window even if the ref changes.
+    const iframeWindow = iframeRef.current?.contentWindow;
     globalThis.addEventListener('message', messageHandler);
     try {
-      iframeRef.current?.contentWindow?.addEventListener('godotMessage', customEventHandler);
+      iframeWindow?.addEventListener('godotMessage', customEventHandler);
     } catch { /* cross-origin */ }
 
     return () => {
       globalThis.removeEventListener('message', messageHandler);
       try {
-        iframeRef.current?.contentWindow?.removeEventListener('godotMessage', customEventHandler);
+        iframeWindow?.removeEventListener('godotMessage', customEventHandler);
       } catch { /* already cleaned */ }
     };
   }, [godotReady, sendToGodot]);

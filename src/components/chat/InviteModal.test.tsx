@@ -72,9 +72,7 @@ describe('InviteModal', () => {
     const onInvited = vi.fn()
     const user = userEvent.setup()
     render(<InviteModal channelId={1} channelName="general" onClose={vi.fn()} onInvited={onInvited} />)
-    await waitFor(() => screen.getByText('Invite'))
-
-    await user.click(screen.getByText('Invite'))
+    await user.click(await screen.findByText('Invite'))
     expect(api.inviteToChannel).toHaveBeenCalledWith(1, 'uuid-2')
   })
 
@@ -87,7 +85,7 @@ describe('InviteModal', () => {
 
     const user = userEvent.setup()
     render(<InviteModal channelId={1} channelName="general" onClose={vi.fn()} onInvited={vi.fn()} />)
-    await waitFor(() => screen.getByText('alice@test.com'))
+    await screen.findByText('alice@test.com')
 
     await user.type(screen.getByPlaceholderText('Search users...'), 'bob')
     expect(screen.queryByText('alice@test.com')).not.toBeInTheDocument()

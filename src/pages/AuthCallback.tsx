@@ -3,24 +3,38 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { parseState } from '../services/oidcClient';
 
+function deriveParamError(
+  errorParam: string | null,
+  errorDescription: string | null,
+  code: string | null,
+): string | null {
+  if (errorParam) {
+    return errorDescription || errorParam;
+  }
+  if (!code) {
+    return 'No authorization code received';
+  }
+  return null;
+}
+
 function AuthCallback() {
-  const [error, setError] = useState<string | null>(null);
   const { handleCallback } = useAuth();
   const navigate = useNavigate();
 
+  // These values come from the OAuth redirect URL, which is fixed for this component's
+  // lifetime, so the synchronous error is derivable during render rather than set in an effect.
+  const params = new URLSearchParams(globalThis.location.search);
+  const code = params.get('code');
+  const errorParam = params.get('error');
+  const errorDescription = params.get('error_description');
+
+  const paramError = deriveParamError(errorParam, errorDescription, code);
+
+  // Only the async token-exchange failure needs to be state, since it resolves after render.
+  const [asyncError, setAsyncError] = useState<string | null>(null);
+
   useEffect(() => {
-    const params = new URLSearchParams(globalThis.location.search);
-    const code = params.get('code');
-    const errorParam = params.get('error');
-    const errorDescription = params.get('error_description');
-
-    if (errorParam) {
-      setError(errorDescription || errorParam);
-      return;
-    }
-
-    if (!code) {
-      setError('No authorization code received');
+    if (paramError || !code) {
       return;
     }
 
@@ -30,9 +44,11 @@ function AuthCallback() {
       .then(() => navigate(returnTo, { replace: true }))
       .catch(e => {
         console.error('OIDC callback error:', e);
-        setError(e instanceof Error ? e.message : 'OIDC login failed');
+        setAsyncError(e instanceof Error ? e.message : 'OIDC login failed');
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const error = paramError ?? asyncError;
 
   if (error) {
     return (

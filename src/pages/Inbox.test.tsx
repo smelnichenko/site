@@ -62,7 +62,7 @@ describe('Inbox', () => {
 
     const user = userEvent.setup()
     render(<Inbox />)
-    await waitFor(() => screen.getByText('Hello World'))
+    await screen.findByText('Hello World')
 
     await user.click(screen.getByText('Hello World'))
     await waitFor(() => {
@@ -93,7 +93,7 @@ describe('Inbox', () => {
 
     const user = userEvent.setup()
     render(<Inbox />)
-    await waitFor(() => screen.getByText('Hello World'))
+    await screen.findByText('Hello World')
     await user.click(screen.getByText('Hello World'))
 
     await waitFor(() => {

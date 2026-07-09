@@ -66,8 +66,10 @@ function RssDashboard() {
       }
     }
 
-    loadData();
-    const interval = setInterval(loadData, 60000);
+    void loadData();
+    const interval = setInterval(() => {
+      void loadData();
+    }, 60000);
     return () => {
       cancelled = true;
       controller.abort();

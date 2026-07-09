@@ -69,9 +69,17 @@ function RssFeedDetail() {
   }
 
   useEffect(() => {
-    setLoading(true);
-    setCurrentPage(0);
-    loadData(0);
+    // Reset UI state and load the first page whenever the feed changes. The
+    // reset + load are wrapped in an async function so the setState calls run
+    // as part of the async load flow rather than synchronously in the effect
+    // body, and so the load promise is awaited. loadData swallows its own
+    // errors internally, so reload never rejects.
+    async function reload() {
+      setLoading(true);
+      setCurrentPage(0);
+      await loadData(0);
+    }
+    void reload();
 
     return () => {
       if (controllerRef.current) {
@@ -82,7 +90,8 @@ function RssFeedDetail() {
 
   function handlePageChange({ selected }: { selected: number }) {
     setCurrentPage(selected);
-    loadData(selected);
+    // loadData handles its own errors internally, so the promise is safe to drop.
+    void loadData(selected);
   }
 
   async function handleManualCheck() {

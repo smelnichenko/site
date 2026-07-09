@@ -29,8 +29,10 @@ describe('LoadingButton', () => {
   })
 
   it('shows spinner element when loading', () => {
-    const { container } = render(<LoadingButton label="Save" loading />)
-    expect(container.querySelector('.spinner')).toBeInTheDocument()
+    render(<LoadingButton label="Save" loading />)
+    // The spinner is aria-hidden (decorative), so it exposes no role to query — a test id is the
+    // honest remaining handle. The loading state itself is asserted through the button, above.
+    expect(screen.getByTestId('spinner')).toBeInTheDocument()
   })
 
   it('falls back to label when loading without loadingLabel', () => {

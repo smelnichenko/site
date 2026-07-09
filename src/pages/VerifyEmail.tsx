@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useHashcash } from '../hooks/useHashcash';
 
+interface VerifyEmailResponse {
+  error?: string;
+}
+
 function resendButtonLabel(solving: boolean, loading: boolean) {
   if (solving) return 'Verifying...';
   if (loading) return 'Sending...';
@@ -13,7 +17,9 @@ function VerifyEmail() {
   const token = searchParams.get('token') || '';
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // Start in the loading state whenever a token is present so the effect
+  // doesn't have to setState synchronously on mount (which cascades renders).
+  const [loading, setLoading] = useState(Boolean(token));
   const [resendEmail, setResendEmail] = useState('');
   const [resendSent, setResendSent] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
@@ -21,14 +27,13 @@ function VerifyEmail() {
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
     fetch('/api/auth/verify-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
     })
       .then(async (response) => {
-        const data = await response.json();
+        const data = (await response.json()) as VerifyEmailResponse;
         if (!response.ok) {
           throw new Error(data.error || 'Verification failed');
         }

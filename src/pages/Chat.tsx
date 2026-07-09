@@ -27,20 +27,26 @@ function Chat() {
   const inviteChannel = inviteChannelId ? channels.find((c) => c.id === inviteChannelId) : null;
   const membersChannel = membersChannelId ? channels.find((c) => c.id === membersChannelId) : null;
 
-  const loadChannels = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const data = await fetchChatChannels(signal);
-      setChannels(data);
-      setLoading(false);
-    } catch {
-      // Ignore aborted requests
-    }
+  const loadChannels = useCallback((signal?: AbortSignal) => {
+    // setState lives in the .then callback (not after a top-level await) so this stays a plain
+    // external-data-sync helper: the effect can call it without a synchronous in-effect state update.
+    return fetchChatChannels(signal)
+      .then((data) => {
+        setChannels(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        // Ignore aborted requests
+      });
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    loadChannels(controller.signal);
-    const interval = setInterval(() => loadChannels(), 10000);
+    // loadChannels swallows its own errors (aborted fetches), so there is no rejection to propagate.
+    void loadChannels(controller.signal);
+    const interval = setInterval(() => {
+      void loadChannels();
+    }, 10000);
     return () => {
       controller.abort();
       clearInterval(interval);
@@ -48,7 +54,7 @@ function Chat() {
   }, [loadChannels]);
 
   const handleSelectChannel = (id: number) => {
-    navigate(`/chat/${id}`);
+    void navigate(`/chat/${id}`);
   };
 
   const handleLeaveChannel = async (id: number) => {
@@ -57,7 +63,7 @@ function Chat() {
       await leaveChatChannel(id);
       await loadChannels();
       if (activeChannelId === id) {
-        navigate('/chat');
+        await navigate('/chat');
       }
     } catch {
       setError('Failed to leave channel');
@@ -70,7 +76,7 @@ function Chat() {
       await deleteChatChannel(id);
       await loadChannels();
       if (activeChannelId === id) {
-        navigate('/chat');
+        await navigate('/chat');
       }
     } catch {
       setError('Failed to delete channel');

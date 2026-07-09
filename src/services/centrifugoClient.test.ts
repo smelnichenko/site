@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import * as oidcClient from './oidcClient'
 
 vi.mock('./oidcClient', () => ({
@@ -11,20 +11,22 @@ interface MockSubscription {
   state: string
   getToken?: () => Promise<string>
   handlers: Record<string, Handler>
-  on: ReturnType<typeof vi.fn>
-  subscribe: ReturnType<typeof vi.fn>
-  unsubscribe: ReturnType<typeof vi.fn>
+  on: Mock<(event: string, handler: Handler) => MockSubscription>
+  subscribe: Mock<() => void>
+  unsubscribe: Mock<() => void>
 }
 
 interface MockCentrifuge {
   getToken: () => Promise<string>
   subscriptions: Record<string, MockSubscription>
   handlers: Record<string, Handler>
-  on: ReturnType<typeof vi.fn>
-  connect: ReturnType<typeof vi.fn>
-  disconnect: ReturnType<typeof vi.fn>
-  getSubscription: ReturnType<typeof vi.fn>
-  newSubscription: ReturnType<typeof vi.fn>
+  on: Mock<(event: string, handler: Handler) => MockCentrifuge>
+  connect: Mock<() => void>
+  disconnect: Mock<() => void>
+  getSubscription: Mock<(channel: string) => MockSubscription | null>
+  newSubscription: Mock<
+    (channel: string, subOpts?: { getToken?: () => Promise<string> }) => MockSubscription
+  >
 }
 
 // Track how many clients were constructed plus the most recent
@@ -198,10 +200,11 @@ describe('centrifugoClient', () => {
 
       const token = await lastSubscription().getToken?.()
       expect(token).toBe('sub-token')
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/realtime/sub-token', expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer kc-token' }),
-      }))
+      const [url, init] = vi.mocked(globalThis.fetch).mock.calls[0]
+      expect(url).toBe('/api/realtime/sub-token')
+      expect(init?.method).toBe('POST')
+      const headers = init?.headers as Record<string, string>
+      expect(headers.Authorization).toBe('Bearer kc-token')
     })
 
     it('omits the Authorization header when there is no access token', async () => {

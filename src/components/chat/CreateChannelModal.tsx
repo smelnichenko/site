@@ -15,6 +15,7 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const { uuid } = useAuth();
   const canEncrypt = keyStore.hasIdentityKeys();
@@ -22,6 +23,8 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
+    // Focus the primary input on open — the accessible equivalent of autoFocus.
+    nameInputRef.current?.focus();
   }, []);
 
   const handleSubmit = async (e: SyntheticEvent) => {
@@ -86,12 +89,12 @@ function CreateChannelModal({ onCreated, onClose }: Readonly<CreateChannelModalP
           <div className="form-group">
             <label htmlFor="channel-name">Channel Name</label>
             <input
+              ref={nameInputRef}
               id="channel-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. general"
-              autoFocus
               required
               maxLength={50}
             />

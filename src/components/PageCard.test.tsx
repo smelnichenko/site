@@ -64,8 +64,8 @@ describe('PageCard', () => {
 
   it('links to page detail', () => {
     renderCard('My Page', null)
-    const link = screen.getByText('My Page')
-    expect(link.closest('a')).toHaveAttribute('href', '/page/My%20Page')
+    const link = screen.getByRole('link', { name: 'My Page' })
+    expect(link).toHaveAttribute('href', '/page/My%20Page')
   })
 
   it('renders edit link when editUrl provided', () => {
@@ -74,7 +74,7 @@ describe('PageCard', () => {
         <PageCard pageName="Test" latestResult={null} editUrl="/monitors?editPage=1" />
       </MemoryRouter>,
     )
-    const editLink = screen.getByText('Edit')
-    expect(editLink.closest('a')).toHaveAttribute('href', '/monitors?editPage=1')
+    const editLink = screen.getByRole('link', { name: 'Edit' })
+    expect(editLink).toHaveAttribute('href', '/monitors?editPage=1')
   })
 })

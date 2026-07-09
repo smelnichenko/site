@@ -100,7 +100,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     await user.click(screen.getByText('+ New Group'))
@@ -115,7 +115,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     await user.click(screen.getByText('+ New Group'))
@@ -133,7 +133,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     // Only Users group has Delete button (Admins doesn't)
@@ -302,7 +302,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     // Click Edit on the first group (Admins)
@@ -331,7 +331,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     await user.click(screen.getByText('+ New Group'))
@@ -360,7 +360,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     await user.click(screen.getByText('+ New Group'))
@@ -377,7 +377,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     await user.click(screen.getByText('+ New Group'))
@@ -396,7 +396,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     await user.click(screen.getByText('Delete'))
@@ -413,7 +413,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     await user.click(screen.getByText('Delete'))
@@ -431,7 +431,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     expect(screen.getByText('No permissions')).toBeInTheDocument()
@@ -443,7 +443,7 @@ describe('Admin', () => {
 
     const user = userEvent.setup()
     renderAdmin()
-    await waitFor(() => screen.getByRole('button', { name: 'Groups' }))
+    await screen.findByRole('button', { name: 'Groups' })
 
     await user.click(screen.getByRole('button', { name: 'Groups' }))
     await user.click(screen.getByText('+ New Group'))

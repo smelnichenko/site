@@ -24,8 +24,12 @@ function PendingApproval() {
       }
     }
 
-    poll();
-    const interval = setInterval(poll, 5000);
+    // poll() handles all its own errors internally (try/catch), so its
+    // promise never rejects — void the initial call and the interval tick.
+    void poll();
+    const interval = setInterval(() => {
+      void poll();
+    }, 5000);
     return () => {
       controller.abort();
       clearInterval(interval);

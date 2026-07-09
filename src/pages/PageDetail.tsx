@@ -33,6 +33,17 @@ function PageDetail() {
   const decodedPageName = pageName ? decodeURIComponent(pageName) : '';
   const totalPages = Math.ceil(totalElements / PAGE_SIZE);
 
+  // Reset the view (spinner + first page) when navigating to a different page.
+  // Adjusting state during render is React's recommended alternative to a
+  // resetting effect and avoids the cascading render a synchronous effect setState causes.
+  const [prevPageName, setPrevPageName] = useState(decodedPageName);
+  if (decodedPageName !== prevPageName) {
+    setPrevPageName(decodedPageName);
+    setLoading(true);
+    setCurrentPage(0);
+    setError(null);
+  }
+
   async function loadData(page = 0) {
     if (!decodedPageName) return;
 
@@ -44,7 +55,6 @@ function PageDetail() {
     const signal = controllerRef.current.signal;
 
     try {
-      setError(null);
       const [resultsResponse, statsResponse, configList] = await Promise.all([
         fetchResults(decodedPageName, page, PAGE_SIZE, signal),
         fetchPageStats(decodedPageName, signal),
@@ -66,9 +76,9 @@ function PageDetail() {
   }
 
   useEffect(() => {
-    setLoading(true);
-    setCurrentPage(0);
-    loadData(0);
+    // loadData catches its own errors (try/catch/finally) so its promise never
+    // rejects — void is the deliberate choice for this fire-and-forget load.
+    void loadData(0);
 
     return () => {
       if (controllerRef.current) {
@@ -78,8 +88,9 @@ function PageDetail() {
   }, [decodedPageName]);
 
   function handlePageChange({ selected }: { selected: number }) {
+    setError(null);
     setCurrentPage(selected);
-    loadData(selected);
+    void loadData(selected);
   }
 
   async function handleManualCheck() {

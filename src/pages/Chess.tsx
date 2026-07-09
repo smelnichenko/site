@@ -47,15 +47,19 @@ export default function Chess() {
     });
 
     // Fallback poll — slow cadence; primary path is the subscription.
-    pollRef.current = setInterval(async () => {
-      try {
-        const updated = await fetchChessGame(currentGame.gameUuid);
-        if (updated.fen !== currentGame.fen || updated.status !== currentGame.status) {
-          setCurrentGame(updated);
+    // setInterval expects a void callback; the async work is self-contained
+    // (its own try/catch swallows errors), so void-invoke it.
+    pollRef.current = setInterval(() => {
+      void (async () => {
+        try {
+          const updated = await fetchChessGame(currentGame.gameUuid);
+          if (updated.fen !== currentGame.fen || updated.status !== currentGame.status) {
+            setCurrentGame(updated);
+          }
+        } catch {
+          // Ignore poll errors
         }
-      } catch {
-        // Ignore poll errors
-      }
+      })();
     }, 30000);
 
     return () => {

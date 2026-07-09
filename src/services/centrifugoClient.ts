@@ -82,7 +82,10 @@ export function subscribe<T>(channel: string, opts: SubscribeOptions<T>): Subscr
     sub.on('state', (ctx) => opts.onState!(ctx.newState));
   }
 
-  if (sub.state !== 'subscribed' && sub.state !== 'subscribing') {
+  // SubscriptionState's runtime values are the string literals below; compare
+  // on the primitive so we don't pull the enum in as a runtime value.
+  const state = String(sub.state);
+  if (state !== 'subscribed' && state !== 'subscribing') {
     sub.subscribe();
   }
   return sub;

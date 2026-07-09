@@ -32,7 +32,7 @@ function base64urlEncode(buffer: ArrayBuffer): string {
   return btoa(str).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 }
 
-async function generateCodeVerifier(): Promise<string> {
+function generateCodeVerifier(): string {
   const buffer = new Uint8Array(32);
   crypto.getRandomValues(buffer);
   return base64urlEncode(buffer.buffer);
@@ -55,7 +55,7 @@ function parseJwt(token: string): Record<string, unknown> {
       .map((c) => '%' + ('00' + (c.codePointAt(0) ?? 0).toString(16)).slice(-2))
       .join('')
   );
-  return JSON.parse(jsonPayload);
+  return JSON.parse(jsonPayload) as Record<string, unknown>;
 }
 
 function extractUserInfo(token: string): UserInfo {
@@ -88,11 +88,13 @@ function cancelRefresh(): void {
   }
 }
 
-async function tokenRequest(params: URLSearchParams): Promise<{
+interface TokenResponse {
   access_token: string;
   refresh_token?: string;
   expires_in: number;
-}> {
+}
+
+async function tokenRequest(params: URLSearchParams): Promise<TokenResponse> {
   const response = await fetch(
     `${OIDC_CONFIG.authority}/protocol/openid-connect/token`,
     {
@@ -106,7 +108,7 @@ async function tokenRequest(params: URLSearchParams): Promise<{
     console.error('Token request failed:', response.status, error);
     throw new Error(error);
   }
-  return response.json();
+  return response.json() as Promise<TokenResponse>;
 }
 
 async function silentRefresh(): Promise<boolean> {
@@ -137,7 +139,7 @@ async function silentRefresh(): Promise<boolean> {
 // Public API
 
 export async function login(returnTo?: string): Promise<void> {
-  const verifier = await generateCodeVerifier();
+  const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
   sessionStorage.setItem('oidc_code_verifier', verifier);
 
@@ -157,7 +159,9 @@ export async function login(returnTo?: string): Promise<void> {
 
 export function parseState(stateParam: string | null): { returnTo: string } {
   try {
-    return stateParam ? JSON.parse(atob(stateParam)) : { returnTo: '/' };
+    return stateParam
+      ? (JSON.parse(atob(stateParam)) as { returnTo: string })
+      : { returnTo: '/' };
   } catch {
     return { returnTo: '/' };
   }

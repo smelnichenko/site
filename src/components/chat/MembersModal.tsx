@@ -55,7 +55,7 @@ function MembersModal({ channelId, channelName, encrypted, onClose, onKicked }: 
         const pubKeys = await fetchPublicKeys(remainingIds);
         const bundles = await Promise.all(
           pubKeys.map(async (pk) => {
-            const recipientPubKey = await importPublicKey(JSON.parse(pk.publicKey));
+            const recipientPubKey = await importPublicKey(JSON.parse(pk.publicKey) as JsonWebKey);
             const wrapped = await wrapChannelKeyForMember(newChannelKey, recipientPubKey);
             return {
               userUuid: pk.userUuid,

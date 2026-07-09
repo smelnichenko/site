@@ -184,7 +184,7 @@ describe('MessageArea', () => {
     ])
     const user = userEvent.setup()
     render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => screen.getByText('edit'))
+    await screen.findByText('edit')
 
     await user.click(screen.getByText('edit'))
     expect(screen.getByText('Save')).toBeInTheDocument()
@@ -199,7 +199,7 @@ describe('MessageArea', () => {
 
     const user = userEvent.setup()
     render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => screen.getByText('edit'))
+    await screen.findByText('edit')
     await user.click(screen.getByText('edit'))
 
     const editTextarea = screen.getByDisplayValue('Original')
@@ -216,7 +216,7 @@ describe('MessageArea', () => {
     ])
     const user = userEvent.setup()
     render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => screen.getByText('edit'))
+    await screen.findByText('edit')
     await user.click(screen.getByText('edit'))
     await user.click(screen.getByText('Cancel'))
 
@@ -354,7 +354,9 @@ describe('MessageArea', () => {
     await waitFor(() => {
       expect(centrifugoClient.subscribe).toHaveBeenCalledWith(
         'chat:room:1',
-        expect.objectContaining({ onPublication: expect.any(Function) }),
+        expect.objectContaining({
+          onPublication: expect.any(Function) as (msg: ChatMessage) => void,
+        }),
       )
     })
   })
@@ -366,6 +368,9 @@ describe('MessageArea', () => {
 
     await act(async () => {
       lastPublicationHandler?.(makeMsg('live-1', 'alice@test.com', 'Realtime hello'))
+      // The publication handler decrypts asynchronously before calling setState,
+      // so yield a microtask to let `act` drain that update before we assert.
+      await Promise.resolve()
     })
 
     expect(screen.getByText('Realtime hello')).toBeInTheDocument()
@@ -380,6 +385,7 @@ describe('MessageArea', () => {
 
     await act(async () => {
       lastPublicationHandler?.(makeMsg('dup', 'alice@test.com', 'Only once'))
+      await Promise.resolve()
     })
 
     expect(screen.getAllByText('Only once')).toHaveLength(1)

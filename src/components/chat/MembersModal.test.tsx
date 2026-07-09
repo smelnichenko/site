@@ -79,9 +79,9 @@ describe('MembersModal', () => {
     const onKicked = vi.fn()
     const user = userEvent.setup()
     render(<MembersModal channelId={1} channelName="general" onClose={vi.fn()} onKicked={onKicked} />)
-    await waitFor(() => screen.getByText('Kick'))
+    const kickButton = await screen.findByText('Kick')
 
-    await user.click(screen.getByText('Kick'))
+    await user.click(kickButton)
     expect(api.kickFromChannel).toHaveBeenCalledWith(1, 'uuid-2')
   })
 

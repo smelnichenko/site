@@ -44,7 +44,12 @@ function Admin() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    // load() sets state only after its awaited fetches resolve, and it catches
+    // its own errors, so it never rejects — void the deferred call.
+    const run = async () => { await load(); };
+    void run();
+  }, []);
 
   const handleToggleEnabled = async (user: AdminUser) => {
     setError('');

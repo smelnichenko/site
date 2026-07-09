@@ -9,9 +9,13 @@ const __dirname = dirname(__filename);
 const TEST_EMAIL = 'e2e-test@test.com';
 const TEST_PASS = 'e2e-test-pass';
 
+interface SavedTokens {
+  smoke: string;
+}
+
 /** Read the pre-saved token from globalSetup — avoids hitting the auth rate limiter. */
 function getSavedToken(): string {
-  const tokens = JSON.parse(readFileSync(join(__dirname, '.auth.json'), 'utf-8'));
+  const tokens = JSON.parse(readFileSync(join(__dirname, '.auth.json'), 'utf-8')) as SavedTokens;
   return tokens.smoke;
 }
 
@@ -63,7 +67,7 @@ test.describe('Smoke Tests', () => {
     const response = await request.get('/api/actuator/health');
     expect(response.ok()).toBeTruthy();
 
-    const body = await response.json();
+    const body = (await response.json()) as { status: string };
     expect(body.status).toBe('UP');
   });
 
@@ -73,7 +77,7 @@ test.describe('Smoke Tests', () => {
     });
     expect(response.ok()).toBeTruthy();
 
-    const body = await response.json();
+    const body: unknown = await response.json();
     expect(Array.isArray(body)).toBeTruthy();
   });
 
@@ -104,7 +108,7 @@ test.describe('RSS Feed Tests', () => {
     });
     expect(response.ok()).toBeTruthy();
 
-    const body = await response.json();
+    const body: unknown = await response.json();
     expect(Array.isArray(body)).toBeTruthy();
   });
 
@@ -114,7 +118,7 @@ test.describe('RSS Feed Tests', () => {
     });
     expect(response.ok()).toBeTruthy();
 
-    const body = await response.json();
+    const body: unknown = await response.json();
     expect(Array.isArray(body)).toBeTruthy();
   });
 });

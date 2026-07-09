@@ -283,16 +283,17 @@ describe('Chess', () => {
       vi.mocked(api.fetchActiveChessGames).mockResolvedValue([opponentsTurnGame])
       render(<Chess />)
       const resume = await screen.findByText('Resume')
-      await act(async () => { resume.click() })
+      // Resume only calls setCurrentGame synchronously, so a sync act flushes
+      // the effect that calls subscribe — no async/await needed.
+      act(() => { resume.click() })
       await waitFor(() => expect(centrifugoClient.subscribe).toHaveBeenCalled())
     }
 
     it('subscribes to the game channel while waiting for the opponent', async () => {
       await enterOpponentsTurnGame()
-      expect(centrifugoClient.subscribe).toHaveBeenCalledWith(
-        'chess:game:pvp-uuid',
-        expect.objectContaining({ onPublication: expect.any(Function) }),
-      )
+      const [channel, opts] = vi.mocked(centrifugoClient.subscribe).mock.calls[0]
+      expect(channel).toBe('chess:game:pvp-uuid')
+      expect(opts.onPublication).toBeTypeOf('function')
     })
 
     it('updates the board from a live opponent publication', async () => {
@@ -304,7 +305,7 @@ describe('Chess', () => {
         lastMove: 'e2e4',
       }
 
-      await act(async () => { lastPublicationHandler?.(movedGame) })
+      act(() => { lastPublicationHandler?.(movedGame) })
 
       // ChessBoard loads the FEN into chess.js and renders the normalized
       // position; assert the piece placement reflects the opponent's e4.
@@ -327,7 +328,8 @@ describe('Chess', () => {
       vi.mocked(api.fetchActiveChessGames).mockResolvedValue([opponentsTurnGame])
       render(<Chess />)
       await act(async () => { await vi.advanceTimersByTimeAsync(0) })
-      await act(async () => { screen.getByText('Resume').click() })
+      const resume = screen.getByText('Resume')
+      act(() => { resume.click() })
       expect(centrifugoClient.subscribe).toHaveBeenCalled()
     }
 
@@ -372,7 +374,7 @@ describe('Chess', () => {
       vi.mocked(api.fetchActiveChessGames).mockResolvedValue([myTurnGame])
       render(<Chess />)
       const resume = await screen.findByText('Resume')
-      await act(async () => { resume.click() })
+      act(() => { resume.click() })
       expect(await screen.findByTestId('chessboard')).toBeInTheDocument()
       expect(centrifugoClient.subscribe).not.toHaveBeenCalled()
     })

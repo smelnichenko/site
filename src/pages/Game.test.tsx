@@ -37,8 +37,8 @@ describe('Game', () => {
     vi.useRealTimers()
 
     render(<Game />)
-    // getByTitle is typed HTMLElement; this downcast is what exposes contentWindow.
-    const iframe = screen.getByTitle('Slot Machine Board Game') as HTMLIFrameElement
+    // getByTitle's element type param is what types contentWindow onto the iframe.
+    const iframe = screen.getByTitle<HTMLIFrameElement>('Slot Machine Board Game')
     const win = iframe.contentWindow as Window & { _gameReady?: boolean; _godotReceive?: unknown }
     if (win) {
       Object.defineProperty(win, '_gameReady', { value: true, writable: true, configurable: true })
@@ -56,7 +56,7 @@ describe('Game', () => {
 
     render(<Game />)
 
-    await act(async () => {
+    act(() => {
       globalThis.dispatchEvent(new MessageEvent('message', {
         data: { source: 'godot', type: 'spin' },
       }))
@@ -73,7 +73,7 @@ describe('Game', () => {
 
     render(<Game />)
 
-    await act(async () => {
+    act(() => {
       globalThis.dispatchEvent(new MessageEvent('message', {
         data: { source: 'godot', type: 'reset' },
       }))
@@ -84,11 +84,11 @@ describe('Game', () => {
     })
   })
 
-  it('ignores messages without godot source', async () => {
+  it('ignores messages without godot source', () => {
     vi.useRealTimers()
     render(<Game />)
 
-    await act(async () => {
+    act(() => {
       globalThis.dispatchEvent(new MessageEvent('message', {
         data: { source: 'other', type: 'spin' },
       }))
@@ -103,7 +103,7 @@ describe('Game', () => {
 
     render(<Game />)
 
-    await act(async () => {
+    act(() => {
       globalThis.dispatchEvent(new MessageEvent('message', {
         data: { source: 'godot', type: 'spin' },
       }))

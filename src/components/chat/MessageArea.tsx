@@ -39,6 +39,12 @@ function formatDateSeparator(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+interface ApprovalMeta {
+  type?: string;
+  approvalId?: number;
+  status?: string;
+}
+
 interface MessageAreaProps {
   channel: ChatChannel;
 }
@@ -55,6 +61,7 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
   const [keyLoaded, setKeyLoaded] = useState(!channel.encrypted);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const shouldScrollRef = useRef(true);
 
   const currentUserEmail = localStorage.getItem('email');
@@ -62,8 +69,10 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
 
   // Load channel key for encrypted channels
   useEffect(() => {
+    // Unencrypted channels never need a key. The message-load gate below
+    // already short-circuits on `!isEncrypted`, and keyLoaded is seeded to
+    // its correct value at init, so no synchronous state update is needed.
     if (!isEncrypted) {
-      setKeyLoaded(true);
       return;
     }
 
@@ -82,7 +91,7 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
         for (const bundle of bundles) {
           const channelKey = await unwrapChannelKey(
             bundle.encryptedChannelKey,
-            JSON.parse(bundle.wrapperPublicKey),
+            JSON.parse(bundle.wrapperPublicKey) as JsonWebKey,
             privateKey
           );
           keyStore.setChannelKey(channel.id, bundle.keyVersion, channelKey);
@@ -92,7 +101,8 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
         console.warn('Failed to load channel key:', e);
       }
     }
-    loadChannelKey();
+    // loadChannelKey swallows its own errors (try/catch), so it never rejects.
+    void loadChannelKey();
     return () => { cancelled = true; };
   }, [channel.id, isEncrypted]);
 
@@ -136,7 +146,8 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
       // Initial REST fetch + subscribe to live publications. Backend
       // publishes the same ChatMessage shape on `chat:room:<id>` as
       // /api returns, so the sub handler can splice into local state.
-      loadMessages();
+      // loadMessages handles its own errors internally, so it never rejects.
+      void loadMessages();
 
       const handlePublication = async (msg: ChatMessage) => {
         if (cancelled) return;
@@ -150,7 +161,7 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
 
       // Fallback poll kept while we soak the subscription path; drop
       // once we're confident every page hands off cleanly.
-      const interval = setInterval(loadMessages, 30000);
+      const interval = setInterval(() => { void loadMessages(); }, 30000);
 
       return () => {
         cancelled = true;
@@ -171,6 +182,14 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView();
   }, [channel.id]);
+
+  // Accessible equivalent of autoFocus: move focus into the inline edit box
+  // only when the user opens it, never on initial mount.
+  useEffect(() => {
+    if (editingId) {
+      editTextareaRef.current?.focus();
+    }
+  }, [editingId]);
 
   const handleScroll = () => {
     const container = messagesContainerRef.current;
@@ -213,7 +232,8 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      // handleSend catches its own errors, so the promise never rejects.
+      void handleSend();
     }
   };
 
@@ -256,7 +276,8 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
   const handleEditKeyDown = (e: React.KeyboardEvent, messageId: string) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSaveEdit(messageId);
+      // handleSaveEdit catches its own errors, so the promise never rejects.
+      void handleSaveEdit(messageId);
     }
     if (e.key === 'Escape') {
       handleCancelEdit();
@@ -291,8 +312,6 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
       setError('Failed to decline registration');
     }
   };
-
-  let lastDate = '';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -351,21 +370,19 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
             No messages yet. Start the conversation!
           </div>
         )}
-        {messages.map((msg) => {
+        {messages.map((msg, index) => {
           const msgDate = new Date(msg.createdAt).toDateString();
-          let showDateSeparator = false;
-          if (msgDate !== lastDate) {
-            showDateSeparator = true;
-            lastDate = msgDate;
-          }
+          const prevDate =
+            index > 0 ? new Date(messages[index - 1].createdAt).toDateString() : null;
+          const showDateSeparator = msgDate !== prevDate;
           const isSystemMessage = msg.messageType === 'SYSTEM';
           const isOwnMessage = msg.username === currentUserEmail;
           const isEdited = msg.editedContent != null;
           const displayContent = msg.editedContent || msg.content;
 
-          let approvalMeta: { type?: string; approvalId?: number; status?: string } | null = null;
+          let approvalMeta: ApprovalMeta | null = null;
           if (isSystemMessage && msg.metadata) {
-            try { approvalMeta = JSON.parse(msg.metadata); } catch { /* ignore */ }
+            try { approvalMeta = JSON.parse(msg.metadata) as ApprovalMeta; } catch { /* ignore */ }
           }
 
           return (
@@ -460,10 +477,10 @@ function MessageArea({ channel }: Readonly<MessageAreaProps>) {
                 {editingId === msg.messageId ? (
                   <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                     <textarea
+                      ref={editTextareaRef}
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
                       onKeyDown={(e) => handleEditKeyDown(e, msg.messageId)}
-                      autoFocus
                       rows={1}
                       style={{
                         flex: 1,

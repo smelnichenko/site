@@ -344,9 +344,10 @@ describe('Chat', () => {
 
     const callCountAfterLoad = vi.mocked(api.fetchChatChannels).mock.calls.length
 
-    // Advance timer by 10s to trigger interval poll
+    // Advance timer by 10s to trigger interval poll, flushing the async
+    // fetch the interval kicks off (async-aware advance supplies the await)
     await act(async () => {
-      vi.advanceTimersByTime(10000)
+      await vi.advanceTimersByTimeAsync(10000)
     })
 
     await waitFor(() => {

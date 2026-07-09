@@ -104,7 +104,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add Page Monitor'))
+    await screen.findByText('+ Add Page Monitor')
 
     await user.click(screen.getByText('+ Add Page Monitor'))
     expect(screen.getByLabelText(/Name/)).toBeInTheDocument()
@@ -118,7 +118,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Google'))
+    await screen.findByText('Google')
 
     await user.click(screen.getAllByText('Delete')[0])
     expect(api.deletePageMonitor).toHaveBeenCalledWith(1)
@@ -142,7 +142,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add Page Monitor'))
+    await screen.findByText('+ Add Page Monitor')
 
     await user.click(screen.getByText('+ Add Page Monitor'))
     await user.type(screen.getByLabelText(/Name/), 'My Page')
@@ -159,7 +159,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add Page Monitor'))
+    await screen.findByText('+ Add Page Monitor')
 
     await user.click(screen.getByText('+ Add Page Monitor'))
     expect(screen.getByLabelText(/Name/)).toBeInTheDocument()
@@ -173,7 +173,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Google'))
+    await screen.findByText('Google')
 
     await user.click(screen.getAllByText('Edit')[0])
     expect(screen.getByDisplayValue('Google')).toBeInTheDocument()
@@ -186,7 +186,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Google'))
+    await screen.findByText('Google')
 
     await user.click(screen.getAllByText('Edit')[0])
     const nameInput = screen.getByDisplayValue('Google')
@@ -204,7 +204,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Tech Feed'))
+    await screen.findByText('Tech Feed')
 
     await user.click(screen.getAllByText('Delete')[0])
     expect(api.deleteRssFeedMonitor).toHaveBeenCalledWith(1)
@@ -216,7 +216,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add RSS Feed'))
+    await screen.findByText('+ Add RSS Feed')
 
     await user.click(screen.getByText('+ Add RSS Feed'))
     expect(screen.getByLabelText(/Name/)).toBeInTheDocument()
@@ -231,7 +231,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add RSS Feed'))
+    await screen.findByText('+ Add RSS Feed')
 
     await user.click(screen.getByText('+ Add RSS Feed'))
     await user.type(screen.getByLabelText(/Name/), 'My Feed')
@@ -253,7 +253,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Google'))
+    await screen.findByText('Google')
 
     const testButtons = screen.getAllByText('Test')
     await user.click(testButtons[0])
@@ -271,7 +271,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Tech Feed'))
+    await screen.findByText('Tech Feed')
 
     const testButtons = screen.getAllByText('Test')
     await user.click(testButtons[0])
@@ -295,7 +295,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Tech Feed'))
+    await screen.findByText('Tech Feed')
 
     await user.click(screen.getAllByText('Edit')[0])
     expect(screen.getByDisplayValue('Tech Feed')).toBeInTheDocument()
@@ -308,7 +308,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Tech Feed'))
+    await screen.findByText('Tech Feed')
 
     await user.click(screen.getAllByText('Edit')[0])
     const nameInput = screen.getByDisplayValue('Tech Feed')
@@ -331,7 +331,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add Page Monitor'))
+    await screen.findByText('+ Add Page Monitor')
 
     await user.click(screen.getByText('+ Add Page Monitor'))
     await user.type(screen.getByLabelText(/Name/), 'Test')
@@ -356,7 +356,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add Page Monitor'))
+    await screen.findByText('+ Add Page Monitor')
 
     await user.click(screen.getByText('+ Add Page Monitor'))
     await user.type(screen.getByLabelText(/Name/), 'Test')
@@ -385,7 +385,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add Page Monitor'))
+    await screen.findByText('+ Add Page Monitor')
 
     await user.click(screen.getByText('+ Add Page Monitor'))
     await user.type(screen.getByLabelText(/Name/), 'Test')
@@ -410,7 +410,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add RSS Feed'))
+    await screen.findByText('+ Add RSS Feed')
 
     await user.click(screen.getByText('+ Add RSS Feed'))
     await user.type(screen.getByLabelText(/Name/), 'Test')
@@ -437,7 +437,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add RSS Feed'))
+    await screen.findByText('+ Add RSS Feed')
 
     await user.click(screen.getByText('+ Add RSS Feed'))
     await user.type(screen.getByLabelText(/Name/), 'Test')
@@ -464,7 +464,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Google'))
+    await screen.findByText('Google')
 
     await user.click(screen.getAllByText('Test')[0])
     expect(api.testPageMonitor).toHaveBeenCalledWith({
@@ -484,7 +484,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Tech Feed'))
+    await screen.findByText('Tech Feed')
 
     await user.click(screen.getAllByText('Test')[0])
     expect(api.testRssFeedMonitor).toHaveBeenCalledWith({
@@ -508,7 +508,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('Tech Feed'))
+    await screen.findByText('Tech Feed')
 
     await user.click(screen.getAllByText('Edit')[0])
 
@@ -531,7 +531,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add RSS Feed'))
+    await screen.findByText('+ Add RSS Feed')
 
     await user.click(screen.getByText('+ Add RSS Feed'))
     await user.type(screen.getByLabelText(/Name/), 'Feed')
@@ -564,7 +564,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add RSS Feed'))
+    await screen.findByText('+ Add RSS Feed')
 
     await user.click(screen.getByText('+ Add RSS Feed'))
     await user.type(screen.getByLabelText(/URL/), 'http://example.com/rss')
@@ -598,7 +598,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add Page Monitor'))
+    await screen.findByText('+ Add Page Monitor')
 
     await user.click(screen.getByText('+ Add Page Monitor'))
     // These work because htmlFor and id are correctly associated
@@ -614,7 +614,7 @@ describe('MonitorConfig', () => {
 
     const user = userEvent.setup()
     renderConfig()
-    await waitFor(() => screen.getByText('+ Add RSS Feed'))
+    await screen.findByText('+ Add RSS Feed')
 
     await user.click(screen.getByText('+ Add RSS Feed'))
     expect(screen.getByLabelText(/Name/)).toHaveAttribute('id', 'rss-name')

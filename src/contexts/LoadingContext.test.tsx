@@ -30,9 +30,9 @@ describe('LoadingContext', () => {
     const states: boolean[] = []
 
     await act(async () => {
-      await result.current.withLoading(async () => {
+      await result.current.withLoading(() => {
         states.push(result.current.loading)
-        return 'done'
+        return Promise.resolve('done')
       })
     })
 
@@ -45,9 +45,9 @@ describe('LoadingContext', () => {
 
     await expect(
       act(async () => {
-        await result.current.withLoading(async () => {
-          throw new Error('test error')
-        })
+        await result.current.withLoading(() =>
+          Promise.reject(new Error('test error')),
+        )
       }),
     ).rejects.toThrow('test error')
 

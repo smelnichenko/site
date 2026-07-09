@@ -63,8 +63,11 @@ function Inbox() {
       }
     }
 
-    loadData();
-    const interval = setInterval(loadData, 60000);
+    // loadData swallows its own rejections (try/catch above), so void is safe here.
+    void loadData();
+    const interval = setInterval(() => {
+      void loadData();
+    }, 60000);
     return () => {
       cancelled = true;
       controller.abort();

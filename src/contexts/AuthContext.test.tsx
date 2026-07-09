@@ -113,7 +113,7 @@ describe('AuthContext', () => {
     const { result } = renderHook(() => useAuth(), { wrapper })
     await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
 
-    await act(async () => {
+    act(() => {
       result.current.logout()
     })
 
@@ -131,7 +131,7 @@ describe('AuthContext', () => {
     const { result } = renderHook(() => useAuth(), { wrapper })
     await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
 
-    await act(async () => {
+    act(() => {
       result.current.logout()
     })
 
