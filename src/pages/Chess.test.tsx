@@ -309,7 +309,7 @@ describe('Chess', () => {
       // ChessBoard loads the FEN into chess.js and renders the normalized
       // position; assert the piece placement reflects the opponent's e4.
       await waitFor(() => {
-        const board = screen.getByTestId('chessboard') as HTMLElement
+        const board = screen.getByTestId('chessboard')
         expect(board.dataset.position).toMatch(/^rnbqkbnr\/pppppppp\/8\/8\/4P3\/8\/PPPP1PPP\/RNBQKBNR/)
       })
     })
@@ -345,7 +345,7 @@ describe('Chess', () => {
         await act(async () => { await vi.advanceTimersByTimeAsync(30000) })
 
         expect(api.fetchChessGame).toHaveBeenCalledWith('pvp-uuid')
-        const board = screen.getByTestId('chessboard') as HTMLElement
+        const board = screen.getByTestId('chessboard')
         expect(board.dataset.position).toMatch(/^rnbqkbnr\/pppppppp\/8\/8\/4P3\/8\/PPPP1PPP\/RNBQKBNR/)
       } finally {
         vi.useRealTimers()
@@ -373,7 +373,7 @@ describe('Chess', () => {
       render(<Chess />)
       const resume = await screen.findByText('Resume')
       await act(async () => { resume.click() })
-      await waitFor(() => expect(screen.getByTestId('chessboard')).toBeInTheDocument())
+      expect(await screen.findByTestId('chessboard')).toBeInTheDocument()
       expect(centrifugoClient.subscribe).not.toHaveBeenCalled()
     })
   })

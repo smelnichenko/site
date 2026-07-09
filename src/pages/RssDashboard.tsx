@@ -29,7 +29,7 @@ function fetchRssLatestSafe(name: string, signal: AbortSignal): Promise<RssFeedR
 }
 
 function fetchRssChartSafe(name: string, signal: AbortSignal): Promise<ChartDataByCollection> {
-  return fetchRssChartData(name, 50, signal).catch(() => ({} as ChartDataByCollection));
+  return fetchRssChartData(name, 50, signal).catch(() => ({}));
 }
 
 function RssDashboard() {

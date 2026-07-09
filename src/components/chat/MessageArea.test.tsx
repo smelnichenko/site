@@ -376,7 +376,7 @@ describe('MessageArea', () => {
       makeMsg('dup', 'alice@test.com', 'Only once'),
     ])
     render(<MessageArea channel={baseChannel} />)
-    await waitFor(() => expect(screen.getByText('Only once')).toBeInTheDocument())
+    expect(await screen.findByText('Only once')).toBeInTheDocument()
 
     await act(async () => {
       lastPublicationHandler?.(makeMsg('dup', 'alice@test.com', 'Only once'))

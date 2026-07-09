@@ -37,6 +37,7 @@ describe('Game', () => {
     vi.useRealTimers()
 
     render(<Game />)
+    // getByTitle is typed HTMLElement; this downcast is what exposes contentWindow.
     const iframe = screen.getByTitle('Slot Machine Board Game') as HTMLIFrameElement
     const win = iframe.contentWindow as Window & { _gameReady?: boolean; _godotReceive?: unknown }
     if (win) {

@@ -141,7 +141,7 @@ describe('Chat', () => {
   it('navigates when selecting a channel', async () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(screen.getByText('Select 1'))
     expect(mockNavigate).toHaveBeenCalledWith('/chat/1')
@@ -150,7 +150,7 @@ describe('Chat', () => {
   it('opens and closes create channel modal', async () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
@@ -166,7 +166,7 @@ describe('Chat', () => {
   it('closes modal and reloads channels on channel created', async () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
@@ -187,7 +187,7 @@ describe('Chat', () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     vi.mocked(api.leaveChatChannel).mockResolvedValue(undefined)
     renderChat('/chat/1')
-    await waitFor(() => expect(screen.getByTestId('message-area')).toBeInTheDocument())
+    expect(await screen.findByTestId('message-area')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByText('Leave 1'))
@@ -202,7 +202,7 @@ describe('Chat', () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     vi.mocked(api.leaveChatChannel).mockResolvedValue(undefined)
     renderChat('/chat/1')
-    await waitFor(() => expect(screen.getByTestId('message-area')).toBeInTheDocument())
+    expect(await screen.findByTestId('message-area')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByText('Leave 2'))
@@ -217,7 +217,7 @@ describe('Chat', () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     vi.mocked(api.leaveChatChannel).mockRejectedValue(new Error('fail'))
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByText('Leave 1'))
@@ -231,7 +231,7 @@ describe('Chat', () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     vi.mocked(api.deleteChatChannel).mockResolvedValue(undefined)
     renderChat('/chat/1')
-    await waitFor(() => expect(screen.getByTestId('message-area')).toBeInTheDocument())
+    expect(await screen.findByTestId('message-area')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByText('Delete 1'))
@@ -246,7 +246,7 @@ describe('Chat', () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     vi.mocked(api.deleteChatChannel).mockResolvedValue(undefined)
     renderChat('/chat/1')
-    await waitFor(() => expect(screen.getByTestId('message-area')).toBeInTheDocument())
+    expect(await screen.findByTestId('message-area')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByText('Delete 2'))
@@ -261,7 +261,7 @@ describe('Chat', () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     vi.mocked(api.deleteChatChannel).mockRejectedValue(new Error('fail'))
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByText('Delete 1'))
@@ -274,7 +274,7 @@ describe('Chat', () => {
   it('opens and closes invite modal', async () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
@@ -289,7 +289,7 @@ describe('Chat', () => {
   it('reloads channels when invite onInvited fires', async () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
@@ -307,7 +307,7 @@ describe('Chat', () => {
   it('opens and closes members modal', async () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
@@ -322,7 +322,7 @@ describe('Chat', () => {
   it('reloads channels when members onKicked fires', async () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
@@ -340,7 +340,7 @@ describe('Chat', () => {
   it('polls for channels on interval', async () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     const callCountAfterLoad = vi.mocked(api.fetchChatChannels).mock.calls.length
 
@@ -358,7 +358,7 @@ describe('Chat', () => {
     vi.mocked(api.fetchChatChannels).mockResolvedValue(mockChannels)
     vi.mocked(api.leaveChatChannel).mockRejectedValueOnce(new Error('fail'))
     renderChat()
-    await waitFor(() => expect(screen.getByText('general')).toBeInTheDocument())
+    expect(await screen.findByText('general')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 

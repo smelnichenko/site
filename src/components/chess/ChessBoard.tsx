@@ -116,7 +116,7 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
       const moveStr = sourceSquare + targetSquare + (isPromotion(piece, targetSquare) ? 'q' : '');
 
       try {
-        const result = chess.move({ from: sourceSquare as Square, to: targetSquare as Square, promotion: 'q' });
+        const result = chess.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
         if (!result) return false;
         chess.undo();
         setPendingMove(true);
