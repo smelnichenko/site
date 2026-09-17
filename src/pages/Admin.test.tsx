@@ -347,6 +347,8 @@ describe('Admin', () => {
 
     // MANAGE_USERS should be checked
     expect(screen.getByLabelText('MANAGE_USERS')).toBeChecked();
+    // JOBS (masi) is grantable from the UI but not part of this group's fixture
+    expect(screen.getByLabelText('JOBS')).not.toBeChecked();
 
     // Update description
     await user.clear(screen.getByLabelText('Description'));
