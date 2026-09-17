@@ -54,7 +54,12 @@ function Chat() {
   }, [loadChannels]);
 
   const handleSelectChannel = (id: number) => {
-    void navigate(`/chat/${id}`);
+    // navigate() is typed `void | Promise<void>` in react-router 7: it returns a promise only for a
+    // navigation that can be interrupted. Awaited through Promise.resolve so the rejection is handled
+    // either way — `void` silenced the floating promise but is itself refused (sonar typescript:S3735).
+    Promise.resolve(navigate(`/chat/${id}`)).catch(() => {
+      // a navigation the router aborted; the route the operator clicked simply does not change
+    });
   };
 
   const handleLeaveChannel = async (id: number) => {
