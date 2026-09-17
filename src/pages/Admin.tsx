@@ -11,7 +11,7 @@ import {
   deleteGroup,
 } from '../services/api';
 
-const ALL_PERMISSIONS = ['PLAY', 'CHAT', 'EMAIL', 'METRICS', 'MANAGE_USERS'];
+const ALL_PERMISSIONS = ['PLAY', 'CHAT', 'EMAIL', 'METRICS', 'MANAGE_USERS', 'JOBS'];
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
