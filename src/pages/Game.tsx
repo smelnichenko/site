@@ -67,6 +67,7 @@ export default function Game() {
     // postMessage handler (new Godot exports). MessageEvent.data is typed `any`,
     // so narrow it to the known payload shape before touching fields.
     const messageHandler = (e: MessageEvent) => {
+      if (e.origin !== globalThis.location.origin) return; // the game is served by this site; nothing else may drive it
       const data = e.data as GodotMessage | null;
       // handleGodotAction owns its own try/catch, so its promise never rejects;
       // void-ing it satisfies the void-returning listener contract.

@@ -6,6 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import testingLibrary from 'eslint-plugin-testing-library';
 import vitest from '@vitest/eslint-plugin';
+import sonarjs from 'eslint-plugin-sonarjs';
 import prettier from 'eslint-config-prettier';
 
 // Flat config. Type-aware rules are enabled on purpose: `tsc --noEmit` already runs in CI, so the
@@ -26,10 +27,15 @@ export default tseslint.config(
       globals: { ...globals.browser },
     },
     plugins: {
+      sonarjs,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
     rules: {
+      // SonarQube's gate (0 new issues) applies these on every PR; running them here keeps the gate from being the first to see them
+      ...sonarjs.configs.recommended.rules,
+      // Sonar's S7735 (a `!x ? a : b` ternary or if/else with a negated test) is not in the sonarjs plugin; ESLint core has it
+      'no-negated-condition': 'error',
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
 
@@ -65,6 +71,7 @@ export default tseslint.config(
     rules: {
       ...testingLibrary.configs['flat/react'].rules,
       ...vitest.configs.recommended.rules,
+      'sonarjs/no-clear-text-protocols': 'off', // fixture URLs, not a protocol choice
       '@typescript-eslint/unbound-method': 'off', // vi.mocked(x.y) is not an unbound call
     },
   },

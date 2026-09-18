@@ -29,7 +29,9 @@ function base64urlEncode(buffer: ArrayBuffer): string {
   for (const byte of bytes) {
     str += String.fromCodePoint(byte);
   }
-  return btoa(str).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+  let encoded = btoa(str).replaceAll('+', '-').replaceAll('/', '_');
+  while (encoded.endsWith('=')) encoded = encoded.slice(0, -1);
+  return encoded;
 }
 
 function generateCodeVerifier(): string {

@@ -39,8 +39,8 @@ function formatFileSize(bytes: number): string {
 }
 
 function extractName(address: string): string {
-  const match = /^(.+?)\s*<.+>$/.exec(address);
-  if (match) return match[1].trim();
+  const open = address.lastIndexOf('<');
+  if (open > 0 && address.endsWith('>')) return address.slice(0, open).trim();
   return address;
 }
 

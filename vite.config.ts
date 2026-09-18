@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 // Get git hash at build time (from env var or git)
 function getGitHash(): string {
@@ -8,7 +8,8 @@ function getGitHash(): string {
     return process.env.VITE_GIT_HASH;
   }
   try {
-    return execSync('git rev-parse --short HEAD').toString().trim();
+    // a fixed path, not PATH (Sonar S4036); Woodpecker passes the commit through VITE_GIT_HASH anyway
+    return execFileSync('/usr/bin/git', ['rev-parse', '--short', 'HEAD']).toString().trim();
   } catch {
     return 'unknown';
   }

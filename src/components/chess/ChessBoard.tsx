@@ -42,10 +42,9 @@ export default function ChessBoard({ game, uuid, onMove, disabled }: Readonly<Ch
       options[square] = { background: 'rgba(255, 255, 0, 0.4)', borderRadius: '50%' };
       moves.forEach((move) => {
         options[move.to] = {
-          background:
-            chess.get(move.to) === null
-              ? 'radial-gradient(circle, rgba(0,0,0,.1) 25%, transparent 25%)'
-              : 'radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)',
+          background: chess.get(move.to)
+            ? 'radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)'
+            : 'radial-gradient(circle, rgba(0,0,0,.1) 25%, transparent 25%)',
           borderRadius: '50%',
         };
       });

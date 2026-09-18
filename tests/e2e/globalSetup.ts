@@ -6,7 +6,7 @@
  * should authenticate through the Keycloak login page or use
  * Keycloak's direct grant (resource owner password) for test users.
  *
- * TODO: implement Keycloak-based E2E test user bootstrap
+ * Not implemented: a Keycloak direct-grant bootstrap of test users. Until it exists the suite signs in through the UI.
  */
 
 export default function globalSetup() {

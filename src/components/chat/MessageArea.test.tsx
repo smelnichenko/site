@@ -179,7 +179,7 @@ describe('MessageArea', () => {
     ]);
     render(<MessageArea channel={baseChannel} />);
     await waitFor(() => {
-      expect(screen.getAllByText('edit').length).toBe(1);
+      expect(screen.getAllByText('edit')).toHaveLength(1);
     });
   });
 

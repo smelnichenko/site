@@ -29,7 +29,8 @@ async function loginViaUI(page: Page) {
       await expect(page.locator('header button.btn-logout')).toBeVisible({ timeout: 10000 });
       return;
     } catch {
-      // Rate limited or slow — wait and retry
+      // Keycloak's rate limiter is time-based: there is no observable condition to wait on, only the window itself
+      // eslint-disable-next-line sonarjs/no-fixed-wait-in-tests
       await page.waitForTimeout(2000);
     }
   }

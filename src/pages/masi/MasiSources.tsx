@@ -19,8 +19,8 @@ function keepEdits(
 ): Record<number, string> {
   const next: Record<number, string> = {};
   for (const s of list) {
-    const draft = drafts[s.id];
-    next[s.id] = draft !== undefined && draft !== before.get(s.id) ? draft : s.cron;
+    const edited = s.id in drafts && drafts[s.id] !== before.get(s.id);
+    next[s.id] = edited ? drafts[s.id] : s.cron;
   }
   return next;
 }

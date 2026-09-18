@@ -189,7 +189,7 @@ describe('centrifugoClient', () => {
       // Mark as already subscribed so subscribe() is not called again.
       lastSubscription().state = 'subscribed';
       subscribe('chat:room:1', { onPublication: vi.fn() });
-      expect(lastClient().newSubscription.mock.calls.length).toBe(created);
+      expect(lastClient().newSubscription.mock.calls).toHaveLength(created);
     });
 
     it('does not call subscribe again when already subscribing', () => {

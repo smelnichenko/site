@@ -1422,7 +1422,7 @@ export interface MasiDashboard {
 function query(params: Record<string, string | number | boolean | undefined>): string {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== '' && v !== null) q.set(k, String(v));
+    if (v !== undefined && v !== '') q.set(k, String(v));
   }
   const s = q.toString();
   return s ? `?${s}` : '';

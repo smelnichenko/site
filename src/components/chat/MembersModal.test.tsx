@@ -73,7 +73,7 @@ describe('MembersModal', () => {
       <MembersModal channelId={1} channelName="general" onClose={vi.fn()} onKicked={vi.fn()} />,
     );
     await waitFor(() => {
-      expect(screen.getAllByText('Kick').length).toBe(1); // Only for user, not owner
+      expect(screen.getAllByText('Kick')).toHaveLength(1); // Only for user, not owner
     });
   });
 
