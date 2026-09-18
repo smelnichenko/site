@@ -64,11 +64,12 @@ describe('MasiCompanyDetail', () => {
     vi.mocked(api.fetchMasiJobs).mockResolvedValue({
       content: [
         job,
+        { ...job, id: 9, title: 'Second open role' },
         { ...job, id: 8, title: 'Old role', status: 'CLOSED', closedAt: '2026-09-01T00:00:00Z' },
       ],
       page: 0,
       size: 100,
-      totalElements: 2,
+      totalElements: 3,
     });
     vi.mocked(api.fetchMasiCompanyContacts).mockResolvedValue({
       content: [kati],
@@ -84,7 +85,12 @@ describe('MasiCompanyDetail', () => {
       company: 3,
       status: 'ALL',
     });
-    expect(screen.getByText('1 open · 1 closed')).toBeInTheDocument();
+    expect(screen.getByText('2 open · 1 closed')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Companies' })).toHaveClass('active');
+    expect(screen.getByRole('link', { name: 'all in the registry' })).toHaveAttribute(
+      'href',
+      '/masi/jobs?company=3&status=ALL',
+    );
     expect(screen.getByRole('link', { name: 'Old role' })).toHaveAttribute('href', '/masi/jobs/8');
     expect(screen.getByText('Kati Kask')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'ok to contact' }));
@@ -92,6 +98,22 @@ describe('MasiCompanyDetail', () => {
       expect(api.patchMasiContact).toHaveBeenCalledWith(5, { doNotContact: true }),
     );
     expect(screen.getByRole('button', { name: 'do not contact' })).toBeInTheDocument();
+    // the company form saves what was typed
+    vi.mocked(api.patchMasiCompany).mockResolvedValueOnce({
+      ...company,
+      userNote: 'ask Kati',
+      careersUrl: 'https://nortal.com/jobs',
+    });
+    await userEvent.clear(screen.getByLabelText('Careers URL'));
+    await userEvent.type(screen.getByLabelText('Careers URL'), 'https://nortal.com/jobs');
+    await userEvent.type(screen.getByLabelText('Your note'), 'ask Kati');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(api.patchMasiCompany).toHaveBeenCalledWith(3, {
+        userNote: 'ask Kati',
+        careersUrl: 'https://nortal.com/jobs',
+      }),
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Blacklist' }));
     await waitFor(() =>
       expect(api.patchMasiCompany).toHaveBeenCalledWith(3, { blacklisted: true }),

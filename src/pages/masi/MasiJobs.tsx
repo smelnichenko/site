@@ -46,7 +46,7 @@ export default function MasiJobs() {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
     else next.delete(key);
-    next.delete('page');
+    if (key !== 'page') next.delete('page'); // a new filter starts at the first page; a page change keeps it
     setParams(next);
   }
 

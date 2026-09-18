@@ -27,7 +27,9 @@ const nortal = {
   userNote: null,
 };
 
-beforeEach(() => vi.mocked(api.fetchMasiCompanies).mockReset());
+beforeEach(() => {
+  vi.mocked(api.fetchMasiCompanies).mockReset(); // a body, not an expression: a returned mock would run as the test's cleanup
+});
 
 describe('MasiCompanies', () => {
   it('lists companies with their flags and drives the hiring filter through the URL', async () => {
@@ -50,9 +52,28 @@ describe('MasiCompanies', () => {
       hiring: false,
       page: 0,
     });
+    expect(screen.getByRole('link', { name: 'Companies' })).toHaveClass('active');
     await userEvent.click(screen.getByLabelText('hiring now'));
     await waitFor(() =>
       expect(vi.mocked(api.fetchMasiCompanies).mock.calls[1][0]).toMatchObject({ hiring: true }),
+    );
+  });
+
+  it('pages through a long registry', async () => {
+    vi.mocked(api.fetchMasiCompanies).mockResolvedValue({
+      content: [nortal],
+      page: 0,
+      size: 50,
+      totalElements: 51,
+    });
+    renderAt('/masi/companies', '/masi/companies', <MasiCompanies />);
+    expect(await screen.findByText('page 1 of 2')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() =>
+      expect(api.fetchMasiCompanies).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 1 }),
+        expect.anything(),
+      ),
     );
   });
 });

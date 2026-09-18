@@ -7,7 +7,9 @@ import { job, renderAt } from './testUtils';
 vi.mock('../../services/api', () => ({ fetchMasiJobs: vi.fn() }));
 const api = await import('../../services/api');
 
-beforeEach(() => vi.mocked(api.fetchMasiJobs).mockReset());
+beforeEach(() => {
+  vi.mocked(api.fetchMasiJobs).mockReset(); // a body, not an expression: a returned mock would run as the test's cleanup
+});
 
 describe('MasiJobs', () => {
   it('lists jobs with the package state and puts the filters in the URL', async () => {
@@ -37,14 +39,47 @@ describe('MasiJobs', () => {
     );
     expect(screen.getByText('(closed)')).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText('Package'), 'NONE');
-    await waitFor(() => expect(vi.mocked(api.fetchMasiJobs).mock.calls.length).toBe(2));
-    expect(vi.mocked(api.fetchMasiJobs).mock.calls[1][0]).toMatchObject({ packageStatus: 'NONE' });
+    await waitFor(() =>
+      expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(
+        expect.objectContaining({ packageStatus: 'NONE' }),
+        expect.anything(),
+      ),
+    );
     await userEvent.type(screen.getByLabelText('Search title'), 'java{enter}');
-    await waitFor(() => expect(vi.mocked(api.fetchMasiJobs).mock.calls.length).toBe(3));
-    expect(vi.mocked(api.fetchMasiJobs).mock.calls[2][0]).toMatchObject({
-      q: 'java',
-      packageStatus: 'NONE',
+    await waitFor(() =>
+      expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          q: 'java',
+          packageStatus: 'NONE',
+        }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('pages through a long registry', async () => {
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [job],
+      page: 0,
+      size: 50,
+      totalElements: 120,
     });
+    renderAt('/masi/jobs', '/masi/jobs', <MasiJobs />);
+    expect(await screen.findByText('page 1 of 3')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() =>
+      expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 1 }),
+        expect.anything(),
+      ),
+    );
+    await userEvent.selectOptions(screen.getByLabelText('Remote'), 'REMOTE');
+    await waitFor(() =>
+      expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(
+        expect.objectContaining({ remote: 'REMOTE', page: 0 }),
+        expect.anything(),
+      ),
+    ); // a new filter starts over
   });
 
   it('shows the empty state', async () => {

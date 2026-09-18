@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MasiJobDetail from './MasiJobDetail';
 import { job, prepared, renderAt } from './testUtils';
@@ -72,11 +72,9 @@ describe('MasiJobDetail', () => {
       packageStatus: 'PREPARED',
     });
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([prepared]);
-    vi.mocked(api.reviewMasiPackage).mockResolvedValue({
-      ...prepared,
-      status: 'APPLIED',
-      appliedAt: '2026-09-18T10:00:00Z',
-    });
+    vi.mocked(api.reviewMasiPackage)
+      .mockResolvedValueOnce({ ...prepared, status: 'REVIEWED' })
+      .mockResolvedValue({ ...prepared, status: 'APPLIED', appliedAt: '2026-09-18T10:00:00Z' });
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
     expect(await screen.findByTestId('package-panel')).toBeInTheDocument();
     expect(screen.getByTestId('claims-clean')).toHaveTextContent('0 claims violations');
@@ -84,17 +82,87 @@ describe('MasiJobDetail', () => {
     expect(screen.getByText('Cut p99 latency from 800 ms to 120 ms')).toBeInTheDocument();
     expect(screen.getByText('(collapsed)')).toBeInTheDocument();
     expect(screen.getByText('Dear Nortal team, token-LETTER')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open CV PDF' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Download letter' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Jobs' })).toHaveClass('active'); // the nested path keeps its tab
+    vi.mocked(api.fetchMasiArtifact).mockResolvedValue(
+      new Blob(['%PDF-'], { type: 'application/pdf' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Open CV PDF' }));
+    await waitFor(() => expect(api.fetchMasiArtifact).toHaveBeenCalledWith(11, 'CV_PDF'));
+    await userEvent.click(screen.getByRole('button', { name: 'Download letter' }));
+    await waitFor(() => expect(api.fetchMasiArtifact).toHaveBeenLastCalledWith(11, 'LETTER_TXT'));
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    await userEvent.click(screen.getByRole('button', { name: 'Copy letter' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Dear Nortal team, token-LETTER'));
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
+    vi.mocked(api.saveMasiJobNote).mockResolvedValue({ ...job, userNote: 'call Kati' });
+    await userEvent.type(screen.getByLabelText('Your note'), 'call Kati');
+    await userEvent.click(screen.getByRole('button', { name: 'Save note' }));
+    await waitFor(() => expect(api.saveMasiJobNote).toHaveBeenCalledWith(7, 'call Kati'));
+    await userEvent.click(screen.getByRole('button', { name: 'Mark reviewed' }));
+    await waitFor(() => expect(api.reviewMasiPackage).toHaveBeenCalledWith(11, 'REVIEWED', ''));
     expect(screen.queryByRole('button', { name: 'Prepare package' })).not.toBeInTheDocument(); // a package for the active version exists
     await userEvent.type(screen.getByLabelText('Notes'), 'sent via their form');
-    await userEvent.click(screen.getByRole('button', { name: 'Mark applied' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Mark applied' })); // from REVIEWED
     await waitFor(() =>
       expect(api.reviewMasiPackage).toHaveBeenCalledWith(11, 'APPLIED', 'sent via their form'),
     );
     expect(screen.getByText('Marked applied — you sent it, masi never does')).toBeInTheDocument();
     expect(screen.getByLabelText('Employer response')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Regenerate' })).not.toBeInTheDocument();
+  });
+
+  it('polls a queued package until it settles and stops polling when the page goes away', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+      const queued = {
+        ...prepared,
+        status: 'NEW',
+        tunedCv: null,
+        coverLetter: null,
+        claims: null,
+        lint: null,
+        artifacts: [],
+      };
+      vi.mocked(api.fetchMasiPackages)
+        .mockResolvedValueOnce([queued])
+        .mockResolvedValueOnce([queued])
+        .mockResolvedValue([prepared]);
+      const view = renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.getByTestId('package-panel')).toHaveTextContent('new');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(api.fetchMasiPackages).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(api.fetchMasiPackages).toHaveBeenCalledTimes(3);
+      expect(screen.getByTestId('package-panel')).toHaveTextContent('prepared'); // settled: polling ends
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+      expect(api.fetchMasiPackages).toHaveBeenCalledTimes(3);
+      // a page that goes away while a package is still queued takes its timer with it
+      vi.mocked(api.fetchMasiPackages).mockResolvedValue([queued]);
+      const utils = renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const before = vi.mocked(api.fetchMasiPackages).mock.calls.length;
+      utils.unmount();
+      view.unmount();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(api.fetchMasiPackages).toHaveBeenCalledTimes(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('offers Prepare again once a newer CV version is active, and never for a closed job', async () => {

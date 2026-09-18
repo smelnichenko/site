@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import MasiDashboard from './MasiDashboard';
 import { renderAt } from './testUtils';
@@ -6,8 +6,9 @@ import { renderAt } from './testUtils';
 vi.mock('../../services/api', () => ({ fetchMasiDashboard: vi.fn() }));
 const api = await import('../../services/api');
 
-// no mock reset between tests: with a beforeEach touching the mock, a mount-time rejection is reported as the test's
-// failure by the vitest/RTL harness even though the page catches it; each test sets its own implementation instead
+beforeEach(() => {
+  vi.mocked(api.fetchMasiDashboard).mockReset(); // a body, not an expression: a returned mock would run as the test's cleanup
+});
 
 describe('MasiDashboard', () => {
   it('shows the week, the funnel, the cost tile against its budgets, the CV and the sources', async () => {
@@ -65,9 +66,7 @@ describe('MasiDashboard', () => {
 
   it('shows the error when the overview cannot load', async () => {
     // rejected at call time, when the page's own catch is already attached (an eager rejection is an unhandled one)
-    vi.mocked(api.fetchMasiDashboard).mockImplementation(() =>
-      Promise.reject(new Error('Failed to load the dashboard')),
-    );
+    vi.mocked(api.fetchMasiDashboard).mockRejectedValue(new Error('Failed to load the dashboard'));
     renderAt('/masi', '/masi', <MasiDashboard />);
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Failed to load the dashboard'),

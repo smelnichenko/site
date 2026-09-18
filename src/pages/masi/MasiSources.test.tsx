@@ -83,7 +83,7 @@ describe('MasiSources', () => {
     await waitFor(() =>
       expect(api.patchMasiSource).toHaveBeenCalledWith(1, { cron: '0 5 * * * *' }),
     );
-    await waitFor(() => expect(screen.getByText('cvee: cron saved')).toBeInTheDocument());
+    expect(await screen.findByText('cvee: cron saved')).toBeInTheDocument();
     expect(screen.getByLabelText('Cron for cvee')).toHaveValue('0 5 * * * *');
     await userEvent.click(screen.getByRole('button', { name: 'Run now' }));
     await waitFor(() => expect(api.runMasiSource).toHaveBeenCalledTimes(2));

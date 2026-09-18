@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as api from './api';
 
 // Mock oidcClient before importing api
 vi.mock('./oidcClient', () => ({
@@ -801,5 +802,57 @@ describe('api - admin', () => {
       mockResponse({ error: 'Cannot delete Admins' }, { status: 400 }),
     );
     await expect(deleteGroup(1)).rejects.toThrow('Cannot delete Admins');
+  });
+});
+
+describe('api - masi', () => {
+  it('drops empty filter values and keeps false and zero', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({ content: [], page: 0, size: 50, totalElements: 0 }),
+    );
+    await api.fetchMasiCompanies({ q: '', status: undefined, hiring: false, page: 0 });
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/companies?hiring=false&page=0');
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({ content: [], page: 0, size: 50, totalElements: 0 }),
+    );
+    await api.fetchMasiJobs({ q: 'java', packageStatus: 'NONE' });
+    expect(mockFetch.mock.calls[1][0]).toBe('/api/masi/jobs?q=java&packageStatus=NONE');
+  });
+
+  it('posts the review body as the backend reads it and surfaces the server error', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: 11, status: 'APPLIED' }));
+    await api.reviewMasiPackage(11, 'APPLIED', 'notes', 'OFFER');
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/masi/packages/11/review');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({
+      action: 'APPLIED',
+      notes: 'notes',
+      response: 'OFFER',
+    });
+    mockFetch.mockResolvedValueOnce(
+      mockResponse(
+        { error: 'AI is disabled (masi.ai.enabled=false or no API key)' },
+        { status: 409 },
+      ),
+    );
+    await expect(api.requestMasiPackage(7)).rejects.toThrow(
+      'AI is disabled (masi.ai.enabled=false or no API key)',
+    );
+    mockFetch.mockResolvedValueOnce(mockResponse({}, { status: 500 }));
+    await expect(api.regenerateMasiPackage(7)).rejects.toThrow('Failed to regenerate the package');
+    const [, plain] = mockFetch.mock.calls[2];
+    expect(plain.body).toBeUndefined();
+  });
+
+  it('fetches an artifact by its lower-cased kind as a blob', async () => {
+    const blob = new Blob(['%PDF-'], { type: 'application/pdf' });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      blob: () => Promise.resolve(blob),
+    } as unknown as Response);
+    expect(await api.fetchMasiArtifact(11, 'CV_PDF')).toBe(blob);
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/packages/11/artifacts/cv_pdf');
   });
 });
