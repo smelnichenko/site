@@ -105,14 +105,11 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
           </ul>
         </div>
       )}
-      {pkg.claims &&
-        pkg.claims.length === 0 &&
-        pkg.status !== 'NEW' &&
-        pkg.status !== 'PREPARING' && (
-          <div className="status-badge success" data-testid="claims-clean">
-            0 claims violations
-          </div>
-        )}
+      {pkg.claims?.length === 0 && pkg.status !== 'NEW' && pkg.status !== 'PREPARING' && (
+        <div className="status-badge success" data-testid="claims-clean">
+          0 claims violations
+        </div>
+      )}
       {lint.length > 0 && (
         <details className="masi-lint" data-testid="lint">
           <summary>{lint.length} lint warning(s)</summary>
