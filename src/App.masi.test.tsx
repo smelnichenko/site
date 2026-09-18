@@ -19,6 +19,8 @@ vi.mock('./services/keyStore', () => ({ clear: vi.fn() }));
 vi.mock('./services/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./services/api')>()),
   fetchMasiJobs: vi.fn().mockResolvedValue({ content: [], page: 0, size: 50, totalElements: 0 }),
+  fetchMasiReports: vi.fn().mockResolvedValue([]),
+  fetchMasiStats: vi.fn().mockRejectedValue(new Error('no stats in this test')),
 }));
 
 const originalLocation = globalThis.location;
@@ -67,6 +69,17 @@ describe('masi routes and nav', () => {
     expect(
       screen.getAllByRole('link', { name: 'Jobs' }).map((l) => l.getAttribute('href')),
     ).toContain('/masi');
+  });
+
+  it('renders /masi/reports with its tab for a JOBS holder', async () => {
+    vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
+      email: 'me@example.com',
+      uuid: 'u1',
+      permissions: ['JOBS'],
+    });
+    renderApp('/masi/reports');
+    expect(await screen.findByText(/No reports yet/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Reports' })).toHaveClass('active');
   });
 
   it('redirects /masi/jobs away and hides the Jobs link without JOBS', async () => {

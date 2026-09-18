@@ -32,6 +32,7 @@ src/
     masi/MasiPackages, masi/MasiPackageDetail (JOBS — /masi/packages, /masi/packages/:id: the review queue, re-tune)
     masi/MasiCompanies, masi/MasiCompanyDetail (JOBS — /masi/companies, /masi/companies/:id: registry, contacts)
     masi/MasiContacts, masi/MasiSources     (JOBS — /masi/contacts, /masi/sources)
+    masi/MasiReports, masi/MasiReportDetail (JOBS — /masi/reports, /masi/reports/:id: stored weekly/monthly reports, live stats over a date range)
     Chess                                   (PLAY — PvP + AI)
     Game                                    (PLAY — Godot iframe)
     Admin                                   (MANAGE_USERS)

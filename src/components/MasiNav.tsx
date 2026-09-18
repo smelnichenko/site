@@ -7,6 +7,7 @@ const TABS: Array<{ to: string; label: string; exact?: boolean }> = [
   { to: '/masi/companies', label: 'Companies' },
   { to: '/masi/contacts', label: 'Contacts' },
   { to: '/masi/sources', label: 'Sources' },
+  { to: '/masi/reports', label: 'Reports' },
   { to: '/masi/cv', label: 'CV master' },
 ];
 
