@@ -34,6 +34,8 @@ export default tseslint.config(
     rules: {
       // SonarQube's gate (0 new issues) applies these on every PR; running them here keeps the gate from being the first to see them
       ...sonarjs.configs.recommended.rules,
+      // Sonar's S7735 (a `!x ? a : b` ternary or if/else with a negated test) is not in the sonarjs plugin; ESLint core has it
+      'no-negated-condition': 'error',
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
 
