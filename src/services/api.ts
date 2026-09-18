@@ -1190,7 +1190,9 @@ export async function createCvVersion(
 }
 
 export async function activateCvVersion(version: number): Promise<CvVersionMeta> {
-  const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}/activate`, { method: 'POST' });
+  const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}/activate`, {
+    method: 'POST',
+  });
   if (!response.ok) throw new Error('Failed to activate the CV version');
   return readJson(response);
 }
@@ -1201,4 +1203,3 @@ export async function fetchCvPreview(version: number): Promise<Blob> {
   if (!response.ok) throw new Error('Failed to render the preview');
   return response.blob();
 }
-

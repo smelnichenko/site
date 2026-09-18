@@ -51,6 +51,7 @@ steps:
     depends_on: [typecheck]
     commands:
       - npm run lint
+      - 'echo "prettier config for src/App.tsx:"; npx prettier --find-config-path src/App.tsx; cat "$(npx prettier --find-config-path src/App.tsx)"; ls -la . ..; env | grep -i -E "prettier|npm_config" || true; npx prettier --version'
       - npm run format:check
     backend_options:
       kubernetes:

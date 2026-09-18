@@ -240,7 +240,9 @@ function MasiCv() {
             style={{ width: '100%' }}
           />
         </div>
-        {errors !== null && errors.length === 0 && <div className="status-badge success">Valid</div>}
+        {errors !== null && errors.length === 0 && (
+          <div className="status-badge success">Valid</div>
+        )}
         {errors !== null && errors.length > 0 && (
           <div className="error" role="alert">
             <strong>The schema refuses this master:</strong>
@@ -293,14 +295,26 @@ function MasiCv() {
                   <td>{formatDate(v.createdAt)}</td>
                   <td>{v.active ? `active since ${formatDate(v.activatedAt)}` : ''}</td>
                   <td className="badge-group">
-                    <button className="status-badge edit" onClick={() => void onShow(v.version)} disabled={busy}>
+                    <button
+                      className="status-badge edit"
+                      onClick={() => void onShow(v.version)}
+                      disabled={busy}
+                    >
                       Show
                     </button>
-                    <button className="status-badge action" onClick={() => void onPreview(v.version)} disabled={busy}>
+                    <button
+                      className="status-badge action"
+                      onClick={() => void onPreview(v.version)}
+                      disabled={busy}
+                    >
                       Preview PDF
                     </button>
                     {!v.active && (
-                      <button className="status-badge add" onClick={() => void onActivate(v.version)} disabled={busy}>
+                      <button
+                        className="status-badge add"
+                        onClick={() => void onActivate(v.version)}
+                        disabled={busy}
+                      >
                         Activate
                       </button>
                     )}
