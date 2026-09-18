@@ -1,0 +1,249 @@
+import { useState } from 'react';
+import {
+  fetchMasiArtifact,
+  MasiPackage,
+  regenerateMasiPackage,
+  reviewMasiPackage,
+} from '../../services/api';
+import LoadingButton from '../../components/LoadingButton';
+import { badgeClass, errorMessage, formatDateTime, formatUsd } from './format';
+
+const RESPONSES = ['NONE', 'REPLIED', 'INTERVIEW', 'OFFER', 'REJECTED'];
+
+interface Props {
+  pkg: MasiPackage;
+  onChanged: (next: MasiPackage) => void;
+}
+
+/**
+ * One package as the operator reviews it: the tuned CV over the master's facts, the claims
+ * report and the lint next to it, the PDF and the letter, and the transitions masi never takes
+ * by itself — Mark reviewed, Mark applied, Skip, Regenerate. Applying is the operator's act.
+ */
+export default function PackagePanel({ pkg, onChanged }: Props) {
+  const [notes, setNotes] = useState(pkg.userNotes ?? '');
+  const [response, setResponse] = useState(pkg.response);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function act(fn: () => Promise<MasiPackage>, done: string) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const next = await fn();
+      onChanged(next);
+      setMessage(done);
+    } catch (e: unknown) {
+      setMessage(errorMessage(e, 'The action failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openArtifact(kind: 'CV_PDF' | 'LETTER_TXT') {
+    setBusy(true);
+    try {
+      const blob = await fetchMasiArtifact(pkg.id, kind);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e: unknown) {
+      setMessage(errorMessage(e, 'The artifact could not be fetched'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyLetter() {
+    if (!pkg.coverLetter) return;
+    try {
+      await navigator.clipboard.writeText(pkg.coverLetter);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setMessage('The clipboard is not available; select the letter and copy it');
+    }
+  }
+
+  const reviewable = pkg.status === 'PREPARED' || pkg.status === 'REVIEWED';
+  const cvPdf = pkg.artifacts.find((a) => a.kind === 'CV_PDF');
+  return (
+    <div className="card masi-package" data-testid="package-panel">
+      <div className="card-header">
+        <span className="card-title">
+          Package #{pkg.id} · CV v{pkg.cvVersion ?? '?'}
+        </span>
+        <span className={badgeClass(pkg.status)}>{pkg.status.toLowerCase().replace('_', ' ')}</span>
+      </div>
+      <div className="muted">
+        {pkg.model ? `${pkg.model} · ` : ''}
+        {pkg.attempts} attempt(s) · cost {formatUsd(pkg.costUsd)} · updated{' '}
+        {formatDateTime(pkg.updatedAt)}
+        {pkg.appliedAt ? ` · applied ${formatDateTime(pkg.appliedAt)}` : ''}
+      </div>
+      {pkg.error && (
+        <div className="error" role="alert">
+          {pkg.error}
+        </div>
+      )}
+      {pkg.claims && pkg.claims.length > 0 && (
+        <div className="error" role="alert" data-testid="claims">
+          <strong>Claims the checker refused ({pkg.claims.length}):</strong>
+          <ul>
+            {pkg.claims.map((c, i) => (
+              <li key={i}>
+                <code>{c.rule}</code> {c.detail}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {pkg.claims &&
+        pkg.claims.length === 0 &&
+        pkg.status !== 'NEW' &&
+        pkg.status !== 'PREPARING' && (
+          <div className="status-badge success" data-testid="claims-clean">
+            0 claims violations
+          </div>
+        )}
+      {pkg.lint && pkg.lint.length > 0 && (
+        <details className="masi-lint" data-testid="lint">
+          <summary>{pkg.lint.length} lint warning(s)</summary>
+          <ul>
+            {pkg.lint.map((w, i) => (
+              <li key={i}>
+                <code>{w.rule}</code> {w.detail}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {pkg.tunedCv && (
+        <div className="masi-tuned">
+          <h3>{pkg.tunedCv.title}</h3>
+          <p>{pkg.tunedCv.summary}</p>
+          {pkg.tunedCv.roles.map((r, i) => (
+            <div key={i} className="masi-role">
+              <strong>{r.title}</strong> · {r.company}
+              {r.collapsed ? (
+                <span className="muted"> (collapsed)</span>
+              ) : (
+                <ul>
+                  {r.bullets.map((b, k) => (
+                    <li key={k}>{b.text}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+          {pkg.tunedCv.skills.length > 0 && (
+            <p className="muted">Skills: {pkg.tunedCv.skills.join(', ')}</p>
+          )}
+        </div>
+      )}
+      {pkg.coverLetter && (
+        <div className="masi-letter">
+          <div className="card-header">
+            <span className="card-title">Cover letter</span>
+            <button type="button" className="btn-small" onClick={() => void copyLetter()}>
+              {copied ? 'Copied' : 'Copy letter'}
+            </button>
+          </div>
+          <pre>{pkg.coverLetter}</pre>
+        </div>
+      )}
+      <div className="badge-group">
+        {cvPdf?.available && (
+          <LoadingButton
+            className="status-badge action"
+            onClick={() => void openArtifact('CV_PDF')}
+            loading={busy}
+            label="Open CV PDF"
+          />
+        )}
+      </div>
+      <div className="form-group">
+        <label htmlFor={`notes-${pkg.id}`}>Notes</label>
+        <textarea
+          id={`notes-${pkg.id}`}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          style={{ width: '100%' }}
+        />
+      </div>
+      {pkg.status === 'APPLIED' && (
+        <div className="form-group">
+          <label htmlFor={`response-${pkg.id}`}>Employer response</label>
+          <select
+            id={`response-${pkg.id}`}
+            value={response}
+            onChange={(e) => setResponse(e.target.value)}
+          >
+            {RESPONSES.map((r) => (
+              <option key={r} value={r}>
+                {r.toLowerCase()}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {message && <div className="muted">{message}</div>}
+      <div className="badge-group">
+        {pkg.status === 'PREPARED' && (
+          <LoadingButton
+            className="status-badge action"
+            onClick={() =>
+              void act(() => reviewMasiPackage(pkg.id, 'REVIEWED', notes), 'Marked reviewed')
+            }
+            loading={busy}
+            label="Mark reviewed"
+          />
+        )}
+        {reviewable && (
+          <LoadingButton
+            className="status-badge add"
+            onClick={() =>
+              void act(
+                () => reviewMasiPackage(pkg.id, 'APPLIED', notes),
+                'Marked applied — you sent it, masi never does',
+              )
+            }
+            loading={busy}
+            label="Mark applied"
+          />
+        )}
+        {pkg.status === 'APPLIED' && (
+          <LoadingButton
+            className="status-badge action"
+            onClick={() =>
+              void act(
+                () => reviewMasiPackage(pkg.id, 'APPLIED', notes, response),
+                'Response recorded',
+              )
+            }
+            loading={busy}
+            label="Save response"
+          />
+        )}
+        {pkg.status !== 'APPLIED' && pkg.status !== 'PREPARING' && (
+          <LoadingButton
+            className="status-badge"
+            onClick={() => void act(() => reviewMasiPackage(pkg.id, 'SKIPPED', notes), 'Skipped')}
+            loading={busy}
+            label="Skip"
+          />
+        )}
+        {pkg.status !== 'APPLIED' && pkg.status !== 'PREPARING' && (
+          <LoadingButton
+            className="status-badge edit"
+            onClick={() => void act(() => regenerateMasiPackage(pkg.id), 'Regenerating…')}
+            loading={busy}
+            label="Regenerate"
+          />
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1014,3 +1014,61 @@ a.card-title {
     padding: 16px;
   }
 }
+
+/* masi — job registry pages */
+.masi-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+  border-bottom: 1px solid var(--border, #ddd);
+}
+.masi-nav a {
+  padding: 0.4rem 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 2px solid transparent;
+}
+.masi-nav a.active {
+  border-bottom-color: var(--accent, #2563eb);
+  font-weight: 600;
+}
+.masi-tiles .masi-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-decoration: none;
+  color: inherit;
+}
+.masi-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.masi-description,
+.masi-letter pre {
+  white-space: pre-wrap;
+  font-family: inherit;
+  max-height: 24rem;
+  overflow: auto;
+}
+.masi-listings {
+  padding-left: 1.2rem;
+}
+.masi-role ul {
+  margin: 0.25rem 0 0.75rem;
+}
+.masi-runs {
+  margin: 0.5rem 0;
+}
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent, #2563eb);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}

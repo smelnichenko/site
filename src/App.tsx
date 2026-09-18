@@ -21,6 +21,15 @@ const Chess = lazy(() => import('./pages/Chess'));
 const Inbox = lazy(() => import('./pages/Inbox'));
 const Admin = lazy(() => import('./pages/Admin'));
 const MasiCv = lazy(() => import('./pages/MasiCv'));
+const MasiDashboard = lazy(() => import('./pages/masi/MasiDashboard'));
+const MasiJobs = lazy(() => import('./pages/masi/MasiJobs'));
+const MasiJobDetail = lazy(() => import('./pages/masi/MasiJobDetail'));
+const MasiPackages = lazy(() => import('./pages/masi/MasiPackages'));
+const MasiPackageDetail = lazy(() => import('./pages/masi/MasiPackageDetail'));
+const MasiCompanies = lazy(() => import('./pages/masi/MasiCompanies'));
+const MasiCompanyDetail = lazy(() => import('./pages/masi/MasiCompanyDetail'));
+const MasiContacts = lazy(() => import('./pages/masi/MasiContacts'));
+const MasiSources = lazy(() => import('./pages/masi/MasiSources'));
 
 function formatBuildTime(isoString: string): string {
   try {
@@ -126,7 +135,7 @@ function App() {
                 )}
                 {hasPermission('JOBS') && (
                   <Link
-                    to="/masi/cv"
+                    to="/masi"
                     className={location.pathname.startsWith('/masi') ? 'active' : ''}
                   >
                     Jobs
@@ -234,6 +243,78 @@ function App() {
                 element={
                   <ProtectedRoute permission="JOBS">
                     <MasiCv />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/jobs"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiJobs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/jobs/:id"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiJobDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/packages"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiPackages />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/packages/:id"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiPackageDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/companies"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiCompanies />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/companies/:id"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiCompanyDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/contacts"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiContacts />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/sources"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiSources />
                   </ProtectedRoute>
                 }
               />
