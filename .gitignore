@@ -14,3 +14,4 @@ dist/
 
 # lint/format caches
 .eslintcache
+.scannerwork
