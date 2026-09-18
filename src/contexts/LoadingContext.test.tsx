@@ -26,16 +26,17 @@ describe('LoadingContext', () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it('withLoading sets loading during async operation', async () => {
+  it('withLoading runs the operation once and ends with loading false', async () => {
     const { result } = renderHook(() => useLoading(), { wrapper });
-    const states: boolean[] = [];
+    let runs = 0;
 
     await act(async () => {
       await result.current.withLoading(() => {
-        states.push(result.current.loading);
+        runs += 1;
         return Promise.resolve('done');
       });
     });
+    expect(runs).toBe(1);
 
     // After withLoading completes, loading should be false
     expect(result.current.loading).toBe(false);

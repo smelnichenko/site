@@ -67,7 +67,7 @@ describe('crypto - salt generation', () => {
   it('generates 16-byte salt', () => {
     const salt = generateSalt();
     expect(salt).toBeInstanceOf(Uint8Array);
-    expect(salt.length).toBe(16);
+    expect(salt).toHaveLength(16);
   });
 
   it('generates unique salts', () => {

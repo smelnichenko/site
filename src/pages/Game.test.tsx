@@ -82,6 +82,7 @@ describe('Game', () => {
     act(() => {
       globalThis.dispatchEvent(
         new MessageEvent('message', {
+          origin: globalThis.location.origin, // browsers stamp the sender's origin; the page drops anything foreign
           data: { source: 'godot', type: 'spin' },
         }),
       );
@@ -109,6 +110,7 @@ describe('Game', () => {
     act(() => {
       globalThis.dispatchEvent(
         new MessageEvent('message', {
+          origin: globalThis.location.origin, // browsers stamp the sender's origin; the page drops anything foreign
           data: { source: 'godot', type: 'reset' },
         }),
       );
@@ -126,6 +128,7 @@ describe('Game', () => {
     act(() => {
       globalThis.dispatchEvent(
         new MessageEvent('message', {
+          origin: globalThis.location.origin, // browsers stamp the sender's origin; the page drops anything foreign
           data: { source: 'other', type: 'spin' },
         }),
       );
@@ -143,6 +146,7 @@ describe('Game', () => {
     act(() => {
       globalThis.dispatchEvent(
         new MessageEvent('message', {
+          origin: globalThis.location.origin, // browsers stamp the sender's origin; the page drops anything foreign
           data: { source: 'godot', type: 'spin' },
         }),
       );

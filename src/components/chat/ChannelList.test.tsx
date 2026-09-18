@@ -94,19 +94,19 @@ describe('ChannelList', () => {
   it('shows Members button for owned channels', () => {
     render(<ChannelList {...defaultProps} />);
     const membersButtons = screen.getAllByText('Members');
-    expect(membersButtons.length).toBe(2); // general and secret are owned
+    expect(membersButtons).toHaveLength(2); // general and secret are owned
   });
 
   it('shows Invite button for owned channels', () => {
     render(<ChannelList {...defaultProps} />);
     const inviteButtons = screen.getAllByText('Invite');
-    expect(inviteButtons.length).toBe(2);
+    expect(inviteButtons).toHaveLength(2);
   });
 
   it('shows Delete for owned channels and Leave for non-owned', () => {
     render(<ChannelList {...defaultProps} />);
-    expect(screen.getAllByText('Delete').length).toBe(2); // general and secret
-    expect(screen.getAllByText('Leave').length).toBe(1); // random
+    expect(screen.getAllByText('Delete')).toHaveLength(2); // general and secret
+    expect(screen.getAllByText('Leave')).toHaveLength(1); // random
   });
 
   it('shows empty state when no channels', () => {
