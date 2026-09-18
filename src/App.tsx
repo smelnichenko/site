@@ -20,6 +20,7 @@ const Game = lazy(() => import('./pages/Game'));
 const Chess = lazy(() => import('./pages/Chess'));
 const Inbox = lazy(() => import('./pages/Inbox'));
 const Admin = lazy(() => import('./pages/Admin'));
+const MasiCv = lazy(() => import('./pages/MasiCv'));
 
 function formatBuildTime(isoString: string): string {
   try {
@@ -123,6 +124,14 @@ function App() {
                     </Link>
                   </>
                 )}
+                {hasPermission('JOBS') && (
+                  <Link
+                    to="/masi/cv"
+                    className={location.pathname.startsWith('/masi') ? 'active' : ''}
+                  >
+                    Jobs
+                  </Link>
+                )}
                 {hasPermission('MANAGE_USERS') && (
                   <Link to="/admin" className={location.pathname === '/admin' ? 'active' : ''}>
                     Admin
@@ -217,6 +226,14 @@ function App() {
                 element={
                   <ProtectedRoute permission="CHAT">
                     <Chat />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/cv"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiCv />
                   </ProtectedRoute>
                 }
               />

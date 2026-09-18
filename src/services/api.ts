@@ -1113,3 +1113,92 @@ export async function declineRegistration(id: number, reason?: string): Promise<
     throw new Error(data.error || 'Failed to decline');
   }
 }
+
+// ---------------------------------------------------------------------------
+// masi — CV master (the candidate's evidence bank; JOBS permission)
+// ---------------------------------------------------------------------------
+
+export interface CvVersionMeta {
+  version: number;
+  note: string | null;
+  active: boolean;
+  activatedAt: string | null;
+  createdAt: string;
+  schemaVersion: string;
+}
+
+export interface CvCompleteness {
+  score: number;
+  gaps: string[];
+}
+
+export interface CvMaster {
+  active: CvVersionMeta | null;
+  yaml: string | null;
+  completeness: CvCompleteness | null;
+}
+
+export interface CvValidation {
+  valid: boolean;
+  errors: string[];
+}
+
+export async function fetchCvMaster(signal?: AbortSignal): Promise<CvMaster> {
+  const response = await apiFetch(`${API_BASE}/masi/cv`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch the CV master');
+  return readJson(response);
+}
+
+export async function fetchCvVersions(signal?: AbortSignal): Promise<CvVersionMeta[]> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/versions`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch CV versions');
+  return readJson(response);
+}
+
+export async function fetchCvVersion(version: number, signal?: AbortSignal): Promise<CvMaster> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch the CV version');
+  return readJson(response);
+}
+
+export async function validateCv(yaml: string): Promise<CvValidation> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ yaml }),
+  });
+  if (!response.ok) throw new Error('Validation request failed');
+  return readJson(response);
+}
+
+/** Creates a new, inactive version; a schema refusal comes back as the error list, not a throw. */
+export async function createCvVersion(
+  yaml: string,
+  note: string,
+): Promise<{ version: CvVersionMeta | null; errors: string[] }> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/versions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ yaml, note }),
+  });
+  if (response.status === 400) {
+    const body = (await response.json().catch(() => ({}))) as { errors?: string[]; error?: string };
+    return { version: null, errors: body.errors ?? [body.error ?? 'Invalid CV master'] };
+  }
+  if (!response.ok) throw new Error('Failed to save the CV version');
+  return { version: await readJson<CvVersionMeta>(response), errors: [] };
+}
+
+export async function activateCvVersion(version: number): Promise<CvVersionMeta> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}/activate`, { method: 'POST' });
+  if (!response.ok) throw new Error('Failed to activate the CV version');
+  return readJson(response);
+}
+
+/** The preview is a PDF the browser opens itself; the token rides in a header, so fetch it as a blob. */
+export async function fetchCvPreview(version: number): Promise<Blob> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}/preview.pdf`);
+  if (!response.ok) throw new Error('Failed to render the preview');
+  return response.blob();
+}
+

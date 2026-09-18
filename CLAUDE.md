@@ -26,6 +26,7 @@ src/
     MonitorConfig                           (METRICS — page+RSS CRUD)
     Chat                                    (CHAT)
     Inbox                                   (EMAIL — received mail)
+    MasiCv                                  (JOBS — /masi/cv: the CV master, versions, validation, PDF preview)
     Chess                                   (PLAY — PvP + AI)
     Game                                    (PLAY — Godot iframe)
     Admin                                   (MANAGE_USERS)
