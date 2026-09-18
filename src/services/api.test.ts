@@ -841,7 +841,7 @@ describe('api - masi', () => {
     );
     mockFetch.mockResolvedValueOnce(mockResponse({}, { status: 500 }));
     await expect(api.regenerateMasiPackage(7)).rejects.toThrow('Failed to regenerate the package');
-    const [, plain] = mockFetch.mock.calls[2];
+    const [, plain] = mockFetch.mock.calls[2] as [string, RequestInit];
     expect(plain.body).toBeUndefined();
   });
 
@@ -851,7 +851,7 @@ describe('api - masi', () => {
       ok: true,
       status: 200,
       blob: () => Promise.resolve(blob),
-    } as unknown as Response);
+    });
     expect(await api.fetchMasiArtifact(11, 'CV_PDF')).toBe(blob);
     expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/packages/11/artifacts/cv_pdf');
   });
