@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MasiCv from './MasiCv';
+import { renderAt } from './testUtils';
 
-vi.mock('../services/api', () => ({
+vi.mock('../../services/api', () => ({
   fetchCvMaster: vi.fn(),
   fetchCvVersions: vi.fn(),
   fetchCvVersion: vi.fn(),
@@ -13,7 +14,7 @@ vi.mock('../services/api', () => ({
   fetchCvPreview: vi.fn(),
 }));
 
-const api = await import('../services/api');
+const api = await import('../../services/api');
 
 const v1 = {
   version: 1,
@@ -41,7 +42,7 @@ describe('MasiCv', () => {
       completeness: null,
     });
     vi.mocked(api.fetchCvVersions).mockResolvedValue([]);
-    render(<MasiCv />);
+    renderAt('/masi/cv', '/masi/cv', <MasiCv />);
     await waitFor(() => {
       expect(screen.getByText('no active version')).toBeInTheDocument();
     });
@@ -62,7 +63,7 @@ describe('MasiCv', () => {
       },
     });
     vi.mocked(api.fetchCvVersions).mockResolvedValue([v1]);
-    render(<MasiCv />);
+    renderAt('/masi/cv', '/masi/cv', <MasiCv />);
     await waitFor(() => {
       expect(screen.getByText('active: v1')).toBeInTheDocument();
     });
@@ -88,7 +89,7 @@ describe('MasiCv', () => {
         "/person: property 'photo' is not defined in the schema and the schema does not allow additional properties",
       ],
     });
-    render(<MasiCv />);
+    renderAt('/masi/cv', '/masi/cv', <MasiCv />);
     expect(await screen.findByText('Validate')).toBeInTheDocument();
     await userEvent.click(screen.getByText('Validate'));
     await waitFor(() => {
@@ -113,7 +114,7 @@ describe('MasiCv', () => {
       active: true,
       activatedAt: '2026-09-18T11:00:00Z',
     });
-    render(<MasiCv />);
+    renderAt('/masi/cv', '/masi/cv', <MasiCv />);
     expect(await screen.findByText('active: v1')).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Note for this version'), 'second');
     await userEvent.click(screen.getByText('Save as new version'));
@@ -135,7 +136,7 @@ describe('MasiCv', () => {
       version: null,
       errors: ["$: required property 'positioning' not found"],
     });
-    render(<MasiCv />);
+    renderAt('/masi/cv', '/masi/cv', <MasiCv />);
     expect(await screen.findByText('Save as new version')).toBeInTheDocument();
     await userEvent.click(screen.getByText('Save as new version'));
     await waitFor(() =>

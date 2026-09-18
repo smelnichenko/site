@@ -9,8 +9,10 @@ import {
   validateCv,
   CvCompleteness,
   CvVersionMeta,
-} from '../services/api';
-import LoadingButton from '../components/LoadingButton';
+} from '../../services/api';
+import LoadingButton from '../../components/LoadingButton';
+import MasiNav from '../../components/MasiNav';
+import { openBlob } from './format';
 
 const EMPTY_MASTER = `schema_version: "1"
 language: en
@@ -180,10 +182,7 @@ function MasiCv() {
     setBusy(true);
     setMessage(null);
     try {
-      const blob = await fetchCvPreview(version);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      openBlob(await fetchCvPreview(version), `cv-master-v${version}.pdf`);
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : 'Preview failed');
     } finally {
@@ -192,11 +191,17 @@ function MasiCv() {
   }
 
   if (loading) {
-    return <div className="loading">Loading CV master...</div>;
+    return (
+      <div className="masi">
+        <MasiNav />
+        <div className="loading">Loading CV master...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="masi-cv">
+    <div className="masi-cv masi">
+      <MasiNav />
       <div className="card">
         <div className="card-header">
           <span className="card-title">CV master</span>

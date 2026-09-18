@@ -1203,3 +1203,386 @@ export async function fetchCvPreview(version: number): Promise<Blob> {
   if (!response.ok) throw new Error('Failed to render the preview');
   return response.blob();
 }
+
+// ---------------------------------------------------------------------------
+// masi — registry, companies, contacts, sources, packages, dashboard (JOBS)
+// ---------------------------------------------------------------------------
+
+export interface Paged<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+}
+
+export interface MasiListing {
+  id: number;
+  sourceId: number;
+  sourceKey: string | null;
+  url: string;
+  titleRaw: string | null;
+  companyRaw: string | null;
+  postedAt: string | null;
+  expiresAt: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  missCount: number;
+  closedAt: string | null;
+}
+
+export interface MasiJob {
+  id: number;
+  title: string;
+  companyId: number | null;
+  companyName: string | null;
+  location: string | null;
+  remote: string | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  status: 'OPEN' | 'CLOSED';
+  firstSeenAt: string;
+  lastSeenAt: string;
+  closedAt: string | null;
+  reopenedCount: number;
+  userNote: string | null;
+  descriptionText: string | null;
+  listings: MasiListing[];
+  packageId: number | null;
+  packageStatus: string | null;
+}
+
+export interface MasiJobFilter {
+  status?: 'OPEN' | 'CLOSED' | 'ALL';
+  q?: string;
+  company?: number;
+  remote?: string;
+  packageStatus?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface MasiCompany {
+  id: number;
+  name: string;
+  registryCode: string | null;
+  website: string | null;
+  careersUrl: string | null;
+  atsVendor: string | null;
+  emtakCode: string | null;
+  sizeBand: string | null;
+  hqCity: string | null;
+  tags: string | null;
+  status: string;
+  origin: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  registerSeenAt: string | null;
+  blacklisted: boolean;
+  userNote: string | null;
+}
+
+export interface MasiContact {
+  id: number;
+  companyId: number | null;
+  companyName: string | null;
+  kind: string;
+  name: string | null;
+  title: string | null;
+  email: string | null;
+  phone: string | null;
+  origin: string;
+  sourceId: number | null;
+  firstListingId: number | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  doNotContact: boolean;
+  userNote: string | null;
+}
+
+export interface MasiSource {
+  id: number;
+  key: string;
+  name: string;
+  kind: string;
+  scope: string;
+  baseUrl: string | null;
+  cron: string;
+  enabled: boolean;
+  configJson: string | null;
+  termsNote: string | null;
+  health: string;
+  consecutiveFailures: number;
+  lastRunAt: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  running: boolean;
+}
+
+export interface MasiSourceRun {
+  id: number;
+  sourceId: number;
+  startedAt: string;
+  finishedAt: string | null;
+  status: string;
+  complete: boolean;
+  fetched: number;
+  parsed: number;
+  newJobs: number;
+  updatedListings: number;
+  closedListings: number;
+  newCompanies: number;
+  newContacts: number;
+  error: string | null;
+}
+
+export interface MasiArtifact {
+  kind: 'CV_PDF' | 'LETTER_TXT';
+  contentType: string;
+  size: number;
+  sha256: string;
+  available: boolean;
+}
+
+export interface MasiTunedBullet {
+  achievementIndex: number;
+  text: string;
+}
+
+export interface MasiTunedRole {
+  company: string;
+  title: string;
+  collapsed: boolean;
+  bullets: MasiTunedBullet[];
+}
+
+export interface MasiTunedCv {
+  summary: string;
+  title: string;
+  roles: MasiTunedRole[];
+  skills: string[];
+  coverLetter: string;
+}
+
+export interface MasiFinding {
+  rule: string;
+  detail: string;
+}
+
+export interface MasiPackage {
+  id: number;
+  jobId: number;
+  jobTitle: string | null;
+  companyName: string | null;
+  cvVersionId: number;
+  cvVersion: number | null;
+  status: string;
+  attempts: number;
+  tunedCv: MasiTunedCv | null;
+  coverLetter: string | null;
+  claims: MasiFinding[] | null;
+  lint: MasiFinding[] | null;
+  model: string | null;
+  costUsd: number | null;
+  error: string | null;
+  userNotes: string | null;
+  appliedAt: string | null;
+  response: string;
+  createdAt: string;
+  updatedAt: string;
+  artifacts: MasiArtifact[];
+}
+
+export interface MasiDashboard {
+  openJobs: number;
+  newJobs7d: number;
+  closedJobs7d: number;
+  companiesHiring: number;
+  packages: Record<string, number>;
+  llm: {
+    today: number;
+    dailyBudget: number;
+    month: number;
+    monthlyBudget: number;
+    enabled: boolean;
+  };
+  cv: { activeVersion: number | null; completeness: number | null; gaps: string[] };
+  sources: Array<{
+    id: number;
+    key: string;
+    name: string;
+    enabled: boolean;
+    health: string;
+    lastRunAt: string | null;
+    lastSuccessAt: string | null;
+    running: boolean;
+  }>;
+  tuningPausedUntil: string | null;
+}
+
+function query(params: Record<string, string | number | boolean | undefined>): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== '' && v !== null) q.set(k, String(v));
+  }
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}
+
+async function masiGet<T>(path: string, signal?: AbortSignal, what = 'load'): Promise<T> {
+  const response = await apiFetch(`${API_BASE}/masi${path}`, { signal });
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || `Failed to ${what}`);
+  }
+  return readJson<T>(response);
+}
+
+async function masiSend<T>(
+  path: string,
+  method: string,
+  body?: unknown,
+  what = 'save',
+): Promise<T> {
+  const response = await apiFetch(`${API_BASE}/masi${path}`, {
+    method,
+    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || `Failed to ${what}`);
+  }
+  return readJson<T>(response);
+}
+
+export function fetchMasiDashboard(signal?: AbortSignal): Promise<MasiDashboard> {
+  return masiGet('/dashboard', signal, 'load the dashboard');
+}
+
+export function fetchMasiJobs(
+  filter: MasiJobFilter,
+  signal?: AbortSignal,
+): Promise<Paged<MasiJob>> {
+  return masiGet(`/jobs${query({ ...filter })}`, signal, 'load jobs');
+}
+
+export function fetchMasiJob(id: number, signal?: AbortSignal): Promise<MasiJob> {
+  return masiGet(`/jobs/${id}`, signal, 'load the job');
+}
+
+export function saveMasiJobNote(id: number, userNote: string): Promise<MasiJob> {
+  return masiSend(`/jobs/${id}`, 'PATCH', { userNote }, 'save the note');
+}
+
+export function fetchMasiCompanies(
+  filter: { q?: string; status?: string; hiring?: boolean; page?: number; size?: number },
+  signal?: AbortSignal,
+): Promise<Paged<MasiCompany>> {
+  return masiGet(`/companies${query({ ...filter })}`, signal, 'load companies');
+}
+
+export function fetchMasiCompany(id: number, signal?: AbortSignal): Promise<MasiCompany> {
+  return masiGet(`/companies/${id}`, signal, 'load the company');
+}
+
+export function patchMasiCompany(
+  id: number,
+  patch: { userNote?: string; blacklisted?: boolean; userRating?: number; careersUrl?: string },
+): Promise<MasiCompany> {
+  return masiSend(`/companies/${id}`, 'PATCH', patch, 'save the company');
+}
+
+export function fetchMasiCompanyContacts(
+  id: number,
+  signal?: AbortSignal,
+): Promise<Paged<MasiContact>> {
+  return masiGet(`/companies/${id}/contacts?size=200`, signal, 'load contacts');
+}
+
+export function fetchMasiContacts(
+  filter: { company?: number; page?: number; size?: number },
+  signal?: AbortSignal,
+): Promise<Paged<MasiContact>> {
+  return masiGet(`/contacts${query({ ...filter })}`, signal, 'load contacts');
+}
+
+export function patchMasiContact(
+  id: number,
+  patch: { doNotContact?: boolean; userNote?: string },
+): Promise<MasiContact> {
+  return masiSend(`/contacts/${id}`, 'PATCH', patch, 'save the contact');
+}
+
+export function fetchMasiSources(signal?: AbortSignal): Promise<MasiSource[]> {
+  return masiGet('/sources', signal, 'load sources');
+}
+
+export function patchMasiSource(
+  id: number,
+  patch: { cron?: string; enabled?: boolean; configJson?: string },
+): Promise<MasiSource> {
+  return masiSend(`/sources/${id}`, 'PATCH', patch, 'save the source');
+}
+
+export function runMasiSource(id: number): Promise<void> {
+  return masiSend(`/sources/${id}/run`, 'POST', undefined, 'start the run');
+}
+
+export function fetchMasiSourceRuns(
+  id: number,
+  signal?: AbortSignal,
+): Promise<Paged<MasiSourceRun>> {
+  return masiGet(`/sources/${id}/runs?size=20`, signal, 'load runs');
+}
+
+export function fetchMasiPackages(
+  filter: { status?: string; job?: number },
+  signal?: AbortSignal,
+): Promise<MasiPackage[]> {
+  return masiGet(`/packages${query({ ...filter })}`, signal, 'load packages');
+}
+
+export function fetchMasiPackage(id: number, signal?: AbortSignal): Promise<MasiPackage> {
+  return masiGet(`/packages/${id}`, signal, 'load the package');
+}
+
+export function requestMasiPackage(jobId: number): Promise<MasiPackage> {
+  return masiSend(`/jobs/${jobId}/packages`, 'POST', undefined, 'prepare the package');
+}
+
+export function reviewMasiPackage(
+  id: number,
+  action: 'REVIEWED' | 'APPLIED' | 'SKIPPED',
+  notes?: string,
+  response?: string,
+): Promise<MasiPackage> {
+  return masiSend(
+    `/packages/${id}/review`,
+    'POST',
+    { action, notes, response },
+    'review the package',
+  );
+}
+
+export function regenerateMasiPackage(id: number): Promise<MasiPackage> {
+  return masiSend(`/packages/${id}/regenerate`, 'POST', undefined, 'regenerate the package');
+}
+
+export function fetchMasiRetuneEstimate(
+  signal?: AbortSignal,
+): Promise<{ count: number; estimatedUsd: number }> {
+  return masiGet('/packages/retune', signal, 'estimate the re-tune');
+}
+
+export function retuneMasi(): Promise<{ count: number; estimatedUsd: number }> {
+  return masiSend('/packages/retune', 'POST', undefined, 're-tune');
+}
+
+/** The artifact is a file the browser opens itself; the token rides in a header, so fetch it as a blob. */
+export async function fetchMasiArtifact(id: number, kind: 'CV_PDF' | 'LETTER_TXT'): Promise<Blob> {
+  const response = await apiFetch(
+    `${API_BASE}/masi/packages/${id}/artifacts/${kind.toLowerCase()}`,
+  );
+  if (!response.ok) throw new Error('Failed to fetch the artifact');
+  return response.blob();
+}
