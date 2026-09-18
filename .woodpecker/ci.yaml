@@ -21,7 +21,7 @@ steps:
   - name: install
     image: git.pmon.dev/schnappy/sonar-scanner:latest
     commands:
-      - npm ci --no-audit --no-fund   # never --silent: a failed install must say why
+      - npm ci --no-audit --no-fund # never --silent: a failed install must say why
     backend_options:
       kubernetes:
         resources:
