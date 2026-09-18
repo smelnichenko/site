@@ -60,24 +60,20 @@ export default function MasiJobDetail() {
   // a package being prepared: poll while it settles — every 10 s for the first 3 min, then every minute, and give up
   // after an hour (a spent budget parks a package NEW until the next UTC day); a failure is shown, never swallowed
   const preparing = packages.some((p) => p.status === 'NEW' || p.status === 'PREPARING');
+  const refreshPackages = useCallback(async () => {
+    try {
+      setPackages(await fetchMasiPackages({ job: jobId }));
+      setPolls((n) => n + 1);
+    } catch (e: unknown) {
+      setMessage(errorMessage(e, 'Refreshing the package failed'));
+      setPolls(MAX_POLLS);
+    }
+  }, [jobId]);
   useEffect(() => {
     if (!preparing || polls >= MAX_POLLS) return;
-    const t = setTimeout(
-      () => {
-        void (async () => {
-          try {
-            setPackages(await fetchMasiPackages({ job: jobId }));
-            setPolls((n) => n + 1);
-          } catch (e: unknown) {
-            setMessage(errorMessage(e, 'Refreshing the package failed'));
-            setPolls(MAX_POLLS);
-          }
-        })();
-      },
-      polls < 18 ? 10_000 : 60_000,
-    );
+    const t = setTimeout(() => void refreshPackages(), polls < 18 ? 10_000 : 60_000);
     return () => clearTimeout(t);
-  }, [preparing, polls, jobId]);
+  }, [preparing, polls, refreshPackages]);
 
   function replacePackage(next: MasiPackage) {
     setPackages((cur) => cur.map((x) => (x.id === next.id ? next : x)));

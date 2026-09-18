@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchMasiSourceRuns,
   fetchMasiSources,
@@ -11,6 +11,20 @@ import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDateTime } from './format';
 
+/** A draft the operator is still editing (differs from what the server had) survives the reload every action triggers. */
+function keepEdits(
+  drafts: Record<number, string>,
+  before: Map<number, string>,
+  list: MasiSource[],
+): Record<number, string> {
+  const next: Record<number, string> = {};
+  for (const s of list) {
+    const draft = drafts[s.id];
+    next[s.id] = draft !== undefined && draft !== before.get(s.id) ? draft : s.cron;
+  }
+  return next;
+}
+
 /** Every collector agent: enable, cron, run now, and its last runs; a source without a bean (FAILING) cannot be enabled. */
 export default function MasiSources() {
   const [sources, setSources] = useState<MasiSource[] | null>(null);
@@ -21,23 +35,13 @@ export default function MasiSources() {
   const [message, setMessage] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
+  const serverCron = useRef<Map<number, string>>(new Map());
   const reload = useCallback(async (signal?: AbortSignal) => {
     const list = await fetchMasiSources(signal);
-    setSources((before) => {
-      // a draft the operator is still editing (differs from what the server had) survives the reload
-      const previous = new Map((before ?? []).map((s) => [s.id, s.cron]));
-      setCronDraft((drafts) =>
-        Object.fromEntries(
-          list.map((s) => [
-            s.id,
-            drafts[s.id] !== undefined && drafts[s.id] !== previous.get(s.id)
-              ? drafts[s.id]
-              : s.cron,
-          ]),
-        ),
-      );
-      return list;
-    });
+    const before = serverCron.current;
+    setCronDraft((drafts) => keepEdits(drafts, before, list));
+    serverCron.current = new Map(list.map((s) => [s.id, s.cron]));
+    setSources(list);
   }, []);
 
   useEffect(() => {

@@ -91,7 +91,7 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
           {pkg.error}
         </div>
       )}
-      {pkg.claims && pkg.claims.length > 0 && (
+      {(pkg.claims?.length ?? 0) > 0 && (
         <div className="error" role="alert" data-testid="claims">
           <strong>Claims the checker refused ({pkg.claims.length}):</strong>
           <ul>
@@ -111,7 +111,7 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
             0 claims violations
           </div>
         )}
-      {pkg.lint && pkg.lint.length > 0 && (
+      {(pkg.lint?.length ?? 0) > 0 && (
         <details className="masi-lint" data-testid="lint">
           <summary>{pkg.lint.length} lint warning(s)</summary>
           <ul>
