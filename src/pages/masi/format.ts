@@ -25,6 +25,25 @@ export function formatUsd(v: number | null | undefined): string {
   return `$${Number(v).toFixed(2)}`;
 }
 
+/** Hands a fetched file to the browser through a download link: no popup, so no blocker; the URL is revoked once the click has fired. */
+export function openBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** A page number from the URL: a non-integer or negative value is page 0, never a NaN sent to the API. */
+export function pageParam(value: string | null): number {
+  const n = Number(value ?? '0');
+  return Number.isInteger(n) && n >= 0 ? n : 0;
+}
+
 export function errorMessage(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
 }

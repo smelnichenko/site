@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { fetchMasiCompanies, MasiCompany, Paged } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
-import { badgeClass, errorMessage, formatDate } from './format';
+import { badgeClass, errorMessage, formatDate, pageParam } from './format';
 
 const PAGE_SIZE = 50;
 
@@ -12,8 +12,7 @@ export default function MasiCompanies() {
   const q = params.get('q') ?? '';
   const status = params.get('status') ?? '';
   const hiring = params.get('hiring') === 'true';
-  const pageNo = Number(params.get('page') ?? '0');
-  const [draft, setDraft] = useState(q);
+  const pageNo = pageParam(params.get('page'));
   const [page, setPage] = useState<Paged<MasiCompany> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,15 +54,17 @@ export default function MasiCompanies() {
           className="form-row masi-filters"
           onSubmit={(e) => {
             e.preventDefault();
-            set('q', draft.trim());
+            const typed = new FormData(e.currentTarget).get('q');
+            set('q', typeof typed === 'string' ? typed.trim() : '');
           }}
         >
           <input
+            key={q}
             type="search"
+            name="q"
             aria-label="Search name or registry code"
             placeholder="name or registry code…"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            defaultValue={q}
           />
           <select
             aria-label="Status"
@@ -92,9 +93,7 @@ export default function MasiCompanies() {
           </div>
         )}
         {!page && !error && <div className="loading">Loading companies...</div>}
-        {page && page.content.length === 0 && (
-          <div className="empty-state">No companies match.</div>
-        )}
+        {page?.content.length === 0 && <div className="empty-state">No companies match.</div>}
         {page && page.content.length > 0 && (
           <table className="table">
             <thead>

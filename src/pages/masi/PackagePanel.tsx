@@ -6,13 +6,15 @@ import {
   reviewMasiPackage,
 } from '../../services/api';
 import LoadingButton from '../../components/LoadingButton';
-import { badgeClass, errorMessage, formatDateTime, formatUsd } from './format';
+import { badgeClass, errorMessage, formatDateTime, formatUsd, openBlob } from './format';
 
 const RESPONSES = ['NONE', 'REPLIED', 'INTERVIEW', 'OFFER', 'REJECTED'];
 
 interface Props {
   pkg: MasiPackage;
   onChanged: (next: MasiPackage) => void;
+  /** False when the job closed: regenerating would only earn a 409. */
+  jobOpen?: boolean;
 }
 
 /**
@@ -20,7 +22,7 @@ interface Props {
  * report and the lint next to it, the PDF and the letter, and the transitions masi never takes
  * by itself — Mark reviewed, Mark applied, Skip, Regenerate. Applying is the operator's act.
  */
-export default function PackagePanel({ pkg, onChanged }: Props) {
+export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonly<Props>) {
   const [notes, setNotes] = useState(pkg.userNotes ?? '');
   const [response, setResponse] = useState(pkg.response);
   const [busy, setBusy] = useState(false);
@@ -44,10 +46,10 @@ export default function PackagePanel({ pkg, onChanged }: Props) {
   async function openArtifact(kind: 'CV_PDF' | 'LETTER_TXT') {
     setBusy(true);
     try {
-      const blob = await fetchMasiArtifact(pkg.id, kind);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      openBlob(
+        await fetchMasiArtifact(pkg.id, kind),
+        kind === 'CV_PDF' ? `cv-${pkg.id}.pdf` : `letter-${pkg.id}.txt`,
+      );
     } catch (e: unknown) {
       setMessage(errorMessage(e, 'The artifact could not be fetched'));
     } finally {
@@ -68,6 +70,8 @@ export default function PackagePanel({ pkg, onChanged }: Props) {
 
   const reviewable = pkg.status === 'PREPARED' || pkg.status === 'REVIEWED';
   const cvPdf = pkg.artifacts.find((a) => a.kind === 'CV_PDF');
+  const letterTxt = pkg.artifacts.find((a) => a.kind === 'LETTER_TXT');
+  const canRegenerate = jobOpen && pkg.status !== 'APPLIED' && pkg.status !== 'PREPARING';
   return (
     <div className="card masi-package" data-testid="package-panel">
       <div className="card-header">
@@ -91,8 +95,8 @@ export default function PackagePanel({ pkg, onChanged }: Props) {
         <div className="error" role="alert" data-testid="claims">
           <strong>Claims the checker refused ({pkg.claims.length}):</strong>
           <ul>
-            {pkg.claims.map((c, i) => (
-              <li key={i}>
+            {pkg.claims.map((c) => (
+              <li key={`${c.rule}:${c.detail}`}>
                 <code>{c.rule}</code> {c.detail}
               </li>
             ))}
@@ -111,8 +115,8 @@ export default function PackagePanel({ pkg, onChanged }: Props) {
         <details className="masi-lint" data-testid="lint">
           <summary>{pkg.lint.length} lint warning(s)</summary>
           <ul>
-            {pkg.lint.map((w, i) => (
-              <li key={i}>
+            {pkg.lint.map((w) => (
+              <li key={`${w.rule}:${w.detail}`}>
                 <code>{w.rule}</code> {w.detail}
               </li>
             ))}
@@ -123,15 +127,15 @@ export default function PackagePanel({ pkg, onChanged }: Props) {
         <div className="masi-tuned">
           <h3>{pkg.tunedCv.title}</h3>
           <p>{pkg.tunedCv.summary}</p>
-          {pkg.tunedCv.roles.map((r, i) => (
-            <div key={i} className="masi-role">
+          {pkg.tunedCv.roles.map((r) => (
+            <div key={`${r.company}:${r.title}`} className="masi-role">
               <strong>{r.title}</strong> · {r.company}
               {r.collapsed ? (
                 <span className="muted"> (collapsed)</span>
               ) : (
                 <ul>
-                  {r.bullets.map((b, k) => (
-                    <li key={k}>{b.text}</li>
+                  {r.bullets.map((b) => (
+                    <li key={b.achievementIndex}>{b.text}</li>
                   ))}
                 </ul>
               )}
@@ -160,6 +164,14 @@ export default function PackagePanel({ pkg, onChanged }: Props) {
             onClick={() => void openArtifact('CV_PDF')}
             loading={busy}
             label="Open CV PDF"
+          />
+        )}
+        {letterTxt?.available && (
+          <LoadingButton
+            className="status-badge"
+            onClick={() => void openArtifact('LETTER_TXT')}
+            loading={busy}
+            label="Download letter"
           />
         )}
       </div>
@@ -235,7 +247,7 @@ export default function PackagePanel({ pkg, onChanged }: Props) {
             label="Skip"
           />
         )}
-        {pkg.status !== 'APPLIED' && pkg.status !== 'PREPARING' && (
+        {canRegenerate && (
           <LoadingButton
             className="status-badge edit"
             onClick={() => void act(() => regenerateMasiPackage(pkg.id), 'Regenerating…')}

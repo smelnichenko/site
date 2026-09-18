@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
+  fetchCvMaster,
   fetchMasiJob,
   fetchMasiPackages,
   MasiJob,
@@ -13,12 +14,17 @@ import LoadingButton from '../../components/LoadingButton';
 import PackagePanel from './PackagePanel';
 import { errorMessage, formatDateTime } from './format';
 
+/** 18 × 10 s, then 57 × 60 s: an hour of polling at most. */
+const MAX_POLLS = 75;
+
 /** One job: its listings per source, the description, the operator's note, and the package panel. */
 export default function MasiJobDetail() {
   const { id } = useParams();
   const jobId = Number(id);
   const [job, setJob] = useState<MasiJob | null>(null);
   const [packages, setPackages] = useState<MasiPackage[]>([]);
+  const [activeCv, setActiveCv] = useState<number | null>(null);
+  const [polls, setPolls] = useState(0);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -26,13 +32,15 @@ export default function MasiJobDetail() {
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
-      const [j, ps] = await Promise.all([
+      const [j, ps, cv] = await Promise.all([
         fetchMasiJob(jobId, signal),
         fetchMasiPackages({ job: jobId }, signal),
+        fetchCvMaster(signal),
       ]);
       setJob(j);
       setNote(j.userNote ?? '');
       setPackages(ps);
+      setActiveCv(cv.active?.version ?? null);
     },
     [jobId],
   );
@@ -49,17 +57,31 @@ export default function MasiJobDetail() {
     return () => controller.abort();
   }, [reload]);
 
-  // a package being prepared: poll until it settles
+  // a package being prepared: poll while it settles — every 10 s for the first 3 min, then every minute, and give up
+  // after an hour (a spent budget parks a package NEW until the next UTC day); a failure is shown, never swallowed
   const preparing = packages.some((p) => p.status === 'NEW' || p.status === 'PREPARING');
   useEffect(() => {
-    if (!preparing) return;
-    const t = setInterval(() => {
-      fetchMasiPackages({ job: jobId })
-        .then(setPackages)
-        .catch(() => undefined);
-    }, 10_000);
-    return () => clearInterval(t);
-  }, [preparing, jobId]);
+    if (!preparing || polls >= MAX_POLLS) return;
+    const t = setTimeout(
+      () => {
+        void (async () => {
+          try {
+            setPackages(await fetchMasiPackages({ job: jobId }));
+            setPolls((n) => n + 1);
+          } catch (e: unknown) {
+            setMessage(errorMessage(e, 'Refreshing the package failed'));
+            setPolls(MAX_POLLS);
+          }
+        })();
+      },
+      polls < 18 ? 10_000 : 60_000,
+    );
+    return () => clearTimeout(t);
+  }, [preparing, polls, jobId]);
+
+  function replacePackage(next: MasiPackage) {
+    setPackages((cur) => cur.map((x) => (x.id === next.id ? next : x)));
+  }
 
   async function onPrepare() {
     setBusy(true);
@@ -67,6 +89,7 @@ export default function MasiJobDetail() {
     try {
       const p = await requestMasiPackage(jobId);
       setPackages((cur) => [p, ...cur.filter((x) => x.id !== p.id)]);
+      setPolls(0);
       setMessage('Package queued; it prepares in the background');
     } catch (e: unknown) {
       setMessage(errorMessage(e, 'Prepare failed'));
@@ -161,21 +184,24 @@ export default function MasiJobDetail() {
             loading={busy}
             label="Save note"
           />
-          {job.status === 'OPEN' && packages.length === 0 && (
-            <LoadingButton
-              className="status-badge add"
-              onClick={() => void onPrepare()}
-              loading={busy}
-              label="Prepare package"
-            />
-          )}
+          {job.status === 'OPEN' &&
+            activeCv !== null &&
+            !packages.some((p) => p.cvVersion === activeCv) && (
+              <LoadingButton
+                className="status-badge add"
+                onClick={() => void onPrepare()}
+                loading={busy}
+                label="Prepare package"
+              />
+            )}
         </div>
       </div>
       {packages.map((p) => (
         <PackagePanel
           key={p.id}
           pkg={p}
-          onChanged={(next) => setPackages((cur) => cur.map((x) => (x.id === next.id ? next : x)))}
+          onChanged={replacePackage}
+          jobOpen={job.status === 'OPEN'}
         />
       ))}
     </div>

@@ -1256,7 +1256,6 @@ export interface MasiJobFilter {
   q?: string;
   company?: number;
   remote?: string;
-  since?: string;
   packageStatus?: string;
   page?: number;
   size?: number;
@@ -1284,7 +1283,7 @@ export interface MasiCompany {
 
 export interface MasiContact {
   id: number;
-  companyId: number;
+  companyId: number | null;
   companyName: string | null;
   kind: string;
   name: string | null;

@@ -86,7 +86,7 @@ export default function MasiPackages() {
           </div>
         )}
         {!list && !error && <div className="loading">Loading packages...</div>}
-        {list && list.length === 0 && <div className="empty-state">Nothing in this state.</div>}
+        {list?.length === 0 && <div className="empty-state">Nothing in this state.</div>}
         {list && list.length > 0 && (
           <table className="table">
             <thead>

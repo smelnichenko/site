@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { fetchMasiJobs, MasiJob, Paged } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
-import { badgeClass, errorMessage, formatDate, PACKAGE_STATES } from './format';
+import { badgeClass, errorMessage, formatDate, PACKAGE_STATES, pageParam } from './format';
 
 const PAGE_SIZE = 50;
 
@@ -16,8 +16,7 @@ export default function MasiJobs() {
   const remote = params.get('remote') ?? '';
   const packageStatus = params.get('packageStatus') ?? '';
   const company = params.get('company');
-  const pageNo = Number(params.get('page') ?? '0');
-  const [draft, setDraft] = useState(q);
+  const pageNo = pageParam(params.get('page'));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,15 +64,17 @@ export default function MasiJobs() {
           className="form-row masi-filters"
           onSubmit={(e) => {
             e.preventDefault();
-            set('q', draft.trim());
+            const typed = new FormData(e.currentTarget).get('q');
+            set('q', typeof typed === 'string' ? typed.trim() : '');
           }}
         >
           <input
+            key={q}
             type="search"
+            name="q"
             aria-label="Search title"
             placeholder="title contains…"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            defaultValue={q}
           />
           <select
             aria-label="Status"
@@ -122,7 +123,7 @@ export default function MasiJobs() {
           </div>
         )}
         {!page && !error && <div className="loading">Loading jobs...</div>}
-        {page && page.content.length === 0 && <div className="empty-state">No jobs match.</div>}
+        {page?.content.length === 0 && <div className="empty-state">No jobs match.</div>}
         {page && page.content.length > 0 && (
           <table className="table">
             <thead>

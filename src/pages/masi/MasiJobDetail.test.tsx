@@ -5,6 +5,7 @@ import MasiJobDetail from './MasiJobDetail';
 import { job, prepared, renderAt } from './testUtils';
 
 vi.mock('../../services/api', () => ({
+  fetchCvMaster: vi.fn(),
   fetchMasiJob: vi.fn(),
   fetchMasiPackages: vi.fn(),
   requestMasiPackage: vi.fn(),
@@ -16,6 +17,19 @@ vi.mock('../../services/api', () => ({
 const api = await import('../../services/api');
 
 beforeEach(() => {
+  vi.mocked(api.fetchCvMaster).mockReset();
+  vi.mocked(api.fetchCvMaster).mockResolvedValue({
+    active: {
+      version: 2,
+      note: null,
+      active: true,
+      activatedAt: null,
+      createdAt: '2026-09-18T00:00:00Z',
+      schemaVersion: '1',
+    },
+    yaml: 'x',
+    completeness: null,
+  });
   vi.mocked(api.fetchMasiJob).mockReset();
   vi.mocked(api.fetchMasiPackages).mockReset();
   vi.mocked(api.requestMasiPackage).mockReset();
@@ -71,6 +85,8 @@ describe('MasiJobDetail', () => {
     expect(screen.getByText('(collapsed)')).toBeInTheDocument();
     expect(screen.getByText('Dear Nortal team, token-LETTER')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open CV PDF' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download letter' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Prepare package' })).not.toBeInTheDocument(); // a package for the active version exists
     await userEvent.type(screen.getByLabelText('Notes'), 'sent via their form');
     await userEvent.click(screen.getByRole('button', { name: 'Mark applied' }));
     await waitFor(() =>
@@ -79,6 +95,21 @@ describe('MasiJobDetail', () => {
     expect(screen.getByText('Marked applied — you sent it, masi never does')).toBeInTheDocument();
     expect(screen.getByLabelText('Employer response')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Regenerate' })).not.toBeInTheDocument();
+  });
+
+  it('offers Prepare again once a newer CV version is active, and never for a closed job', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([{ ...prepared, cvVersion: 1 }]); // an older version's package
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    expect(await screen.findByRole('button', { name: 'Prepare package' })).toBeInTheDocument();
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({
+      ...job,
+      status: 'CLOSED',
+      closedAt: '2026-09-18T11:00:00Z',
+    });
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    await screen.findAllByText(/closed/);
+    expect(screen.getAllByRole('button', { name: 'Regenerate' })).toHaveLength(1); // the open job's panel only
   });
 
   it('shows the refused claims of a guard failure and offers regenerate', async () => {

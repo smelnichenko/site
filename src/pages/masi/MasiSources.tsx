@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import {
   fetchMasiSourceRuns,
   fetchMasiSources,
@@ -19,12 +19,25 @@ export default function MasiSources() {
   const [cronDraft, setCronDraft] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   const reload = useCallback(async (signal?: AbortSignal) => {
     const list = await fetchMasiSources(signal);
-    setSources(list);
-    setCronDraft(Object.fromEntries(list.map((s) => [s.id, s.cron])));
+    setSources((before) => {
+      // a draft the operator is still editing (differs from what the server had) survives the reload
+      const previous = new Map((before ?? []).map((s) => [s.id, s.cron]));
+      setCronDraft((drafts) =>
+        Object.fromEntries(
+          list.map((s) => [
+            s.id,
+            drafts[s.id] !== undefined && drafts[s.id] !== previous.get(s.id)
+              ? drafts[s.id]
+              : s.cron,
+          ]),
+        ),
+      );
+      return list;
+    });
   }, []);
 
   useEffect(() => {
@@ -39,8 +52,8 @@ export default function MasiSources() {
     return () => controller.abort();
   }, [reload]);
 
-  async function act(fn: () => Promise<unknown>, done: string) {
-    setBusy(true);
+  async function act(id: number, fn: () => Promise<unknown>, done: string) {
+    setBusyId(id);
     setMessage(null);
     try {
       await fn();
@@ -49,7 +62,7 @@ export default function MasiSources() {
     } catch (e: unknown) {
       setMessage(errorMessage(e, 'The action failed'));
     } finally {
-      setBusy(false);
+      setBusyId(null);
     }
   }
 
@@ -100,8 +113,8 @@ export default function MasiSources() {
             </thead>
             <tbody>
               {sources.map((s) => (
-                <>
-                  <tr key={s.id}>
+                <Fragment key={s.id}>
+                  <tr>
                     <td>
                       <button
                         type="button"
@@ -126,6 +139,7 @@ export default function MasiSources() {
                           const next = (cronDraft[s.id] ?? s.cron).trim();
                           if (next && next !== s.cron)
                             void act(
+                              s.id,
                               () => patchMasiSource(s.id, { cron: next }),
                               `${s.key}: cron saved`,
                             );
@@ -148,26 +162,29 @@ export default function MasiSources() {
                         className={s.enabled ? 'status-badge' : 'status-badge add'}
                         onClick={() =>
                           void act(
+                            s.id,
                             () => patchMasiSource(s.id, { enabled: !s.enabled }),
                             `${s.key}: ${s.enabled ? 'disabled' : 'enabled'}`,
                           )
                         }
-                        loading={busy}
+                        loading={busyId === s.id}
                         label={s.enabled ? 'Disable' : 'Enable'}
                       />
                       <LoadingButton
                         className="status-badge action"
-                        onClick={() => void act(() => runMasiSource(s.id), `${s.key}: run started`)}
-                        loading={busy}
+                        onClick={() =>
+                          void act(s.id, () => runMasiSource(s.id), `${s.key}: run started`)
+                        }
+                        loading={busyId === s.id}
                         label="Run now"
                       />
                     </td>
                   </tr>
                   {openId === s.id && (
-                    <tr key={`${s.id}-runs`}>
+                    <tr>
                       <td colSpan={6}>
                         {!runs[s.id] && <div className="loading">Loading runs...</div>}
-                        {runs[s.id] && runs[s.id].length === 0 && (
+                        {runs[s.id]?.length === 0 && (
                           <div className="empty-state">No runs yet.</div>
                         )}
                         {runs[s.id] && runs[s.id].length > 0 && (
@@ -206,7 +223,7 @@ export default function MasiSources() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

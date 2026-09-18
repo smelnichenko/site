@@ -3,17 +3,17 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { fetchMasiContacts, MasiContact, Paged, patchMasiContact } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
-import { errorMessage, formatDateTime } from './format';
+import { errorMessage, formatDateTime, pageParam } from './format';
 
 const PAGE_SIZE = 50;
 
 /** Every recorded contact person across companies; the do-not-contact flag is honoured by the letter's addressee line. */
 export default function MasiContacts() {
   const [params, setParams] = useSearchParams();
-  const pageNo = Number(params.get('page') ?? '0');
+  const pageNo = pageParam(params.get('page'));
   const [page, setPage] = useState<Paged<MasiContact> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -26,7 +26,7 @@ export default function MasiContacts() {
   }, [pageNo]);
 
   async function toggle(c: MasiContact) {
-    setBusy(true);
+    setBusyId(c.id);
     try {
       const next = await patchMasiContact(c.id, { doNotContact: !c.doNotContact });
       setPage((cur) =>
@@ -35,8 +35,14 @@ export default function MasiContacts() {
     } catch (e: unknown) {
       setError(errorMessage(e, 'Saving the contact failed'));
     } finally {
-      setBusy(false);
+      setBusyId(null);
     }
+  }
+
+  function goTo(n: number) {
+    const next = new URLSearchParams(params);
+    next.set('page', String(n));
+    setParams(next);
   }
 
   const total = page?.totalElements ?? 0;
@@ -55,9 +61,7 @@ export default function MasiContacts() {
           </div>
         )}
         {!page && !error && <div className="loading">Loading contacts...</div>}
-        {page && page.content.length === 0 && (
-          <div className="empty-state">No contacts recorded yet.</div>
-        )}
+        {page?.content.length === 0 && <div className="empty-state">No contacts recorded yet.</div>}
         {page && page.content.length > 0 && (
           <table className="table">
             <thead>
@@ -86,7 +90,7 @@ export default function MasiContacts() {
                     <LoadingButton
                       className={c.doNotContact ? 'status-badge error' : 'status-badge success'}
                       onClick={() => void toggle(c)}
-                      loading={busy}
+                      loading={busyId === c.id}
                       label={c.doNotContact ? 'do not contact' : 'ok to contact'}
                     />
                   </td>
@@ -101,7 +105,7 @@ export default function MasiContacts() {
               type="button"
               className="btn-small"
               disabled={pageNo <= 0}
-              onClick={() => setParams({ page: String(pageNo - 1) })}
+              onClick={() => goTo(pageNo - 1)}
             >
               Previous
             </button>
@@ -112,7 +116,7 @@ export default function MasiContacts() {
               type="button"
               className="btn-small"
               disabled={pageNo + 1 >= pages}
-              onClick={() => setParams({ page: String(pageNo + 1) })}
+              onClick={() => goTo(pageNo + 1)}
             >
               Next
             </button>

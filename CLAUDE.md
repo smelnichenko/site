@@ -26,7 +26,7 @@ src/
     MonitorConfig                           (METRICS — page+RSS CRUD)
     Chat                                    (CHAT)
     Inbox                                   (EMAIL — received mail)
-    MasiCv                                  (JOBS — /masi/cv: the CV master, versions, validation, PDF preview)
+    masi/MasiCv                             (JOBS — /masi/cv: the CV master, versions, validation, PDF preview)
     masi/MasiDashboard                      (JOBS — /masi: the overview with the cost tile)
     masi/MasiJobs, masi/MasiJobDetail       (JOBS — /masi/jobs, /masi/jobs/:id: the registry and the package panel)
     masi/MasiPackages, masi/MasiPackageDetail (JOBS — /masi/packages, /masi/packages/:id: the review queue, re-tune)

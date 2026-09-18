@@ -76,6 +76,17 @@ describe('MasiSources', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Run now' }));
     await waitFor(() => expect(api.runMasiSource).toHaveBeenCalledWith(1));
     expect(screen.getByText('cvee: run started')).toBeInTheDocument();
+    // an edited cron is saved on blur, and the edit survives the reload every action triggers
+    await userEvent.clear(screen.getByLabelText('Cron for cvee'));
+    await userEvent.type(screen.getByLabelText('Cron for cvee'), '0 5 * * * *');
+    await userEvent.tab();
+    await waitFor(() =>
+      expect(api.patchMasiSource).toHaveBeenCalledWith(1, { cron: '0 5 * * * *' }),
+    );
+    await waitFor(() => expect(screen.getByText('cvee: cron saved')).toBeInTheDocument());
+    expect(screen.getByLabelText('Cron for cvee')).toHaveValue('0 5 * * * *');
+    await userEvent.click(screen.getByRole('button', { name: 'Run now' }));
+    await waitFor(() => expect(api.runMasiSource).toHaveBeenCalledTimes(2));
     await userEvent.click(screen.getByRole('button', { name: 'cv.ee' }));
     expect(await screen.findByTestId('runs-cvee')).toHaveTextContent('247');
     expect(screen.getByTestId('runs-cvee')).toHaveTextContent('12');

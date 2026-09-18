@@ -20,7 +20,7 @@ const Game = lazy(() => import('./pages/Game'));
 const Chess = lazy(() => import('./pages/Chess'));
 const Inbox = lazy(() => import('./pages/Inbox'));
 const Admin = lazy(() => import('./pages/Admin'));
-const MasiCv = lazy(() => import('./pages/MasiCv'));
+const MasiCv = lazy(() => import('./pages/masi/MasiCv'));
 const MasiDashboard = lazy(() => import('./pages/masi/MasiDashboard'));
 const MasiJobs = lazy(() => import('./pages/masi/MasiJobs'));
 const MasiJobDetail = lazy(() => import('./pages/masi/MasiJobDetail'));

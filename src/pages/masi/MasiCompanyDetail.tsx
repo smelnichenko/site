@@ -20,6 +20,8 @@ export default function MasiCompanyDetail() {
   const companyId = Number(id);
   const [company, setCompany] = useState<MasiCompany | null>(null);
   const [jobs, setJobs] = useState<MasiJob[]>([]);
+  const [jobTotal, setJobTotal] = useState(0);
+  const [busyContact, setBusyContact] = useState<number | null>(null);
   const [contacts, setContacts] = useState<MasiContact[]>([]);
   const [note, setNote] = useState('');
   const [careersUrl, setCareersUrl] = useState('');
@@ -38,6 +40,7 @@ export default function MasiCompanyDetail() {
       setNote(c.userNote ?? '');
       setCareersUrl(c.careersUrl ?? '');
       setJobs(js.content);
+      setJobTotal(js.totalElements);
       setContacts(cs.content);
     },
     [companyId],
@@ -69,14 +72,14 @@ export default function MasiCompanyDetail() {
   }
 
   async function toggleContact(c: MasiContact) {
-    setBusy(true);
+    setBusyContact(c.id);
     try {
       const next = await patchMasiContact(c.id, { doNotContact: !c.doNotContact });
       setContacts((cur) => cur.map((x) => (x.id === next.id ? next : x)));
     } catch (e: unknown) {
       setMessage(errorMessage(e, 'Saving the contact failed'));
     } finally {
-      setBusy(false);
+      setBusyContact(null);
     }
   }
 
@@ -173,7 +176,11 @@ export default function MasiCompanyDetail() {
           <span className="card-title">Jobs</span>
           <span className="muted">
             {open.length} open · {closed.length} closed
+            {jobTotal > jobs.length ? ` (showing ${jobs.length} of ${jobTotal})` : ''}
           </span>
+          <Link to={`/masi/jobs?company=${companyId}&status=ALL`} className="muted">
+            all in the registry
+          </Link>
         </div>
         {jobs.length === 0 && <div className="empty-state">No jobs from this company yet.</div>}
         {jobs.length > 0 && (
@@ -233,7 +240,7 @@ export default function MasiCompanyDetail() {
                     <LoadingButton
                       className={c.doNotContact ? 'status-badge error' : 'status-badge success'}
                       onClick={() => void toggleContact(c)}
-                      loading={busy}
+                      loading={busyContact === c.id}
                       label={c.doNotContact ? 'do not contact' : 'ok to contact'}
                     />
                   </td>
