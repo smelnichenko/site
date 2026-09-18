@@ -14,8 +14,12 @@ clone:
 steps:
   - name: test
     image: node:22-bookworm-slim
+    volumes:
+      - ci-cache:/cache   # persistent dependency cache: PVC in infra clusters/production/woodpecker/manifests
+    environment:
+      npm_config_cache: /cache/npm
     commands:
-      - npm ci --no-audit --no-fund
+      - npm ci --prefer-offline --no-audit --no-fund
       - npx tsc --noEmit
       # Same gate as CI: main must never merge past a lint or format failure.
       - npm run lint
@@ -57,8 +61,12 @@ steps:
   # ============== BUILD + PUSH IMAGE (Kaniko) ==============
   - name: build-dist
     image: node:22-bookworm-slim
+    volumes:
+      - ci-cache:/cache   # persistent dependency cache: PVC in infra clusters/production/woodpecker/manifests
+    environment:
+      npm_config_cache: /cache/npm
     commands:
-      - npm ci --no-audit --no-fund
+      - npm ci --prefer-offline --no-audit --no-fund
       - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
       - BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
       - VITE_GIT_HASH=$GIT_HASH VITE_BUILD_TIME=$BUILD_TIME npm run build
