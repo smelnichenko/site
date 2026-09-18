@@ -68,6 +68,8 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
     }
   }
 
+  const claims = pkg.claims ?? [];
+  const lint = pkg.lint ?? [];
   const reviewable = pkg.status === 'PREPARED' || pkg.status === 'REVIEWED';
   const cvPdf = pkg.artifacts.find((a) => a.kind === 'CV_PDF');
   const letterTxt = pkg.artifacts.find((a) => a.kind === 'LETTER_TXT');
@@ -91,11 +93,11 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
           {pkg.error}
         </div>
       )}
-      {(pkg.claims?.length ?? 0) > 0 && (
+      {claims.length > 0 && (
         <div className="error" role="alert" data-testid="claims">
-          <strong>Claims the checker refused ({pkg.claims.length}):</strong>
+          <strong>Claims the checker refused ({claims.length}):</strong>
           <ul>
-            {pkg.claims.map((c) => (
+            {claims.map((c) => (
               <li key={`${c.rule}:${c.detail}`}>
                 <code>{c.rule}</code> {c.detail}
               </li>
@@ -111,11 +113,11 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
             0 claims violations
           </div>
         )}
-      {(pkg.lint?.length ?? 0) > 0 && (
+      {lint.length > 0 && (
         <details className="masi-lint" data-testid="lint">
-          <summary>{pkg.lint.length} lint warning(s)</summary>
+          <summary>{lint.length} lint warning(s)</summary>
           <ul>
-            {pkg.lint.map((w) => (
+            {lint.map((w) => (
               <li key={`${w.rule}:${w.detail}`}>
                 <code>{w.rule}</code> {w.detail}
               </li>
