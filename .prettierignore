@@ -3,3 +3,9 @@ coverage
 node_modules
 public
 package-lock.json
+# The SonarQube scanner unpacks its bridge bundle here, IN THE WORKSPACE, while this step runs: the
+# lint step and the sonar step are parallel and share the volume. That bundle carries its own
+# package with a prettier config naming prettier-plugin-java, so prettier walked into it and died
+# with "Cannot find package 'prettier-plugin-java'" — a plugin nothing in this repo asks for. It
+# failed only on the agent, and only when sonar had got there first.
+.scannerwork

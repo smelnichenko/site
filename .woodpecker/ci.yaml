@@ -1,9 +1,9 @@
 # CI: Run checks on push to non-main branches or PRs
 
+# ONE run per change: the pull request's. With `push` listed too, a push to a branch that has an open
+# PR fired BOTH pipelines - two identical runs of the same sha, racing for the same agent and, here,
+# for the same workspace. Nothing lands without a PR; cd.yaml still deploys on push to main.
 when:
-  - event: push
-    branch:
-      exclude: main
   - event: pull_request
 
 clone:
