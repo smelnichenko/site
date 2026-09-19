@@ -111,12 +111,12 @@ export default function MasiReports() {
         )}
         {message && <div className="muted">{message}</div>}
         {!reports && !error && <div className="loading">Loading reports...</div>}
-        {reports && reports.length === 0 && (
+        {reports?.length === 0 && (
           <div className="empty-state">
             No reports yet: the first weekly one is written Monday 06:00.
           </div>
         )}
-        {reports && reports.length > 0 && (
+        {reports !== null && reports.length > 0 && (
           <table className="table">
             <thead>
               <tr>

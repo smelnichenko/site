@@ -36,6 +36,8 @@ export default tseslint.config(
       ...sonarjs.configs.recommended.rules,
       // Sonar's S7735 (a `!x ? a : b` ternary or if/else with a negated test) is not in the sonarjs plugin; ESLint core has it
       'no-negated-condition': 'error',
+      // ... and its S6582 lives in typescript-eslint's stylistic preset, which this config does not pull in whole
+      '@typescript-eslint/prefer-optional-chain': 'error',
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
 
