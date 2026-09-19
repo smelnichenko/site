@@ -30,6 +30,8 @@ const MasiCompanies = lazy(() => import('./pages/masi/MasiCompanies'));
 const MasiCompanyDetail = lazy(() => import('./pages/masi/MasiCompanyDetail'));
 const MasiContacts = lazy(() => import('./pages/masi/MasiContacts'));
 const MasiSources = lazy(() => import('./pages/masi/MasiSources'));
+const MasiReports = lazy(() => import('./pages/masi/MasiReports'));
+const MasiReportDetail = lazy(() => import('./pages/masi/MasiReportDetail'));
 
 function formatBuildTime(isoString: string): string {
   try {
@@ -315,6 +317,22 @@ function App() {
                 element={
                   <ProtectedRoute permission="JOBS">
                     <MasiSources />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/reports"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiReports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/reports/:id"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiReportDetail />
                   </ProtectedRoute>
                 }
               />

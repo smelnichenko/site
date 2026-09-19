@@ -83,3 +83,21 @@ export function badgeClass(status: string | null | undefined): string {
       return 'status-badge';
   }
 }
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** The last seven days (UTC dates), as the reports page opens. */
+export function defaultRange(now = new Date()): { from: string; to: string } {
+  const to = new Date(now);
+  const from = new Date(now);
+  from.setUTCDate(from.getUTCDate() - 6);
+  return { from: isoDate(from), to: isoDate(to) };
+}
+
+/** "23 Mar 2026 – 29 Mar 2026" for a half-open [start, end): the end is exclusive, people read the last day. */
+export function periodLabel(start: string, endExclusive: string): string {
+  const last = new Date(new Date(endExclusive).getTime() - 1).toISOString();
+  return `${formatDate(start)} – ${formatDate(last)}`;
+}

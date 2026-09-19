@@ -18,7 +18,15 @@ describe('MasiDashboard', () => {
       closedJobs7d: 3,
       companiesHiring: 41,
       packages: { NEW: 1, PREPARED: 4, APPLIED: 2, SKIPPED: 1, FAILED: 0, FAILED_GUARD: 1 },
-      llm: { today: 0.25, dailyBudget: 1, month: 3.5, monthlyBudget: 20, enabled: false },
+      llm: {
+        today: 0.25,
+        dailyBudget: 1,
+        month: 3.5,
+        monthlyBudget: 20,
+        enabled: false,
+        monthByPurpose: { EXTRACT: 0.5, TUNE: 3, LETTER: 0, SCORE: 0, ENRICH: 0 },
+        averagePackageCostMonth: 0.75,
+      },
       cv: { activeVersion: 2, completeness: 86, gaps: ['role 1 has no metric'] },
       sources: [
         {
@@ -53,6 +61,9 @@ describe('MasiDashboard', () => {
     const cost = screen.getByTestId('cost-tile');
     expect(cost).toHaveTextContent('$0.25');
     expect(cost).toHaveTextContent('25 % of $1.00 · month $3.50 (18 % of $20.00)');
+    expect(screen.getByTestId('cost-breakdown')).toHaveTextContent(
+      'extract $0.50 · tune $3.00 · $0.75 per package',
+    );
     expect(cost).toHaveTextContent('AI disabled');
     expect(cost).toHaveTextContent('tuning paused until');
     expect(screen.getByText('86 %')).toBeInTheDocument();

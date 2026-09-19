@@ -74,6 +74,14 @@ export default function MasiDashboard() {
             {dayPct} % of {formatUsd(data.llm.dailyBudget)} · month {formatUsd(data.llm.month)} (
             {monthPct} % of {formatUsd(data.llm.monthlyBudget)})
           </span>
+          <span className="muted" data-testid="cost-breakdown">
+            {Object.entries(data.llm.monthByPurpose)
+              .filter(([, v]) => v > 0)
+              .map(([k, v]) => `${k.toLowerCase()} ${formatUsd(v)}`)
+              .join(' · ') || 'nothing spent this month'}
+            {data.llm.averagePackageCostMonth !== null &&
+              ` · ${formatUsd(data.llm.averagePackageCostMonth)} per package`}
+          </span>
           {!data.llm.enabled && <span className="status-badge error">AI disabled</span>}
           {data.tuningPausedUntil && (
             <span className="status-badge action">

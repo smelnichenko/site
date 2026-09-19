@@ -819,6 +819,36 @@ describe('api - masi', () => {
     expect(mockFetch.mock.calls[1][0]).toBe('/api/masi/jobs?q=java&packageStatus=NONE');
   });
 
+  it('asks for stats over inclusive days, lists and reads reports, and generates one', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ from: 'x' }));
+    await api.fetchMasiStats('2026-03-23', '2026-03-29');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/stats?from=2026-03-23&to=2026-03-29');
+    mockFetch.mockResolvedValueOnce(mockResponse([]));
+    await api.fetchMasiReports('WEEKLY');
+    expect(mockFetch.mock.calls[1][0]).toBe('/api/masi/reports?kind=WEEKLY');
+    mockFetch.mockResolvedValueOnce(mockResponse([]));
+    await api.fetchMasiReports();
+    expect(mockFetch.mock.calls[2][0]).toBe('/api/masi/reports');
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: 5 }));
+    await api.fetchMasiReport(5);
+    expect(mockFetch.mock.calls[3][0]).toBe('/api/masi/reports/5');
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: 6 }));
+    await api.generateMasiReport('MONTHLY', '2026-08-15');
+    const [url, init] = mockFetch.mock.calls[4] as [string, RequestInit];
+    expect(url).toBe('/api/masi/reports/generate');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ kind: 'MONTHLY', day: '2026-08-15' });
+    mockFetch.mockResolvedValueOnce(
+      mockResponse(
+        { error: 'the WEEKLY period containing 2026-09-19 has not ended yet' },
+        { status: 400 },
+      ),
+    );
+    await expect(api.generateMasiReport('WEEKLY', '2026-09-19')).rejects.toThrow(
+      'has not ended yet',
+    );
+  });
+
   it('posts the review body as the backend reads it and surfaces the server error', async () => {
     mockFetch.mockResolvedValueOnce(mockResponse({ id: 11, status: 'APPLIED' }));
     await api.reviewMasiPackage(11, 'APPLIED', 'notes', 'OFFER');

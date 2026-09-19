@@ -1404,6 +1404,8 @@ export interface MasiDashboard {
     month: number;
     monthlyBudget: number;
     enabled: boolean;
+    monthByPurpose: Record<string, number>;
+    averagePackageCostMonth: number | null;
   };
   cv: { activeVersion: number | null; completeness: number | null; gaps: string[] };
   sources: Array<{
@@ -1585,4 +1587,86 @@ export async function fetchMasiArtifact(id: number, kind: 'CV_PDF' | 'LETTER_TXT
   );
   if (!response.ok) throw new Error('Failed to fetch the artifact');
   return response.blob();
+}
+
+/** A period's figures, every one from a timestamp later ticks never rewrite; the funnel is the caller's own. */
+export interface MasiStats {
+  from: string;
+  to: string;
+  registry: {
+    newJobs: number;
+    closedJobs: number;
+    newListings: number;
+    closedListings: number;
+    medianListingLifetimeHours: number | null;
+  };
+  sources: Array<{
+    key: string;
+    name: string;
+    newListings: number;
+    closedListings: number;
+    runs: Record<string, number>;
+    llmCostUsd: number;
+  }>;
+  topCompanies: Array<{ id: number; name: string | null; newJobs: number }>;
+  titles: Array<{ value: string; count: number }>;
+  seniority: Record<string, number>;
+  remote: Record<string, number>;
+  techTags: Record<string, number>;
+  salary: {
+    posted: number;
+    lowest: number | null;
+    medianMin: number | null;
+    medianMax: number | null;
+    highest: number | null;
+  };
+  funnel: { requested: number; applied: number; averagePackageCostUsd: number | null };
+  llm: {
+    totalUsd: number;
+    byPurpose: Record<string, number>;
+    byModel: Record<string, number>;
+    calls: Record<string, number>;
+    tokens: { input: number; cacheRead: number; cacheWrite: number; output: number };
+  };
+}
+
+export interface MasiReportSummary {
+  id: number;
+  kind: 'WEEKLY' | 'MONTHLY';
+  periodStart: string;
+  periodEnd: string;
+  generatedAt: string;
+}
+
+/** A stored report: the period's stats plus what the registry looked like when it was written. */
+export interface MasiReport extends MasiReportSummary {
+  stats: MasiStats;
+  snapshot: {
+    asOf: string;
+    openJobs: number;
+    companiesHiring: number;
+    sourceHealth: Record<string, string>;
+    packagesNow: Record<string, number>;
+  };
+}
+
+/** Calendar days in the registry's zone, both ends inclusive. */
+export function fetchMasiStats(from: string, to: string, signal?: AbortSignal): Promise<MasiStats> {
+  return masiGet(`/stats${query({ from, to })}`, signal, 'load stats');
+}
+
+export function fetchMasiReports(
+  kind?: 'WEEKLY' | 'MONTHLY',
+  signal?: AbortSignal,
+): Promise<MasiReportSummary[]> {
+  return masiGet(`/reports${query({ kind })}`, signal, 'load reports');
+}
+
+export function fetchMasiReport(id: number, signal?: AbortSignal): Promise<MasiReport> {
+  return masiGet(`/reports/${id}`, signal, 'load the report');
+}
+
+/** Writes (or returns) the report for the period containing `day`; without a day, the last complete one. */
+export function generateMasiReport(kind: 'WEEKLY' | 'MONTHLY', day?: string): Promise<MasiReport> {
+  return masiSend('/reports/generate', 'POST', { kind, day }, 'generate the report');
 }
