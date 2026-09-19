@@ -1606,7 +1606,6 @@ export interface MasiStats {
     newListings: number;
     closedListings: number;
     runs: Record<string, number>;
-    llmCostUsd: number;
   }>;
   topCompanies: Array<{ id: number; name: string | null; newJobs: number }>;
   titles: Array<{ value: string; count: number }>;
