@@ -126,7 +126,6 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
               <th>New listings</th>
               <th>Closed</th>
               <th>Runs</th>
-              <th>LLM cost</th>
             </tr>
           </thead>
           <tbody>
@@ -141,7 +140,6 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
                     .map(([k, n]) => `${n} ${k.toLowerCase().replace('_', ' ')}`)
                     .join(', ') || '—'}
                 </td>
-                <td>{formatUsd(s.llmCostUsd)}</td>
               </tr>
             ))}
           </tbody>

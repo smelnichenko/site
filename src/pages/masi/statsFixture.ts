@@ -18,7 +18,6 @@ export const stats: MasiStats = {
       newListings: 2,
       closedListings: 1,
       runs: { OK: 1, ERROR: 1, TIMEOUT: 0 },
-      llmCostUsd: 0.02,
     },
     {
       key: 'bolt',
@@ -26,7 +25,6 @@ export const stats: MasiStats = {
       newListings: 0,
       closedListings: 0,
       runs: { OK: 0 },
-      llmCostUsd: 0,
     },
   ],
   topCompanies: [
