@@ -438,12 +438,24 @@ a.card-title {
   font-size: 0.95rem;
 }
 
+/* a textarea in a form is a field like the others: without this it keeps the browser's own border, font and corner */
+.form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
 .form-group input::-ms-reveal,
 .form-group input::-webkit-credentials-auto-fill-button {
   display: none;
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: #0066cc;
   box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
@@ -1047,6 +1059,40 @@ a.card-title {
   align-items: center;
   margin-bottom: 0.75rem;
 }
+/* "muted" was used on fourteen masi pages and defined nowhere: secondary text, still 5.7:1 on the card. Links keep
+   their colour — a grey link is not seen as one. */
+.muted {
+  color: #666;
+}
+a.muted,
+.muted a {
+  color: #0066cc;
+}
+/* inputs do not inherit the font: a date input came out in the browser's monospace, 3 px taller than its neighbours */
+.masi .form-group input {
+  font-family: inherit;
+  min-height: 38px;
+}
+/* in a sentence of the same colour family a link needs a second cue */
+.masi-hint a {
+  text-decoration: underline;
+}
+.masi-hint ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.2rem;
+}
+.card-header-aside {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+/* a paragraph or a hint between the header line and what follows: room on both sides, never glued to a label or a list */
+.masi-intro,
+.masi-hint {
+  margin: 0.5rem 0 1rem;
+}
+
 .masi-description,
 .masi-letter pre {
   white-space: pre-wrap;

@@ -101,3 +101,38 @@ export function periodLabel(start: string, endExclusive: string): string {
   const last = new Date(new Date(endExclusive).getTime() - 1).toISOString();
   return `${formatDate(start)} – ${formatDate(last)}`;
 }
+
+/** masi cuts its days, weeks and deadlines in this zone, whatever zone the browser is in. */
+export const MASI_ZONE = 'Europe/Tallinn';
+
+/**
+ * The last second of the calendar day `date` (YYYY-MM-DD) in `zone`, as an ISO instant: "open until the 31st" runs
+ * through the 31st there. Null for a string that is not a date.
+ */
+export function endOfDayIn(date: string, zone: string = MASI_ZONE): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) return null;
+  const asUtc = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 23, 59, 59);
+  if (Number.isNaN(asUtc)) return null;
+  // what the zone's wall clock shows at that UTC instant tells its offset there (DST included)
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: zone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(new Date(asUtc));
+  const part = (type: string) => Number(parts.find((x) => x.type === type)?.value);
+  const wall = Date.UTC(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour'),
+    part('minute'),
+    part('second'),
+  );
+  return new Date(asUtc - (wall - asUtc)).toISOString();
+}

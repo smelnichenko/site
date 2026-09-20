@@ -58,7 +58,10 @@ export default function MasiJobs() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">Jobs</span>
-          <span className="muted">{page ? `${total} matching` : ''}</span>
+          <span className="card-header-aside">
+            <span className="muted">{page ? `${total} matching` : ''}</span>
+            <Link to="/masi/jobs/add">add one by hand</Link>
+          </span>
         </div>
         <form
           className="form-row masi-filters"
