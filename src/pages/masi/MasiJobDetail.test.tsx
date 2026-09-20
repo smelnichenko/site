@@ -8,6 +8,7 @@ vi.mock('../../services/api', () => ({
   fetchCvMaster: vi.fn(),
   fetchMasiJob: vi.fn(),
   fetchMasiPackages: vi.fn(),
+  fetchMasiSimilarJobs: vi.fn(),
   requestMasiPackage: vi.fn(),
   saveMasiJobNote: vi.fn(),
   reviewMasiPackage: vi.fn(),
@@ -32,12 +33,48 @@ beforeEach(() => {
   });
   vi.mocked(api.fetchMasiJob).mockReset();
   vi.mocked(api.fetchMasiPackages).mockReset();
+  vi.mocked(api.fetchMasiSimilarJobs).mockReset();
+  vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
   vi.mocked(api.requestMasiPackage).mockReset();
   vi.mocked(api.reviewMasiPackage).mockReset();
   vi.mocked(api.regenerateMasiPackage).mockReset();
 });
 
 describe('MasiJobDetail', () => {
+  it('hints at open jobs of the same company that read like this one, and says nothing when there are none', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([
+      {
+        id: 9,
+        title: 'Senior Java Developer (Payments)',
+        similarity: 0.71,
+        firstSeenAt: '2026-09-10T08:00:00Z',
+      },
+    ]);
+    const view = renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const hint = await screen.findByRole('note');
+    expect(hint).toHaveTextContent('Looks like');
+    const link = screen.getByRole('link', { name: 'Senior Java Developer (Payments)' });
+    expect(link).toHaveAttribute('href', '/masi/jobs/9');
+    expect(hint).toHaveTextContent('71%');
+    expect(api.fetchMasiSimilarJobs).toHaveBeenCalledWith(7, expect.anything());
+    view.unmount();
+    vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    await screen.findByText('Senior Java Developer');
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it('still shows the job when the hint cannot be loaded', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiSimilarJobs).mockRejectedValue(new Error('boom'));
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    expect(await screen.findByText('Senior Java Developer')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('shows the job, its listings and description, and prepares a package on request', async () => {
     vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);

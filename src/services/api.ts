@@ -1251,6 +1251,23 @@ export interface MasiJob {
   packageStatus: string | null;
 }
 
+export interface MasiManualJob {
+  url: string;
+  company: string;
+  title: string;
+  location?: string;
+  description?: string;
+  /** ISO instant; absent = the server's default lifetime for a pasted posting. */
+  expiresAt?: string;
+}
+
+export interface MasiSimilarJob {
+  id: number;
+  title: string;
+  similarity: number;
+  firstSeenAt: string;
+}
+
 export interface MasiJobFilter {
   status?: 'OPEN' | 'CLOSED' | 'ALL';
   q?: string;
@@ -1470,6 +1487,16 @@ export function fetchMasiJobs(
 
 export function fetchMasiJob(id: number, signal?: AbortSignal): Promise<MasiJob> {
   return masiGet(`/jobs/${id}`, signal, 'load the job');
+}
+
+/** A posting pasted in from a board masi never contacts; the answer is the job it became (maybe one a board already shows). */
+export function addMasiJobManually(posting: MasiManualJob): Promise<MasiJob> {
+  return masiSend('/jobs/manual', 'POST', posting, 'add the job');
+}
+
+/** Open jobs of the same company that read like this one: a hint, never a merge. */
+export function fetchMasiSimilarJobs(id: number, signal?: AbortSignal): Promise<MasiSimilarJob[]> {
+  return masiGet(`/jobs/${id}/similar`, signal, 'load similar jobs');
 }
 
 export function saveMasiJobNote(id: number, userNote: string): Promise<MasiJob> {

@@ -29,6 +29,7 @@ src/
     masi/MasiCv                             (JOBS — /masi/cv: the CV master, versions, validation, PDF preview)
     masi/MasiDashboard                      (JOBS — /masi: the overview with the cost tile)
     masi/MasiJobs, masi/MasiJobDetail       (JOBS — /masi/jobs, /masi/jobs/:id: the registry and the package panel)
+    masi/MasiJobAdd                         (JOBS — /masi/jobs/add: a posting pasted in from a board masi never reads; stored, never fetched)
     masi/MasiPackages, masi/MasiPackageDetail (JOBS — /masi/packages, /masi/packages/:id: the review queue, re-tune)
     masi/MasiCompanies, masi/MasiCompanyDetail (JOBS — /masi/companies, /masi/companies/:id: registry, contacts)
     masi/MasiContacts, masi/MasiSources     (JOBS — /masi/contacts, /masi/sources)

@@ -4,8 +4,10 @@ import {
   fetchCvMaster,
   fetchMasiJob,
   fetchMasiPackages,
+  fetchMasiSimilarJobs,
   MasiJob,
   MasiPackage,
+  MasiSimilarJob,
   requestMasiPackage,
   saveMasiJobNote,
 } from '../../services/api';
@@ -24,6 +26,7 @@ export default function MasiJobDetail() {
   const [job, setJob] = useState<MasiJob | null>(null);
   const [packages, setPackages] = useState<MasiPackage[]>([]);
   const [activeCv, setActiveCv] = useState<number | null>(null);
+  const [similar, setSimilar] = useState<MasiSimilarJob[]>([]);
   const [polls, setPolls] = useState(0);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +59,15 @@ export default function MasiJobDetail() {
     })();
     return () => controller.abort();
   }, [reload]);
+
+  // a hint, not part of the job: when it cannot be loaded the page is none the worse, so its failure is not shown
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchMasiSimilarJobs(jobId, controller.signal)
+      .then(setSimilar)
+      .catch(() => setSimilar([]));
+    return () => controller.abort();
+  }, [jobId]);
 
   // a package being prepared: poll while it settles — every 10 s for the first 3 min, then every minute, and give up
   // after an hour (a spent budget parks a package NEW until the next UTC day); a failure is shown, never swallowed
@@ -150,6 +162,19 @@ export default function MasiJobDetail() {
             : ''}
           {` · first seen ${formatDateTime(job.firstSeenAt)}`}
         </div>
+        {similar.length > 0 && (
+          <div className="muted masi-hint" role="note">
+            Looks like{' '}
+            {similar.map((s, i) => (
+              <span key={s.id}>
+                {i > 0 ? ', ' : ''}
+                <Link to={`/masi/jobs/${s.id}`}>{s.title}</Link> ({Math.round(s.similarity * 100)}%)
+              </span>
+            ))}{' '}
+            — the same company, a similar title. Nothing is merged: look, and skip the one you do
+            not need.
+          </div>
+        )}
         <ul className="masi-listings">
           {job.listings.map((l) => (
             <li key={l.id}>
