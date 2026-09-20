@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MasiJobDetail from './MasiJobDetail';
 import { job, prepared, renderAt } from './testUtils';
@@ -57,13 +57,45 @@ describe('MasiJobDetail', () => {
     expect(hint).toHaveTextContent('Looks like');
     const link = screen.getByRole('link', { name: 'Senior Java Developer (Payments)' });
     expect(link).toHaveAttribute('href', '/masi/jobs/9');
-    expect(hint).toHaveTextContent('71%');
+    expect(hint).toHaveTextContent('71% similar title');
     expect(api.fetchMasiSimilarJobs).toHaveBeenCalledWith(7, expect.anything());
     view.unmount();
     vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
     await screen.findByText('Senior Java Developer');
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it('lists several look-alikes one per line, and shows the job only once the hint has settled', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    let release: (v: Awaited<ReturnType<typeof api.fetchMasiSimilarJobs>>) => void = () => {};
+    vi.mocked(api.fetchMasiSimilarJobs).mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    // the hint sits above the note and the buttons: painting the job first and the hint later moves them under the finger
+    await waitFor(() => expect(api.fetchMasiSimilarJobs).toHaveBeenCalled());
+    expect(screen.queryByText('Senior Java Developer')).not.toBeInTheDocument();
+    release([
+      {
+        id: 9,
+        title: 'Senior Java Developer (Payments)',
+        similarity: 0.71,
+        firstSeenAt: '2026-09-10T08:00:00Z',
+      },
+      {
+        id: 10,
+        title: 'Senior Java Developer II',
+        similarity: 0.64,
+        firstSeenAt: '2026-09-11T08:00:00Z',
+      },
+    ]);
+    const hint = await screen.findByRole('note');
+    expect(within(hint).getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByText('Senior Java Developer')).toBeInTheDocument();
   });
 
   it('still shows the job when the hint cannot be loaded', async () => {

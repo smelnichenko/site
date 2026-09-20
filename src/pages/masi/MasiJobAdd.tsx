@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { addMasiJobManually, MasiManualJob } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
-import { endOfDayIn, errorMessage } from './format';
+import { endOfDayIn, errorMessage, MASI_ZONE } from './format';
+
+/** Something other than white space: `required` alone lets a field of spaces through, and the server gets "". */
+const NOT_BLANK = '.*\\S.*';
 
 /**
  * A posting from a board masi never contacts (LinkedIn and the like), pasted in by hand. Its URL is stored and never
@@ -19,6 +22,16 @@ export default function MasiJobAdd() {
   const [until, setUntil] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const alertRef = useRef<HTMLDivElement>(null);
+
+  // a refusal is shown above the fields and takes the focus: a submit with Enter from the top of a long form
+  // must not answer somewhere below the fold
+  useEffect(() => {
+    if (error) {
+      alertRef.current?.focus();
+      alertRef.current?.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [error]);
 
   async function submit() {
     const posting: MasiManualJob = {
@@ -34,7 +47,7 @@ export default function MasiJobAdd() {
     setError(null);
     try {
       const job = await addMasiJobManually(posting);
-      void navigate(`/masi/jobs/${job.id}`);
+      await navigate(`/masi/jobs/${job.id}`);
     } catch (err: unknown) {
       setError(errorMessage(err, 'Failed to add the job'));
     } finally {
@@ -48,15 +61,14 @@ export default function MasiJobAdd() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">Add a job by hand</span>
-          <Link to="/masi/jobs" className="muted">
-            back to jobs
-          </Link>
+          <Link to="/masi/jobs">back to jobs</Link>
         </div>
-        <p className="muted masi-intro">
+        <p className="masi-intro">
           For postings on boards masi does not read (LinkedIn, Glassdoor, Facebook). The link is
-          stored and never fetched, so nothing can tell when the posting is taken down: it closes on
-          the day you give, or after 30 days. If a board already shows the same role at the same
-          company, this becomes another listing of that job.
+          stored and never fetched, so nothing can tell when the posting is taken down: it stays
+          open through the day you give ({MASI_ZONE.split('/')[1]} time), or for masi&rsquo;s
+          default lifetime for a pasted posting when you give none. If a board already shows the
+          same role at the same company, this becomes another listing of that job.
         </p>
         <form
           onSubmit={(e) => {
@@ -64,39 +76,55 @@ export default function MasiJobAdd() {
             void submit();
           }}
         >
+          {error && (
+            <div className="error" role="alert" tabIndex={-1} ref={alertRef}>
+              {error}
+            </div>
+          )}
           <div className="form-group">
-            <label htmlFor="add-url">Posting URL</label>
+            <label htmlFor="add-url">
+              Posting URL <span className="required">*</span>
+            </label>
             <input
               id="add-url"
+              placeholder="https://www.linkedin.com/jobs/view/…"
+              title="the full link, starting with https://"
               type="url"
               required
-              placeholder="https://www.linkedin.com/jobs/view/…"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
             />
           </div>
           <div className="form-group">
-            <label htmlFor="add-company">Company</label>
+            <label htmlFor="add-company">
+              Company <span className="required">*</span>
+            </label>
             <input
               id="add-company"
               placeholder="as the posting spells it"
+              title="the company's name, not only spaces"
               required
+              pattern={NOT_BLANK}
               value={company}
               onChange={(e) => setCompany(e.target.value)}
             />
           </div>
           <div className="form-group">
-            <label htmlFor="add-title">Title</label>
+            <label htmlFor="add-title">
+              Title <span className="required">*</span>
+            </label>
             <input
               id="add-title"
               placeholder="as the posting spells it"
+              title="the job title, not only spaces"
               required
+              pattern={NOT_BLANK}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
           <div className="form-group">
-            <label htmlFor="add-location">Location</label>
+            <label htmlFor="add-location">Location (optional)</label>
             <input
               id="add-location"
               placeholder="city, or remote"
@@ -105,7 +133,7 @@ export default function MasiJobAdd() {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="add-until">Open until</label>
+            <label htmlFor="add-until">Open until (optional)</label>
             <input
               id="add-until"
               type="date"
@@ -114,20 +142,14 @@ export default function MasiJobAdd() {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="add-description">Description</label>
+            <label htmlFor="add-description">Description (optional)</label>
             <textarea
               id="add-description"
               rows={10}
-              style={{ width: '100%' }}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-          {error && (
-            <div className="error" role="alert">
-              {error}
-            </div>
-          )}
           <LoadingButton
             type="submit"
             className="status-badge add"

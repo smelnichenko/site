@@ -35,11 +35,15 @@ export default function MasiJobDetail() {
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
-      const [j, ps, cv] = await Promise.all([
+      // the hint is loaded WITH the job: it sits above the note and the buttons, and arriving late it pushed them
+      // two to ten lines down under the finger. It is a hint — when it cannot be loaded the page is none the worse
+      const [j, ps, cv, alike] = await Promise.all([
         fetchMasiJob(jobId, signal),
         fetchMasiPackages({ job: jobId }, signal),
         fetchCvMaster(signal),
+        fetchMasiSimilarJobs(jobId, signal).catch(() => [] as MasiSimilarJob[]),
       ]);
+      setSimilar(alike);
       setJob(j);
       setNote(j.userNote ?? '');
       setPackages(ps);
@@ -59,15 +63,6 @@ export default function MasiJobDetail() {
     })();
     return () => controller.abort();
   }, [reload]);
-
-  // a hint, not part of the job: when it cannot be loaded the page is none the worse, so its failure is not shown
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchMasiSimilarJobs(jobId, controller.signal)
-      .then(setSimilar)
-      .catch(() => setSimilar([]));
-    return () => controller.abort();
-  }, [jobId]);
 
   // a package being prepared: poll while it settles — every 10 s for the first 3 min, then every minute, and give up
   // after an hour (a spent budget parks a package NEW until the next UTC day); a failure is shown, never swallowed
@@ -164,15 +159,16 @@ export default function MasiJobDetail() {
         </div>
         {similar.length > 0 && (
           <div className="muted masi-hint" role="note">
-            Looks like{' '}
-            {similar.map((s, i) => (
-              <span key={s.id}>
-                {i > 0 ? ', ' : ''}
-                <Link to={`/masi/jobs/${s.id}`}>{s.title}</Link> ({Math.round(s.similarity * 100)}%)
-              </span>
-            ))}{' '}
-            — the same company, a similar title. Nothing is merged: look, and skip the one you do
-            not need.
+            Looks like another open job of this company. Nothing is merged: look, and skip the one
+            you do not need.
+            <ul>
+              {similar.map((s) => (
+                <li key={s.id}>
+                  <Link to={`/masi/jobs/${s.id}`}>{s.title}</Link> —{' '}
+                  {Math.round(s.similarity * 100)}% similar title
+                </li>
+              ))}
+            </ul>
           </div>
         )}
         <ul className="masi-listings">
@@ -189,13 +185,7 @@ export default function MasiJobDetail() {
         {job.descriptionText && <pre className="masi-description">{job.descriptionText}</pre>}
         <div className="form-group">
           <label htmlFor="job-note">Your note</label>
-          <textarea
-            id="job-note"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            style={{ width: '100%' }}
-          />
+          <textarea id="job-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
         </div>
         {message && <div className="muted">{message}</div>}
         <div className="badge-group">
