@@ -6,7 +6,7 @@ import LoadingButton from '../../components/LoadingButton';
 import { endOfDayIn, errorMessage, MASI_ZONE } from './format';
 
 /** Something other than white space: `required` alone lets a field of spaces through, and the server gets "". */
-const NOT_BLANK = '.*\\S.*';
+const NOT_BLANK = String.raw`.*\S.*`;
 
 /**
  * A posting from a board masi never contacts (LinkedIn and the like), pasted in by hand. Its URL is stored and never
