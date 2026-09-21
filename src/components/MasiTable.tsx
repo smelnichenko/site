@@ -11,7 +11,7 @@ export default function MasiTable({
   testId,
   children,
 }: Readonly<{ label: string; className?: string; testId?: string; children: ReactNode }>) {
-  const scroller = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLElement>(null);
   const table = useRef<HTMLTableElement>(null);
   const [overflows, setOverflows] = useState(false);
 
@@ -29,14 +29,16 @@ export default function MasiTable({
   }, []);
 
   return (
-    <div
+    // a <section> is a region landmark only while it has a name: named exactly while there is something to scroll to
+    <section
       ref={scroller}
       className="masi-table-scroll"
       data-testid="masi-table-scroll"
-      role={overflows ? 'region' : undefined}
       aria-label={overflows ? label : undefined}
-      // a scrollable region has to be focusable, or the columns off-screen cannot be reached from a keyboard
-      tabIndex={overflows ? 0 : undefined}
+      // A scrollable region has to be focusable, or the columns off-screen cannot be reached from a keyboard (WCAG 2.1.1;
+      // axe "scrollable-region-focusable"): the one case where a non-interactive element takes a tab stop.
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+      tabIndex={overflows ? 0 : undefined} // NOSONAR typescript:S6845
     >
       <table
         ref={table}
@@ -45,6 +47,6 @@ export default function MasiTable({
       >
         {children}
       </table>
-    </div>
+    </section>
   );
 }
