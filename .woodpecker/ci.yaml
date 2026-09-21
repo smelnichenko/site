@@ -20,8 +20,12 @@ clone:
 steps:
   - name: install
     image: git.pmon.dev/schnappy/sonar-scanner:latest
+    volumes:
+      - ci-cache:/cache # persistent dependency cache: PVC in infra clusters/production/woodpecker/manifests
+    environment:
+      npm_config_cache: /cache/npm/site
     commands:
-      - npm ci --no-audit --no-fund # never --silent: a failed install must say why
+      - npm ci --prefer-offline --no-audit --no-fund # never --silent: a failed install must say why
     backend_options:
       kubernetes:
         resources:
