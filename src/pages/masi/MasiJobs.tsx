@@ -137,6 +137,12 @@ export default function MasiJobs() {
         {!page && !error && <div className="loading">Loading jobs...</div>}
         {page?.content.length === 0 && <div className="empty-state">No jobs match.</div>}
         {page && page.content.length > 0 && (
+          <p className="muted masi-intro">
+            Match: how much of what the posting asks for your CV shows in words, 0–100. A dash: not
+            scored yet.
+          </p>
+        )}
+        {page && page.content.length > 0 && (
           <MasiTable label="Jobs">
             <thead>
               <tr>
@@ -144,12 +150,7 @@ export default function MasiJobs() {
                 <th>Company</th>
                 <th>Location</th>
                 <th>First seen</th>
-                <th
-                  className="masi-num"
-                  title="How much of what the posting asks for your CV shows, 0-100"
-                >
-                  Match
-                </th>
+                <th className="masi-num">Match</th>
                 <th>Package</th>
               </tr>
             </thead>
@@ -174,7 +175,16 @@ export default function MasiJobs() {
                       : ''}
                   </td>
                   <td>{formatDate(j.firstSeenAt)}</td>
-                  <td className="masi-num">{j.matchScore ?? <span className="muted">—</span>}</td>
+                  <td className="masi-num">
+                    {j.matchScore ?? (
+                      <>
+                        <span className="muted" aria-hidden="true">
+                          —
+                        </span>
+                        <span className="sr-only">not scored</span>
+                      </>
+                    )}
+                  </td>
                   <td>
                     {j.packageStatus ? (
                       <Link

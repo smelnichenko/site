@@ -193,11 +193,7 @@ export default function MasiSources() {
                           <div className="empty-state">No runs yet.</div>
                         )}
                         {runs[s.id] && runs[s.id].length > 0 && (
-                          <MasiTable
-                            label={`Runs of ${s.key}`}
-                            className="masi-runs"
-                            testId={`runs-${s.key}`}
-                          >
+                          <table className="table masi-runs" data-testid={`runs-${s.key}`}>
                             <thead>
                               <tr>
                                 <th>Started</th>
@@ -227,7 +223,7 @@ export default function MasiSources() {
                                 </tr>
                               ))}
                             </tbody>
-                          </MasiTable>
+                          </table>
                         )}
                       </td>
                     </tr>

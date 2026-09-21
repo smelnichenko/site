@@ -110,7 +110,10 @@ describe('MasiJobs', () => {
     expect(matchColumn).toBeGreaterThan(-1);
     expect(within(scored).getAllByRole('cell')[matchColumn]).toHaveTextContent('86');
     const unscored = screen.getByRole('row', { name: /Go Engineer/ });
-    expect(within(unscored).getAllByRole('cell')[matchColumn]).toHaveTextContent('—');
+    expect(within(unscored).getAllByRole('cell')[matchColumn]).toHaveTextContent('not scored');
+    expect(
+      screen.getByText(/how much of what the posting asks for your CV shows/),
+    ).toBeInTheDocument();
     // newest first until asked: no sort is sent at all
     expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0].sort).toBeUndefined();
     await userEvent.selectOptions(screen.getByLabelText('Order'), 'match,desc');
