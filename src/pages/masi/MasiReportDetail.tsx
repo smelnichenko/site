@@ -86,8 +86,9 @@ export default function MasiReportDetail() {
               loading={mailing}
               label="Mail me this report"
             />
-            {mailed && (
-              <span className={mailed.ok ? 'muted' : 'error'} role={mailed.ok ? 'status' : 'alert'}>
+            {mailed?.ok && <output className="muted">{mailed.text}</output>}
+            {mailed && !mailed.ok && (
+              <span className="error" role="alert">
                 {mailed.text}
               </span>
             )}
