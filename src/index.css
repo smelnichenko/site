@@ -1093,6 +1093,16 @@ a.muted,
 }
 
 /* in a column tile a badge would stretch to the tile's width: it is as wide as its word */
+.masi-mail-me {
+  margin: 8px 0;
+}
+
+/* beside a button an error is a line of text, not the page-wide banner */
+.masi-mail-me .error {
+  margin: 0;
+  padding: 2px 8px;
+}
+
 .masi-tile .status-badge {
   align-self: flex-start;
 }
