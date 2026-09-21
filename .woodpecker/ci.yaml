@@ -23,7 +23,7 @@ steps:
     volumes:
       - ci-cache:/cache # persistent dependency cache: PVC in infra clusters/production/woodpecker/manifests
     environment:
-      npm_config_cache: /cache/npm
+      npm_config_cache: /cache/npm/site
     commands:
       - npm ci --prefer-offline --no-audit --no-fund # never --silent: a failed install must say why
     backend_options:

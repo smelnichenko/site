@@ -17,7 +17,7 @@ steps:
     volumes:
       - ci-cache:/cache # persistent dependency cache: PVC in infra clusters/production/woodpecker/manifests
     environment:
-      npm_config_cache: /cache/npm
+      npm_config_cache: /cache/npm/site
     commands:
       - npm ci --prefer-offline --no-audit --no-fund
       - npx tsc --noEmit
@@ -64,7 +64,7 @@ steps:
     volumes:
       - ci-cache:/cache # persistent dependency cache: PVC in infra clusters/production/woodpecker/manifests
     environment:
-      npm_config_cache: /cache/npm
+      npm_config_cache: /cache/npm/site
     commands:
       - npm ci --prefer-offline --no-audit --no-fund
       - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
