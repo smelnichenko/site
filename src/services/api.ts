@@ -1710,6 +1710,15 @@ export function fetchMasiReport(id: number, signal?: AbortSignal): Promise<MasiR
   return masiGet(`/reports/${id}`, signal, 'load the report');
 }
 
+/** "Mail me this report": the weekly digest of a stored report, now, to the caller. The answer has no body. */
+export async function mailMasiReportDigest(id: number): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/masi/reports/${id}/digest`, { method: 'POST' });
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || 'Failed to mail the digest');
+  }
+}
+
 /** Writes (or returns) the report for the period containing `day`; without a day, the last complete one. */
 export function generateMasiReport(kind: 'WEEKLY' | 'MONTHLY', day?: string): Promise<MasiReport> {
   return masiSend('/reports/generate', 'POST', { kind, day }, 'generate the report');

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { fetchMasiReport, MasiReport } from '../../services/api';
+import { fetchMasiReport, mailMasiReportDigest, MasiReport } from '../../services/api';
+import LoadingButton from '../../components/LoadingButton';
 import MasiNav from '../../components/MasiNav';
 import StatsPanel from './StatsPanel';
 import { badgeClass, errorMessage, formatDateTime, periodLabel } from './format';
@@ -10,6 +11,21 @@ export default function MasiReportDetail() {
   const { id } = useParams();
   const [report, setReport] = useState<MasiReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mailing, setMailing] = useState(false);
+  const [mailed, setMailed] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function onMailMe() {
+    setMailing(true);
+    setMailed(null);
+    try {
+      await mailMasiReportDigest(Number(id));
+      setMailed({ ok: true, text: 'The digest is on its way to you.' });
+    } catch (e: unknown) {
+      setMailed({ ok: false, text: errorMessage(e, 'The digest could not be mailed') });
+    } finally {
+      setMailing(false);
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -62,6 +78,21 @@ export default function MasiReportDetail() {
           {report.snapshot.companiesHiring} companies hiring
           {queue && ` · my queue: ${queue}`}
         </div>
+        {report.kind === 'WEEKLY' && (
+          <div className="badge-group masi-mail-me">
+            <LoadingButton
+              className="status-badge action"
+              onClick={() => void onMailMe()}
+              loading={mailing}
+              label="Mail me this report"
+            />
+            {mailed && (
+              <span className={mailed.ok ? 'muted' : 'error'} role={mailed.ok ? 'status' : 'alert'}>
+                {mailed.text}
+              </span>
+            )}
+          </div>
+        )}
         <div className="badge-group" data-testid="source-health">
           {Object.entries(report.snapshot.sourceHealth).map(([key, health]) => (
             <span key={key} className={badgeClass(health)}>
