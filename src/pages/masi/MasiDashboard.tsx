@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { fetchMasiDashboard, MasiDashboard as Dashboard } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import { badgeClass, errorMessage, formatDateTime, formatUsd } from './format';
+import MasiTable from '../../components/MasiTable';
 
 /** The overview: the registry this week, the review funnel, the LLM spend against its budgets, the CV master, the sources. */
 export default function MasiDashboard() {
@@ -108,7 +109,7 @@ export default function MasiDashboard() {
             manage
           </Link>
         </div>
-        <table className="table">
+        <MasiTable label="Sources">
           <thead>
             <tr>
               <th>Source</th>
@@ -131,7 +132,7 @@ export default function MasiDashboard() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </MasiTable>
       </div>
     </div>
   );

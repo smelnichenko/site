@@ -1,5 +1,6 @@
 import type { MasiStats } from '../../services/api';
 import { formatDateTime, formatUsd } from './format';
+import MasiTable from '../../components/MasiTable';
 
 interface BarRow {
   label: string;
@@ -119,7 +120,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
       </div>
       <div className="card">
         <div className="card-title">Sources</div>
-        <table className="table">
+        <MasiTable label="Sources in the period">
           <thead>
             <tr>
               <th>Source</th>
@@ -143,7 +144,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </MasiTable>
       </div>
       <div className="muted" data-testid="tokens-line">
         Tokens: {stats.llm.tokens.input} in · {stats.llm.tokens.cacheRead} cache read ·{' '}

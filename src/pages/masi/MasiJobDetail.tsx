@@ -12,6 +12,7 @@ import {
   saveMasiJobNote,
 } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
+import MatchSummary from './MatchSummary';
 import LoadingButton from '../../components/LoadingButton';
 import PackagePanel from './PackagePanel';
 import { errorMessage, formatDateTime } from './format';
@@ -171,6 +172,7 @@ export default function MasiJobDetail() {
             </ul>
           </div>
         )}
+        <MatchSummary match={job.match} />
         <ul className="masi-listings">
           {job.listings.map((l) => (
             <li key={l.id}>

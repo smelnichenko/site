@@ -1249,6 +1249,22 @@ export interface MasiJob {
   listings: MasiListing[];
   packageId: number | null;
   packageStatus: string | null;
+  /** How far the caller's active CV master covers what the posting asks for, 0-100; null = not scored (yet, or not scorable). */
+  matchScore: number | null;
+  /** The reasons, on the job's own page only. */
+  match: MasiMatch | null;
+}
+
+/** Why a job has no score: a zero would be a statement about the candidate, and these are not. */
+export type MasiUnscored = 'NOTHING_STATED' | 'OTHER_LANGUAGE' | 'UNREADABLE';
+
+export interface MasiMatch {
+  score: number | null;
+  supportedMustHave: string[];
+  missingMustHave: string[];
+  /** Must-haves that are about nothing a CV shows in words ("strong experience"). */
+  notScored: string[];
+  unscored: MasiUnscored | null;
 }
 
 export interface MasiManualJob {
@@ -1274,6 +1290,8 @@ export interface MasiJobFilter {
   company?: number;
   remote?: string;
   packageStatus?: string;
+  /** "match,desc" orders by the caller's score, unscored jobs last; absent = newest first. */
+  sort?: string;
   page?: number;
   size?: number;
 }

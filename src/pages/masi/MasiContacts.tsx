@@ -4,6 +4,7 @@ import { fetchMasiContacts, MasiContact, Paged, patchMasiContact } from '../../s
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import { errorMessage, formatDateTime, pageParam } from './format';
+import MasiTable from '../../components/MasiTable';
 
 const PAGE_SIZE = 50;
 
@@ -63,7 +64,7 @@ export default function MasiContacts() {
         {!page && !error && <div className="loading">Loading contacts...</div>}
         {page?.content.length === 0 && <div className="empty-state">No contacts recorded yet.</div>}
         {page && page.content.length > 0 && (
-          <table className="table">
+          <MasiTable label="Contacts">
             <thead>
               <tr>
                 <th>Name</th>
@@ -97,7 +98,7 @@ export default function MasiContacts() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </MasiTable>
         )}
         {pages > 1 && (
           <div className="pagination">

@@ -13,6 +13,7 @@ import {
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDate, formatDateTime } from './format';
+import MasiTable from '../../components/MasiTable';
 
 /** One company: its facts from the register and the boards, its open and closed jobs, its contacts, the operator's flags. */
 export default function MasiCompanyDetail() {
@@ -184,7 +185,7 @@ export default function MasiCompanyDetail() {
         </div>
         {jobs.length === 0 && <div className="empty-state">No jobs from this company yet.</div>}
         {jobs.length > 0 && (
-          <table className="table">
+          <MasiTable label="Jobs of the company">
             <thead>
               <tr>
                 <th>Title</th>
@@ -207,7 +208,7 @@ export default function MasiCompanyDetail() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </MasiTable>
         )}
       </div>
       <div className="card">
@@ -217,7 +218,7 @@ export default function MasiCompanyDetail() {
         </div>
         {contacts.length === 0 && <div className="empty-state">No contacts recorded.</div>}
         {contacts.length > 0 && (
-          <table className="table">
+          <MasiTable label="Contacts of the company">
             <thead>
               <tr>
                 <th>Name</th>
@@ -247,7 +248,7 @@ export default function MasiCompanyDetail() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </MasiTable>
         )}
       </div>
     </div>

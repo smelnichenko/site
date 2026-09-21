@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { fetchMasiCompanies, MasiCompany, Paged } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import { badgeClass, errorMessage, formatDate, pageParam } from './format';
+import MasiTable from '../../components/MasiTable';
 
 const PAGE_SIZE = 50;
 
@@ -95,7 +96,7 @@ export default function MasiCompanies() {
         {!page && !error && <div className="loading">Loading companies...</div>}
         {page?.content.length === 0 && <div className="empty-state">No companies match.</div>}
         {page && page.content.length > 0 && (
-          <table className="table">
+          <MasiTable label="Companies">
             <thead>
               <tr>
                 <th>Name</th>
@@ -123,7 +124,7 @@ export default function MasiCompanies() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </MasiTable>
         )}
         {pages > 1 && (
           <div className="pagination">

@@ -10,6 +10,7 @@ import {
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDateTime } from './format';
+import MasiTable from '../../components/MasiTable';
 
 /** A draft the operator is still editing (differs from what the server had) survives the reload every action triggers. */
 function keepEdits(
@@ -104,7 +105,7 @@ export default function MasiSources() {
         {message && <div className="muted">{message}</div>}
         {!sources && !error && <div className="loading">Loading sources...</div>}
         {sources && (
-          <table className="table">
+          <MasiTable label="Sources">
             <thead>
               <tr>
                 <th>Source</th>
@@ -192,7 +193,11 @@ export default function MasiSources() {
                           <div className="empty-state">No runs yet.</div>
                         )}
                         {runs[s.id] && runs[s.id].length > 0 && (
-                          <table className="table masi-runs" data-testid={`runs-${s.key}`}>
+                          <MasiTable
+                            label={`Runs of ${s.key}`}
+                            className="masi-runs"
+                            testId={`runs-${s.key}`}
+                          >
                             <thead>
                               <tr>
                                 <th>Started</th>
@@ -222,7 +227,7 @@ export default function MasiSources() {
                                 </tr>
                               ))}
                             </tbody>
-                          </table>
+                          </MasiTable>
                         )}
                       </td>
                     </tr>
@@ -230,7 +235,7 @@ export default function MasiSources() {
                 </Fragment>
               ))}
             </tbody>
-          </table>
+          </MasiTable>
         )}
       </div>
     </div>

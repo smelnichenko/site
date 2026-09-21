@@ -3,8 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { fetchMasiJobs, MasiJob, Paged } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import { badgeClass, errorMessage, formatDate, PACKAGE_STATES, pageParam } from './format';
+import MasiTable from '../../components/MasiTable';
 
 const PAGE_SIZE = 50;
+/** The orders the page offers; anything else in the URL is not passed on. Newest first is the server's default: no parameter. */
+const BY_MATCH = 'match,desc';
 
 /** The registry: filters live in the URL so a view can be shared and comes back after a reload. */
 export default function MasiJobs() {
@@ -16,6 +19,7 @@ export default function MasiJobs() {
   const remote = params.get('remote') ?? '';
   const packageStatus = params.get('packageStatus') ?? '';
   const company = params.get('company');
+  const sort = params.get('sort') === BY_MATCH ? BY_MATCH : '';
   const pageNo = pageParam(params.get('page'));
 
   useEffect(() => {
@@ -27,6 +31,7 @@ export default function MasiJobs() {
         remote: remote || undefined,
         packageStatus: packageStatus || undefined,
         company: company ? Number(company) : undefined,
+        sort: sort || undefined,
         page: pageNo,
         size: PAGE_SIZE,
       },
@@ -40,7 +45,7 @@ export default function MasiJobs() {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load jobs'));
       });
     return () => controller.abort();
-  }, [status, q, remote, packageStatus, company, pageNo]);
+  }, [status, q, remote, packageStatus, company, sort, pageNo]);
 
   function set(key: string, value: string) {
     const next = new URLSearchParams(params);
@@ -111,6 +116,10 @@ export default function MasiJobs() {
               </option>
             ))}
           </select>
+          <select aria-label="Order" value={sort} onChange={(e) => set('sort', e.target.value)}>
+            <option value="">newest first</option>
+            <option value={BY_MATCH}>best match first</option>
+          </select>
           <button type="submit" className="btn-small">
             Search
           </button>
@@ -128,13 +137,19 @@ export default function MasiJobs() {
         {!page && !error && <div className="loading">Loading jobs...</div>}
         {page?.content.length === 0 && <div className="empty-state">No jobs match.</div>}
         {page && page.content.length > 0 && (
-          <table className="table">
+          <MasiTable label="Jobs">
             <thead>
               <tr>
                 <th>Title</th>
                 <th>Company</th>
                 <th>Location</th>
                 <th>First seen</th>
+                <th
+                  className="masi-num"
+                  title="How much of what the posting asks for your CV shows, 0-100"
+                >
+                  Match
+                </th>
                 <th>Package</th>
               </tr>
             </thead>
@@ -159,6 +174,7 @@ export default function MasiJobs() {
                       : ''}
                   </td>
                   <td>{formatDate(j.firstSeenAt)}</td>
+                  <td className="masi-num">{j.matchScore ?? <span className="muted">—</span>}</td>
                   <td>
                     {j.packageStatus ? (
                       <Link
@@ -174,7 +190,7 @@ export default function MasiJobs() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </MasiTable>
         )}
         {pages > 1 && (
           <div className="pagination">
