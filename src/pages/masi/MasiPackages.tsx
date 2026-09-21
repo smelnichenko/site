@@ -9,6 +9,7 @@ import {
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDateTime, formatUsd, PACKAGE_STATES } from './format';
+import MasiTable from '../../components/MasiTable';
 
 /** The review queue: every package of the caller by state, and the explicit backlog re-tune with its estimate first. */
 export default function MasiPackages() {
@@ -88,7 +89,7 @@ export default function MasiPackages() {
         {!list && !error && <div className="loading">Loading packages...</div>}
         {list?.length === 0 && <div className="empty-state">Nothing in this state.</div>}
         {list && list.length > 0 && (
-          <table className="table">
+          <MasiTable label="Packages">
             <thead>
               <tr>
                 <th>Job</th>
@@ -115,7 +116,7 @@ export default function MasiPackages() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </MasiTable>
         )}
       </div>
       <div className="card">

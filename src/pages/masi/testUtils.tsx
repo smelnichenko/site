@@ -30,6 +30,8 @@ export const job = {
   reopenedCount: 0,
   userNote: null,
   descriptionText: 'We are hiring. token-POSTING',
+  matchScore: null,
+  match: null,
   listings: [
     {
       id: 1,

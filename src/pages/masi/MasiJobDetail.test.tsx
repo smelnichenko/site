@@ -98,6 +98,30 @@ describe('MasiJobDetail', () => {
     expect(screen.getByText('Senior Java Developer')).toBeInTheDocument();
   });
 
+  it('shows how the job matches the CV, and nothing about it for a job that was never analysed', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({
+      ...job,
+      matchScore: 50,
+      match: {
+        score: 50,
+        supportedMustHave: ['Java'],
+        missingMustHave: ['Rust'],
+        notScored: [],
+        unscored: null,
+      },
+    });
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    const view = renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const region = await screen.findByRole('region', { name: 'Match with your CV' });
+    expect(region).toHaveTextContent('50');
+    expect(region).toHaveTextContent('Rust');
+    view.unmount();
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    await screen.findByText(/first seen/);
+    expect(screen.queryByRole('region', { name: 'Match with your CV' })).not.toBeInTheDocument();
+  });
+
   it('still shows the job when the hint cannot be loaded', async () => {
     vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);

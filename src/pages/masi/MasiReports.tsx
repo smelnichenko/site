@@ -11,6 +11,7 @@ import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import StatsPanel from './StatsPanel';
 import { defaultRange, errorMessage, formatDateTime, periodLabel } from './format';
+import MasiTable from '../../components/MasiTable';
 
 /** Stored weekly and monthly reports, and live stats over any range of days. */
 export default function MasiReports() {
@@ -117,7 +118,7 @@ export default function MasiReports() {
           </div>
         )}
         {reports !== null && reports.length > 0 && (
-          <table className="table">
+          <MasiTable label="Reports">
             <thead>
               <tr>
                 <th>Kind</th>
@@ -138,7 +139,7 @@ export default function MasiReports() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </MasiTable>
         )}
       </div>
       <div className="card">
