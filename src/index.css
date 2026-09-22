@@ -1250,6 +1250,25 @@ a.muted,
 .masi-listings {
   padding-left: 1.2rem;
 }
+/* where a job is listed: one small mark per source, wrapping in a narrow cell */
+.masi-sources {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.masi-source-mark {
+  display: inline-block;
+  padding: 0 0.4rem;
+  border-radius: 0.25rem;
+  background: #e9ecef;
+  color: #495057;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.masi-sources-label {
+  margin-right: 0.25rem;
+}
 .masi-role ul {
   margin: 0.25rem 0 0.75rem;
 }

@@ -4,6 +4,7 @@ import { fetchMasiJobs, MasiJob, Paged } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import { badgeClass, errorMessage, formatDate, PACKAGE_STATES, pageParam } from './format';
 import MasiTable from '../../components/MasiTable';
+import SourceMarks from './SourceMarks';
 
 const PAGE_SIZE = 50;
 /** The orders the page offers; anything else in the URL is not passed on. Newest first is the server's default: no parameter. */
@@ -148,6 +149,7 @@ export default function MasiJobs() {
               <tr>
                 <th>Title</th>
                 <th>Company</th>
+                <th>Sources</th>
                 <th>Location</th>
                 <th>First seen</th>
                 <th className="masi-num">Match</th>
@@ -160,6 +162,17 @@ export default function MasiJobs() {
                   <td>
                     <Link to={`/masi/jobs/${j.id}`}>{j.title}</Link>
                     {j.status === 'CLOSED' && <span className="muted"> (closed)</span>}
+                    {j.status === 'MERGED' && (
+                      <span className="muted">
+                        {' ('}
+                        {j.mergedIntoId ? (
+                          <Link to={`/masi/jobs/${j.mergedIntoId}`}>merged</Link>
+                        ) : (
+                          'merged'
+                        )}
+                        {')'}
+                      </span>
+                    )}
                   </td>
                   <td>
                     {j.companyId ? (
@@ -167,6 +180,9 @@ export default function MasiJobs() {
                     ) : (
                       j.companyName
                     )}
+                  </td>
+                  <td>
+                    <SourceMarks sources={j.sources} />
                   </td>
                   <td>
                     {j.location ?? ''}

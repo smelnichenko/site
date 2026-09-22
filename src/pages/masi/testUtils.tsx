@@ -48,6 +48,8 @@ export const job = {
       closedAt: null,
     },
   ],
+  sources: ['cvee'],
+  mergedIntoId: null,
   packageId: null,
   packageStatus: null,
 };

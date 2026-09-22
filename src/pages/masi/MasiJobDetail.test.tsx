@@ -66,6 +66,31 @@ describe('MasiJobDetail', () => {
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 
+  it('says where a merged job went, and names the boards a job is on', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({
+      ...job,
+      status: 'MERGED',
+      mergedIntoId: 12,
+      sources: [],
+    });
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    const view = renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const note = await screen.findByRole('note', { name: /merged/i });
+    expect(note).toHaveTextContent('the same posting');
+    expect(within(note).getByRole('link', { name: /job 12/ })).toHaveAttribute(
+      'href',
+      '/masi/jobs/12',
+    );
+    view.unmount();
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({ ...job, sources: ['cvee', 'meetfrank'] });
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    await screen.findByText('Senior Java Developer');
+    expect(screen.queryByRole('note', { name: /merged/i })).not.toBeInTheDocument();
+    const listedOn = screen.getByRole('group', { name: 'Listed on' });
+    expect(within(listedOn).getByText('cvee')).toBeInTheDocument();
+    expect(within(listedOn).getByText('meetfrank')).toBeInTheDocument();
+  });
+
   it('lists several look-alikes one per line, and shows the job only once the hint has settled', async () => {
     vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);

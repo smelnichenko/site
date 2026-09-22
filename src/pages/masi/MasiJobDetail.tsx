@@ -16,6 +16,7 @@ import MatchSummary from './MatchSummary';
 import LoadingButton from '../../components/LoadingButton';
 import PackagePanel from './PackagePanel';
 import { errorMessage, formatDateTime } from './format';
+import SourceMarks from './SourceMarks';
 
 /** 18 × 10 s, then 57 × 60 s: an hour of polling at most. */
 const MAX_POLLS = 75;
@@ -157,6 +158,21 @@ export default function MasiJobDetail() {
             ? ` · ${job.salaryMin ?? '?'}–${job.salaryMax ?? '?'} EUR`
             : ''}
           {` · first seen ${formatDateTime(job.firstSeenAt)}`}
+        </div>
+        {job.status === 'MERGED' && (
+          <div className="muted masi-hint" role="note" aria-label="merged">
+            Merged: the same posting under another spelling of the title or the employer. Its
+            listings, package and score live on{' '}
+            {job.mergedIntoId ? (
+              <Link to={`/masi/jobs/${job.mergedIntoId}`}>job {job.mergedIntoId}</Link>
+            ) : (
+              'the job it was merged into'
+            )}
+            .
+          </div>
+        )}
+        <div className="muted masi-hint" role="group" aria-label="Listed on">
+          <span className="masi-sources-label">Listed on</span> <SourceMarks sources={job.sources} />
         </div>
         {similar.length > 0 && (
           <div className="muted masi-hint" role="note">
