@@ -1405,6 +1405,10 @@ a.muted,
 }
 
 /* ---- masi calendar ---- */
+.masi-calendar-header {
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+}
 .masi-calendar-bar {
   align-items: center;
   gap: 0.5rem;
@@ -1446,7 +1450,7 @@ a.muted,
   background: #fbfbfc;
 }
 .masi-outside .masi-day-number {
-  color: #adb5bd;
+  color: #6c757d;
 }
 .masi-today {
   box-shadow: inset 0 0 0 2px #0b5fff;
@@ -1455,7 +1459,11 @@ a.muted,
   align-self: flex-start;
   background: none;
   border: 0;
+  /* the main way into a day: a finger-sized target, drawn where a bare number would be */
+  min-width: 2.75rem;
+  min-height: 1.75rem;
   padding: 0;
+  text-align: left;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -1477,6 +1485,7 @@ a.muted,
   white-space: nowrap;
   /* a number is a tap target too */
   min-height: 1.5rem;
+  min-width: 2.75rem;
   display: inline-flex;
   align-items: center;
 }
@@ -1530,6 +1539,11 @@ a.muted,
   /* the week scrolls inside itself, and nothing of it is painted outside its box. Measured: without this the seven
      columns' own width made the PAGE scroll sideways as well at phone width, beside the grid's own scrollbar */
   contain: paint;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+.masi-day-col {
+  scroll-snap-align: start;
 }
 .masi-week.masi-one-day {
   grid-template-columns: 3.2rem minmax(0, 1fr);
@@ -1546,6 +1560,9 @@ a.muted,
      otherwise push its own grid down and 10:00 would not sit beside 10:00 */
   height: 5.5rem;
   overflow-y: auto;
+  /* the head is a fixed height so the columns line up; what does not fit must be visibly cut, not silently gone */
+  scrollbar-width: thin;
+  mask-image: linear-gradient(to bottom, #000 80%, transparent);
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -1561,7 +1578,7 @@ a.muted,
 }
 .masi-hour {
   font-size: 0.7rem;
-  color: #888;
+  color: #6c757d;
   padding-right: 0.3rem;
   text-align: right;
   border-top: 1px solid #f1f3f5;
@@ -1587,6 +1604,11 @@ a.muted,
   position: absolute;
   left: 2px;
   right: 2px;
+  /* a ten-minute booking is still a target, and two lines of a long title beat half of one */
+  min-height: 22px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   border: 0;
   border-radius: 3px;
   padding: 0.1rem 0.3rem;
@@ -1601,6 +1623,14 @@ a.muted,
 .masi-block.masi-interview {
   background: #cdefd9;
   color: #14532d;
+}
+.masi-block.masi-follow_up {
+  background: #ffe7c2;
+  color: #7a4a00;
+}
+.masi-block.masi-deadline {
+  background: #fbd6d6;
+  color: #8a1c1c;
 }
 .masi-block.masi-cancelled {
   text-decoration: line-through;
@@ -1621,7 +1651,35 @@ a.muted,
   flex: 1 1 12rem;
   min-width: 0;
 }
+@media print {
+  /* a printed calendar loses every kind: browsers drop backgrounds unless they are asked to keep them */
+  .masi-chip,
+  .masi-block,
+  .masi-calendar-bar .btn-small.active {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .masi-month {
+    break-inside: avoid;
+  }
+}
 @media (max-width: 700px) {
+  /* the two datetime inputs are 260 px wide on their own: in one nowrap row they carried the page 280 px sideways */
+  .masi-event-form .form-row {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .masi-event-form .form-group {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .masi-event-form .form-group input,
+  .masi-event-form .form-group select {
+    width: 100%;
+  }
+  .masi-event-form .form-group input[type='checkbox'] {
+    width: auto;
+  }
   .masi-month-cell {
     min-height: 5rem;
   }
@@ -1637,21 +1695,34 @@ a.muted,
   .masi-count-letter {
     display: inline;
     margin-right: 0.15rem;
-    color: #888;
+    color: #6c757d;
   }
   .masi-month .masi-chip {
     /* a title cut to three characters says nothing; a bar says "something is booked" and opens the event.
-       The button keeps a finger-sized height; only the middle of it is painted */
+       The button keeps a finger-sized height; only the middle of it is painted, in a colour that can be seen
+       on a phone in daylight — at this size the bar is the whole message */
     font-size: 0;
     height: 1.5rem;
     padding: 0.5rem 0;
     background-clip: content-box;
     border-radius: 999px;
+    background-color: #7aa7ff;
+  }
+  .masi-month .masi-chip.masi-interview {
+    background-color: #57b77e;
+  }
+  .masi-month .masi-chip.masi-follow_up {
+    background-color: #e0a340;
+  }
+  .masi-month .masi-chip.masi-deadline,
+  .masi-month .masi-chip.masi-deadline-chip {
+    background-color: #e08585;
   }
   .masi-month .masi-chip.masi-more {
-    font-size: 0.65rem;
-    height: auto;
+    font-size: 0.7rem;
+    height: 1.5rem;
     padding: 0;
+    background: none;
   }
   .masi-month-head {
     font-size: 0.7rem;

@@ -6,6 +6,7 @@ import {
   fetchMasiCalendar,
   MasiCalendar as Calendar,
   MasiCalendarEvent as Event,
+  MASI_DAY_KINDS,
   MASI_EVENT_KINDS,
   MASI_EVENT_OUTCOMES,
   updateMasiCalendarEvent,
@@ -20,8 +21,8 @@ import {
   Day,
   dayOf,
   fromLocalInput,
-  minuteOfDay,
   monthGrid,
+  startOf,
   toLocalInput,
   weekOf,
 } from './calendarTime';
@@ -36,6 +37,8 @@ const LAST_HOUR = 20;
 const HOUR_PX = 40;
 /** A default meeting: long enough to read as a block, short enough not to swallow the afternoon. */
 const DEFAULT_MINUTES = 60;
+/** How many chips a month cell shows of each kind before it says "+N": a cell is an inch tall, not a list. */
+const CELL_CHIPS = 3;
 
 const KIND_WORDS: Record<Event['kind'], string> = {
   CALL: 'call',
@@ -115,7 +118,7 @@ function headingOf(view: View, anchor: Day, from: Day): string {
   return dayLabel(anchor);
 }
 
-function emptyDraft(day: Day, hour = 10): Draft {
+function emptyDraft(day: Day, hour = 10, jobId: number | null = null): Draft {
   const startsAt = `${day}T${String(hour).padStart(2, '0')}:00`;
   return {
     id: null,
@@ -127,7 +130,7 @@ function emptyDraft(day: Day, hour = 10): Draft {
     location: '',
     notes: '',
     outcome: 'NONE',
-    jobId: null,
+    jobId,
     companyId: null,
     contactId: null,
   };
@@ -150,35 +153,126 @@ function draftOf(e: Event): Draft {
   };
 }
 
-/** Where a block sits in the hour grid, in pixels from the first hour drawn. */
-function blockStyle(e: Event): { top: number; height: number } {
-  const from = Math.max(minuteOfDay(e.startsAt), FIRST_HOUR * 60);
-  const to = Math.min(Math.max(minuteOfDay(e.endsAt), from + 15), (LAST_HOUR + 1) * 60);
-  return { top: ((from - FIRST_HOUR * 60) / 60) * HOUR_PX, height: ((to - from) / 60) * HOUR_PX };
-}
-
 /** A block's classes: its kind colours it, a cancelled booking is struck through. */
 function blockClass(e: Event): string {
-  const classes = ['masi-block', `masi-${e.kind.toLowerCase()}`];
+  return kindClass('masi-block', e);
+}
+
+/** What a head chip says before the title: the hour it starts, that it is all day, or that it carries on from before. */
+function headPrefix(e: Event, day: Day): string {
+  if (e.allDay) {
+    return 'all day: ';
+  }
+  if (continuing(e, day)) {
+    return 'continues: ';
+  }
+  return `${clockOf(e.startsAt)} `;
+}
+
+/** A chip's, in a month cell or a column head: the same kind, the same colour. */
+function chipClass(e: Event): string {
+  return kindClass('masi-chip', e);
+}
+
+function kindClass(base: string, e: Event): string {
+  const classes = [base, `masi-${e.kind.toLowerCase()}`];
   if (e.outcome === 'CANCELLED') {
     classes.push('masi-cancelled');
   }
   return classes.join(' ');
 }
 
-/** True when the block would be drawn outside the hours the grid covers: those events are listed instead. */
-function offGrid(e: Event): boolean {
+/** Minutes from a day's midnight, in masi's zone: negative before it, past the day's length after it. */
+function minutesWithin(day: Day, iso: string): number {
+  return (Date.parse(iso) - Date.parse(startOf(day))) / 60_000;
+}
+
+/** Where a block sits on ONE day's hour grid: an event that spans days is clipped to the day being drawn. */
+function blockStyle(e: Event, day: Day): { top: number; height: number } {
+  const from = Math.max(minutesWithin(day, e.startsAt), FIRST_HOUR * 60);
+  const to = Math.min(minutesWithin(day, e.endsAt), (LAST_HOUR + 1) * 60);
+  return {
+    top: ((from - FIRST_HOUR * 60) / 60) * HOUR_PX,
+    height: (Math.max(to - from, 0) / 60) * HOUR_PX,
+  };
+}
+
+/**
+ * True when the event covers some, but not all, of the hours this day's grid draws. One that covers the whole of them —
+ * an all-day booking, or the middle day of a conference — is listed in the head instead: as a block it would take a
+ * lane from the calls that actually happen at an hour, and say nothing the head does not.
+ */
+function onGrid(e: Event, day: Day): boolean {
+  const from = minutesWithin(day, e.startsAt);
+  const to = minutesWithin(day, e.endsAt);
   return (
-    minuteOfDay(e.startsAt) < FIRST_HOUR * 60 || minuteOfDay(e.startsAt) > (LAST_HOUR + 1) * 60
+    !e.allDay &&
+    to > FIRST_HOUR * 60 &&
+    from < (LAST_HOUR + 1) * 60 &&
+    !(from <= FIRST_HOUR * 60 && to >= (LAST_HOUR + 1) * 60)
   );
+}
+
+/** True when the event started before this day: the head says it goes on rather than repeating its clock. */
+function continuing(e: Event, day: Day): boolean {
+  return minutesWithin(day, e.startsAt) < 0;
+}
+
+/** One event's place among those it shares its hours with: which lane of how many. */
+interface Placed {
+  event: Event;
+  lane: number;
+  lanes: number;
+}
+
+/**
+ * Side by side rather than on top of each other: events that overlap in time are laid out in lanes. Events are walked
+ * in start order; a run of them that overlaps transitively is one cluster, and every event in a cluster is drawn in the
+ * first lane free at its start, so a 10:00 call beside a 10:00 interview is two half-width blocks, not one hidden one.
+ */
+function place(events: Event[], day: Day): Placed[] {
+  const sorted = [...events].sort(
+    (a, b) => a.startsAt.localeCompare(b.startsAt) || a.endsAt.localeCompare(b.endsAt),
+  );
+  const placed: Placed[] = [];
+  let cluster: Placed[] = [];
+  let laneEnds: number[] = [];
+  let clusterEnd = -Infinity;
+  const close = () => {
+    const lanes = laneEnds.length || 1;
+    cluster.forEach((p) => placed.push({ ...p, lanes }));
+    cluster = [];
+    laneEnds = [];
+  };
+  sorted.forEach((event) => {
+    const from = minutesWithin(day, event.startsAt);
+    const to = minutesWithin(day, event.endsAt);
+    if (from >= clusterEnd) {
+      close();
+      clusterEnd = -Infinity;
+    }
+    let lane = laneEnds.findIndex((end) => end <= from);
+    if (lane === -1) {
+      lane = laneEnds.length;
+    }
+    laneEnds[lane] = to;
+    clusterEnd = Math.max(clusterEnd, to);
+    cluster.push({ event, lane, lanes: 1 });
+  });
+  close();
+  return placed;
 }
 
 /** The operator's calendar: what is booked, what the day held, and what closes that day. */
 export default function MasiCalendar() {
   const [params, setParams] = useSearchParams();
   const today = dayOf(new Date());
-  const view = (params.get('view') as View) ?? 'month';
-  const anchor = params.get('day') ?? today;
+  const asked = params.get('view');
+  const view: View = VIEWS.includes(asked as View) ? (asked as View) : 'month';
+  const askedDay = params.get('day') ?? '';
+  const anchor: Day = /^\d{4}-\d{2}-\d{2}$/.test(askedDay) ? askedDay : today;
+  // a job opened its calendar: what is booked from here is about that job
+  const job = params.get('job') ? Number(params.get('job')) : null;
   const [data, setData] = useState<Calendar | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -195,6 +289,7 @@ export default function MasiCalendar() {
   const reload = useCallback(
     async (signal?: AbortSignal) => {
       setData(await fetchMasiCalendar(from, to, signal));
+      setError(null);
     },
     [from, to],
   );
@@ -234,8 +329,11 @@ export default function MasiCalendar() {
     // sorted once, then grouped: each day's list comes out in the order the events start
     const sorted = [...(data?.events ?? [])].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     sorted.forEach((e) => {
-      const day = dayOf(e.startsAt);
-      m.set(day, [...(m.get(day) ?? []), e]);
+      // every day the event covers, not only the one it starts on: a three-day booking is on all three
+      const last = dayOf(new Date(Date.parse(e.endsAt) - 1));
+      for (let day = dayOf(e.startsAt); day <= last; day = addDays(day, 1)) {
+        m.set(day, [...(m.get(day) ?? []), e]);
+      }
     });
     return m;
   }, [data]);
@@ -255,12 +353,12 @@ export default function MasiCalendar() {
     setMessage(null);
     try {
       const startsAt = fromLocalInput(draft.startsAt);
-      const endsAt = fromLocalInput(draft.endsAt) ?? startsAt;
+      const endsAt = fromLocalInput(draft.endsAt) ?? undefined;
       if (!startsAt) throw new Error('Give the event a start');
       const body = {
         kind: draft.kind,
         startsAt,
-        endsAt: endsAt ?? undefined,
+        endsAt,
         allDay: draft.allDay,
         title: draft.title.trim(),
         location: draft.location.trim() || undefined,
@@ -301,7 +399,7 @@ export default function MasiCalendar() {
     <div>
       <MasiNav />
       <div className="card">
-        <div className="card-header">
+        <div className="card-header masi-calendar-header">
           <span className="card-title">Calendar</span>
           <span className="muted">{heading}</span>
         </div>
@@ -337,7 +435,7 @@ export default function MasiCalendar() {
           <button
             type="button"
             className="status-badge action"
-            onClick={() => setDraft(emptyDraft(view === 'month' ? today : anchor))}
+            onClick={() => setDraft(emptyDraft(view === 'month' ? today : anchor, 10, job))}
           >
             New event
           </button>
@@ -364,7 +462,7 @@ export default function MasiCalendar() {
             eventsByDay={eventsByDay}
             deadlinesByDay={deadlinesByDay}
             onEdit={(e) => setDraft(draftOf(e))}
-            onPick={(d, hour) => setDraft(emptyDraft(d, hour))}
+            onPick={(d, hour) => setDraft(emptyDraft(d, hour, job))}
           />
         )}
 
@@ -405,10 +503,11 @@ function logLink(day: Day, kind: string): string {
 function DayCounts({ day, counts }: Readonly<{ day: Day; counts: GridProps['counts'] }>) {
   const c = counts.get(day);
   if (!c || (c.collected === 0 && c.sent === 0 && c.communicated === 0)) return null;
+  // each number links to the rows it counted, and to no others
   const items: Array<[string, number, string]> = [
-    ['sent', c.sent, 'APPLIED'],
-    ['collected', c.collected, 'COLLECTED'],
-    ['talked', c.communicated, ''],
+    ['sent', c.sent, MASI_DAY_KINDS.sent.join(',')],
+    ['collected', c.collected, MASI_DAY_KINDS.collected.join(',')],
+    ['talked', c.communicated, MASI_DAY_KINDS.communicated.join(',')],
   ];
   // a phone column is too narrow for the word: it keeps its first letter there, and the label says both either way
   return (
@@ -441,58 +540,84 @@ function MonthGrid({
   const month = anchor.slice(0, 7);
   return (
     <div className="masi-month" role="grid" aria-label="Month">
-      {WEEKDAYS.map((w) => (
-        <div key={w} className="masi-month-head" role="columnheader">
-          {w}
+      <div className="masi-month-row" role="row">
+        {WEEKDAYS.map((w) => (
+          <div key={w} className="masi-month-head" role="columnheader">
+            {w}
+          </div>
+        ))}
+      </div>
+      {weeks(days).map((week) => (
+        <div key={week[0]} className="masi-month-row" role="row">
+          {week.map((day) => cell(day))}
         </div>
       ))}
-      {days.map((day) => {
-        const events = eventsByDay.get(day) ?? [];
-        const deadlines = deadlinesByDay.get(day) ?? [];
-        const classes = ['masi-month-cell'];
-        if (!day.startsWith(month)) classes.push('masi-outside');
-        if (day === today) classes.push('masi-today');
-        return (
-          <div key={day} className={classes.join(' ')} role="gridcell">
-            <button
-              type="button"
-              className="masi-day-number"
-              aria-label={`Open ${dayLabel(day)}`}
-              onClick={() => onOpenDay(day)}
-            >
-              {Number(day.slice(8))}
-            </button>
-            <DayCounts day={day} counts={counts} />
-            {events.slice(0, 3).map((e) => (
-              <button
-                key={e.id}
-                type="button"
-                className={`masi-chip masi-${e.kind.toLowerCase()}`}
-                onClick={() => onEdit(e)}
-              >
-                {e.allDay ? '' : `${clockOf(e.startsAt)} `}
-                {e.title}
-              </button>
-            ))}
-            {events.length > 3 && (
-              <button type="button" className="masi-chip masi-more" onClick={() => onOpenDay(day)}>
-                +{events.length - 3} more
-              </button>
-            )}
-            {deadlines.map((d) => (
-              <Link
-                key={d.jobId}
-                to={`/masi/jobs/${d.jobId}`}
-                className="masi-chip masi-deadline-chip"
-              >
-                closes: {d.title}
-              </Link>
-            ))}
-          </div>
-        );
-      })}
     </div>
   );
+
+  function cell(day: Day) {
+    const events = eventsByDay.get(day) ?? [];
+    const deadlines = deadlinesByDay.get(day) ?? [];
+    const shown = events.slice(0, CELL_CHIPS);
+    const over = events.length - shown.length + Math.max(deadlines.length - CELL_CHIPS, 0);
+    const classes = ['masi-month-cell'];
+    if (!day.startsWith(month)) classes.push('masi-outside');
+    if (day === today) classes.push('masi-today');
+    return (
+      <div key={day} className={classes.join(' ')} role="gridcell">
+        <button
+          type="button"
+          className="masi-day-number"
+          aria-label={`Open ${dayLabel(day)}`}
+          onClick={() => onOpenDay(day)}
+        >
+          {Number(day.slice(8))}
+        </button>
+        <DayCounts day={day} counts={counts} />
+        {shown.map((e) => (
+          <button
+            key={e.id}
+            type="button"
+            className={chipClass(e)}
+            title={e.title}
+            onClick={() => onEdit(e)}
+          >
+            {e.allDay ? '' : `${clockOf(e.startsAt)} `}
+            {e.title}
+          </button>
+        ))}
+        {deadlines.slice(0, CELL_CHIPS).map((d) => (
+          <Link
+            key={d.jobId}
+            to={`/masi/jobs/${d.jobId}`}
+            className="masi-chip masi-deadline-chip"
+            title={`${d.title} closes`}
+          >
+            closes: {d.title}
+          </Link>
+        ))}
+        {over > 0 && (
+          <button
+            type="button"
+            className="masi-chip masi-more"
+            aria-label={`${over} more on ${dayLabel(day)}`}
+            onClick={() => onOpenDay(day)}
+          >
+            +{over}
+          </button>
+        )}
+      </div>
+    );
+  }
+}
+
+/** The weeks of a month grid: seven days a row, as the grid draws them. */
+function weeks(days: Day[]): Day[][] {
+  const out: Day[][] = [];
+  for (let i = 0; i < days.length; i += 7) {
+    out.push(days.slice(i, i + 7));
+  }
+  return out;
 }
 
 function HourGrid({
@@ -518,7 +643,7 @@ function HourGrid({
       {days.map((day) => {
         const events = eventsByDay.get(day) ?? [];
         const deadlines = deadlinesByDay.get(day) ?? [];
-        const listed = events.filter((e) => e.allDay || offGrid(e));
+        const listed = events.filter((e) => !onGrid(e, day));
         return (
           <div key={day} className={day === today ? 'masi-day-col masi-today' : 'masi-day-col'}>
             <div className="masi-col-head">
@@ -527,13 +652,8 @@ function HourGrid({
               </span>
               <DayCounts day={day} counts={counts} />
               {listed.map((e) => (
-                <button
-                  key={e.id}
-                  type="button"
-                  className={`masi-chip masi-${e.kind.toLowerCase()}`}
-                  onClick={() => onEdit(e)}
-                >
-                  {e.allDay ? 'all day: ' : `${clockOf(e.startsAt)} `}
+                <button key={e.id} type="button" className={chipClass(e)} onClick={() => onEdit(e)}>
+                  {headPrefix(e, day)}
                   {e.title}
                 </button>
               ))}
@@ -554,26 +674,35 @@ function HourGrid({
                   type="button"
                   className="masi-slot"
                   style={{ height: HOUR_PX }}
+                  /* a week is 91 of these: they are a pointer shortcut, and "New event" is the way in from the keyboard */
+                  tabIndex={-1}
                   aria-label={`Book ${String(h).padStart(2, '0')}:00 on ${dayLabel(day)}`}
                   onClick={() => onPick(day, h)}
                 />
               ))}
-              {events
-                .filter((e) => !e.allDay && !offGrid(e))
-                .map((e) => {
-                  const { top, height } = blockStyle(e);
-                  return (
-                    <button
-                      key={e.id}
-                      type="button"
-                      className={blockClass(e)}
-                      style={{ top, height }}
-                      onClick={() => onEdit(e)}
-                    >
-                      <span className="masi-block-time">{clockOf(e.startsAt)}</span> {e.title}
-                    </button>
-                  );
-                })}
+              {place(
+                events.filter((e) => onGrid(e, day)),
+                day,
+              ).map(({ event: e, lane, lanes }) => {
+                const { top, height } = blockStyle(e, day);
+                return (
+                  <button
+                    key={e.id}
+                    type="button"
+                    className={blockClass(e)}
+                    title={e.title}
+                    style={{
+                      top,
+                      height,
+                      left: `calc(${(lane / lanes) * 100}% + 2px)`,
+                      width: `calc(${(1 / lanes) * 100}% - 4px)`,
+                    }}
+                    onClick={() => onEdit(e)}
+                  >
+                    <span className="masi-block-time">{clockOf(e.startsAt)}</span> {e.title}
+                  </button>
+                );
+              })}
             </div>
           </div>
         );

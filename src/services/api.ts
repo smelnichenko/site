@@ -1493,6 +1493,10 @@ async function masiSend<T>(
     const data = await readErrorBody(response);
     throw new Error(data.error || `Failed to ${what}`);
   }
+  if (response.status === 204) {
+    // a delete answers no content: parsing it as JSON would throw and the caller would read a success as a failure
+    return undefined as T;
+  }
   return readJson<T>(response);
 }
 
@@ -1636,6 +1640,16 @@ export interface MasiCalendarEvent {
   notes: string | null;
   outcome: 'NONE' | 'DONE' | 'CANCELLED' | 'NO_SHOW';
 }
+
+/**
+ * What each of a day's three numbers counted, so a link opens exactly those rows. It mirrors `ActivityKind.sent()`
+ * and `.communicated()` in masi, which a backend test pins by name; a kind added there is added here.
+ */
+export const MASI_DAY_KINDS = {
+  sent: ['APPLIED', 'SENT_MESSAGE'],
+  collected: ['COLLECTED'],
+  communicated: ['SENT_MESSAGE', 'RECEIVED_MESSAGE', 'CALL', 'INTERVIEW'],
+} as const;
 
 export const MASI_EVENT_KINDS = ['CALL', 'INTERVIEW', 'FOLLOW_UP', 'DEADLINE', 'OTHER'] as const;
 export const MASI_EVENT_OUTCOMES = ['NONE', 'DONE', 'CANCELLED', 'NO_SHOW'] as const;

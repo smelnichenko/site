@@ -11,6 +11,11 @@ vi.mock('../../services/api', () => ({
   updateMasiCalendarEvent: vi.fn(),
   deleteMasiCalendarEvent: vi.fn(),
   MASI_EVENT_KINDS: ['CALL', 'INTERVIEW', 'FOLLOW_UP', 'DEADLINE', 'OTHER'],
+  MASI_DAY_KINDS: {
+    sent: ['APPLIED', 'SENT_MESSAGE'],
+    collected: ['COLLECTED'],
+    communicated: ['SENT_MESSAGE', 'RECEIVED_MESSAGE', 'CALL', 'INTERVIEW'],
+  },
   MASI_EVENT_OUTCOMES: ['NONE', 'DONE', 'CANCELLED', 'NO_SHOW'],
 }));
 const api = await import('../../services/api');
@@ -75,13 +80,14 @@ describe('MasiCalendar', () => {
       'href',
       '/masi/activity?day=2026-09-22&kind=COLLECTED',
     );
+    // the link opens the rows the number counted: an application AND a message out
     expect(screen.getByRole('link', { name: 'sent 2 on 2026-09-22' })).toHaveAttribute(
       'href',
-      '/masi/activity?day=2026-09-22&kind=APPLIED',
+      '/masi/activity?day=2026-09-22&kind=APPLIED%2CSENT_MESSAGE',
     );
     expect(screen.getByRole('link', { name: 'talked 1 on 2026-09-22' })).toHaveAttribute(
       'href',
-      '/masi/activity?day=2026-09-22',
+      '/masi/activity?day=2026-09-22&kind=SENT_MESSAGE%2CRECEIVED_MESSAGE%2CCALL%2CINTERVIEW',
     );
     // a day with nothing shows no counts at all, not three zeros
     expect(screen.queryByRole('link', { name: /collected 0/ })).not.toBeInTheDocument();
