@@ -61,7 +61,10 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
         <div className="card masi-tile" data-testid="jobs-tile">
           <span className="stat-value">{stats.registry.newJobs}</span>
           <span className="stat-label">new jobs</span>
-          <span className="muted">{stats.registry.closedJobs} closed</span>
+          <span className="muted">
+            {stats.registry.closedJobs} closed
+            {stats.registry.repostedJobs > 0 ? ` · ${stats.registry.repostedJobs} reposted` : ''}
+          </span>
         </div>
         <div className="card masi-tile">
           <span className="stat-value">{stats.registry.newListings}</span>

@@ -1666,6 +1666,8 @@ export interface MasiStats {
   registry: {
     newJobs: number;
     closedJobs: number;
+    /** Closed jobs that came back in the period: neither new nor closed in it. */
+    repostedJobs: number;
     newListings: number;
     closedListings: number;
     medianListingLifetimeHours: number | null;
