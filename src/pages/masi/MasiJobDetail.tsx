@@ -148,9 +148,7 @@ export default function MasiJobDetail() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">{job.title}</span>
-          <span className="muted">
-            {jobState(job)}
-          </span>
+          <span className="muted">{jobState(job)}</span>
         </div>
         <div className="muted">
           {job.companyId ? (
