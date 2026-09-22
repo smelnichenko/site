@@ -94,6 +94,7 @@ describe('MasiJobs', () => {
           status: 'MERGED',
           mergedIntoId: 7,
           sources: [],
+          reopenedCount: 1, // an absorbed duplicate's own count is noise beside the merge note
         },
       ],
       page: 0,
@@ -115,6 +116,7 @@ describe('MasiJobs', () => {
     expect(within(unlisted).getAllByRole('cell')[sourcesColumn]).toHaveTextContent('—');
     const merged = screen.getByRole('row', { name: /^Java Developer \| EE/ });
     expect(merged).toHaveTextContent('(merged)');
+    expect(within(merged).queryByText(/reposted/)).not.toBeInTheDocument();
     expect(within(merged).getByRole('link', { name: 'merged into job 7' })).toHaveAttribute(
       'href',
       '/masi/jobs/7',

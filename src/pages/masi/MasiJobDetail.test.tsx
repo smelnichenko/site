@@ -121,6 +121,27 @@ describe('MasiJobDetail', () => {
     expect(screen.queryByRole('list', { name: 'History' })).not.toBeInTheDocument();
   });
 
+  it('folds a long history to its latest entries, and unfolds on request', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    const entries = Array.from({ length: 11 }, (_, i) => ({
+      at: `2026-09-${String(i + 1).padStart(2, '0')}T08:00:00Z`,
+      kind: i % 2 === 0 ? ('LISTED' as const) : ('GONE' as const),
+      sourceKey: 'cvee',
+      jobId: null,
+      detail: null,
+    }));
+    vi.mocked(api.fetchMasiJobHistory).mockResolvedValue(entries);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const history = await screen.findByRole('list', { name: 'History' });
+    expect(within(history).getAllByRole('listitem')).toHaveLength(8);
+    expect(within(history).getAllByRole('listitem')[0]).toHaveTextContent('4 Sept 2026'); // the oldest three are folded
+    await userEvent.click(screen.getByRole('button', { name: 'Show all 11' }));
+    expect(within(history).getAllByRole('listitem')).toHaveLength(11);
+    expect(within(history).getAllByRole('listitem')[0]).toHaveTextContent('1 Sept 2026');
+    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument();
+  });
+
   it('says where a merged job went, and names the boards a job is on', async () => {
     vi.mocked(api.fetchMasiJob).mockResolvedValue({
       ...job,

@@ -1250,17 +1250,21 @@ a.muted,
 .masi-listings {
   padding-left: 1.2rem;
 }
-/* the position's timeline: a labelled list, one line per entry, the label in the muted tone of the hints */
+/* the position's timeline: a labelled list, one entry per line; a wrapped entry keeps its date as the anchor */
 .masi-history {
-  margin: 0.5rem 0 1rem;
-}
-.masi-history-label {
-  color: #666;
+  margin: 1rem 0; /* the listings above have no margin of their own: this gap is the whole step */
 }
 .masi-history ol {
   margin: 0.25rem 0 0;
   padding-left: 0;
   list-style: none; /* the dates order it; numerals would say nothing */
+}
+.masi-history li {
+  padding-left: 1.25rem;
+  text-indent: -1.25rem;
+}
+.masi-history .link-button {
+  margin-left: 0.5rem;
 }
 .masi-repost {
   white-space: nowrap;
