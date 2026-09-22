@@ -171,7 +171,12 @@ export default function MasiActivity() {
             </select>
           </div>
           {(job || company || contact) && (
-            <button type="button" className="status-badge" onClick={() => setParams({})}>
+            <button
+              type="button"
+              className="status-badge"
+              aria-label={`Clear the scope: ${scopeWords(job, company, contact)}`}
+              onClick={() => setParams({})}
+            >
               {scopeWords(job, company, contact)} ×
             </button>
           )}
@@ -218,10 +223,21 @@ export default function MasiActivity() {
             />
           </div>
         )}
-        {message && <div className="muted">{message}</div>}
-        {page?.content.length === 0 && <p className="muted">Nothing logged.</p>}
+        {message && <div className="error">{message}</div>}
+        {page?.content.length === 0 && (
+          <p className="muted">
+            Nothing logged.{' '}
+            {!canLog && (
+              <>
+                To log a call, a message or a note, open it from a <Link to="/masi/jobs">job</Link>{' '}
+                or a <Link to="/masi/companies">company</Link>.
+              </>
+            )}
+          </p>
+        )}
         {page && page.content.length > 0 && (
-          <ol className="masi-activity" aria-label="Activity">
+          // eslint-disable-next-line jsx-a11y/no-redundant-roles -- WebKit drops the list role from a list-style:none list
+          <ol className="masi-activity" role="list" aria-label="Activity">
             {page.content.map((a) => (
               <li key={a.id} className={a.origin === 'SYSTEM' ? 'masi-activity-system' : ''}>
                 <span className="masi-activity-when">{formatDateTime(a.at)}</span>
@@ -263,10 +279,10 @@ export default function MasiActivity() {
           </ol>
         )}
         {page && totalPages > 1 && (
-          <div className="badge-group masi-pager">
+          <div className="pagination">
             <button
               type="button"
-              className="status-badge"
+              className="btn-small"
               disabled={pageNo === 0}
               onClick={() => set('page', String(pageNo - 1))}
             >
@@ -277,7 +293,7 @@ export default function MasiActivity() {
             </span>
             <button
               type="button"
-              className="status-badge"
+              className="btn-small"
               disabled={pageNo + 1 >= totalPages}
               onClick={() => set('page', String(pageNo + 1))}
             >

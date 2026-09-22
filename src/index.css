@@ -1167,7 +1167,8 @@ a.muted,
 }
 
 .masi-filters input,
-.masi-filters select {
+.masi-filters select,
+.masi-log-form select {
   min-height: 36px;
   padding: 4px 8px;
   border: 1px solid #ccc;
@@ -1258,10 +1259,14 @@ a.muted,
 }
 .masi-activity li {
   display: grid;
-  grid-template-columns: 9.5rem 8rem 1fr;
+  grid-template-columns: 9.5rem 8.5rem minmax(0, 1fr); /* 8.5rem: "message received" in 600 weight is 130 px */
   gap: 0 0.75rem;
   padding: 0.3rem 0;
   border-top: 1px solid #f1f3f5;
+}
+.masi-activity-text {
+  min-width: 0;
+  overflow-wrap: anywhere; /* a pasted URL in a summary must not widen the page */
 }
 .masi-activity-when {
   color: #666;
@@ -1276,15 +1281,18 @@ a.muted,
 }
 .masi-log-form {
   flex-wrap: wrap;
-  align-items: flex-end;
 }
 .masi-log-form .masi-grow {
   flex: 1 1 12rem;
   min-width: 0;
 }
-.masi-log-form input {
+/* the two rows align on their fields, not on the groups' outer margin */
+.masi-filters .form-group,
+.masi-log-form .form-group {
+  margin-bottom: 0;
+}
+.masi-log-form select {
   width: 100%;
-  box-sizing: border-box;
 }
 @media (max-width: 700px) {
   .masi-activity li {
