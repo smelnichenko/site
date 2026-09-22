@@ -82,6 +82,43 @@ describe('MasiJobs', () => {
     ); // a new filter starts over
   });
 
+  it('marks every row with the sources that list the job, and a merged job as merged', async () => {
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [
+        { ...job, sources: ['cvee', 'meetfrank'] },
+        { ...job, id: 8, title: 'Go Engineer', sources: [] },
+        {
+          ...job,
+          id: 9,
+          title: 'Java Developer | EE',
+          status: 'MERGED',
+          mergedIntoId: 7,
+          sources: [],
+        },
+      ],
+      page: 0,
+      size: 50,
+      totalElements: 3,
+    });
+    renderAt('/masi/jobs?status=ALL', '/masi/jobs', <MasiJobs />);
+    const listed = await screen.findByRole('row', { name: /^Senior Java Developer/ });
+    const sourcesColumn = screen
+      .getAllByRole('columnheader')
+      .findIndex((h) => h.textContent?.trim() === 'Sources');
+    expect(sourcesColumn).toBeGreaterThan(-1);
+    const marks = within(listed).getAllByRole('cell')[sourcesColumn];
+    expect(within(marks).getByText('cvee')).toBeInTheDocument();
+    expect(within(marks).getByText('meetfrank')).toBeInTheDocument();
+    const unlisted = screen.getByRole('row', { name: /Go Engineer/ });
+    expect(within(unlisted).getAllByRole('cell')[sourcesColumn]).toHaveTextContent('—');
+    const merged = screen.getByRole('row', { name: /^Java Developer \| EE/ });
+    expect(merged).toHaveTextContent('(merged)');
+    expect(within(merged).getByRole('link', { name: 'merged into job 7' })).toHaveAttribute(
+      'href',
+      '/masi/jobs/7',
+    );
+  });
+
   it('shows the empty state', async () => {
     vi.mocked(api.fetchMasiJobs).mockResolvedValue({
       content: [],

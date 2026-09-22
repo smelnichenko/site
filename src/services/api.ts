@@ -1239,7 +1239,8 @@ export interface MasiJob {
   remote: string | null;
   salaryMin: number | null;
   salaryMax: number | null;
-  status: 'OPEN' | 'CLOSED';
+  /** MERGED: found to be another job's duplicate; its listings live there, see mergedIntoId. */
+  status: 'OPEN' | 'CLOSED' | 'MERGED';
   firstSeenAt: string;
   lastSeenAt: string;
   closedAt: string | null;
@@ -1247,6 +1248,9 @@ export interface MasiJob {
   userNote: string | null;
   descriptionText: string | null;
   listings: MasiListing[];
+  /** The keys of the sources with an open listing of the job — where it is present now, each once, sorted. */
+  sources: string[];
+  mergedIntoId: number | null;
   packageId: number | null;
   packageStatus: string | null;
   /** How far the caller's active CV master covers what the posting asks for, 0-100; null = not scored (yet, or not scorable). */
