@@ -1642,14 +1642,14 @@ export interface MasiCalendarEvent {
 }
 
 /**
- * What each of a day's three numbers counted, so a link opens exactly those rows. It mirrors `ActivityKind.sent()`
- * and `.communicated()` in masi, which a backend test pins by name; a kind added there is added here.
+ * What each of a day's three numbers counted, so a link opens exactly those rows — as the calendar's answer states it.
+ * masi owns these groupings; nothing here keeps a second copy of them.
  */
-export const MASI_DAY_KINDS = {
-  sent: ['APPLIED', 'SENT_MESSAGE'],
-  collected: ['COLLECTED'],
-  communicated: ['SENT_MESSAGE', 'RECEIVED_MESSAGE', 'CALL', 'INTERVIEW'],
-} as const;
+export interface MasiDayKinds {
+  sent: string[];
+  collected: string[];
+  communicated: string[];
+}
 
 export const MASI_EVENT_KINDS = ['CALL', 'INTERVIEW', 'FOLLOW_UP', 'DEADLINE', 'OTHER'] as const;
 export const MASI_EVENT_OUTCOMES = ['NONE', 'DONE', 'CANCELLED', 'NO_SHOW'] as const;
@@ -1667,6 +1667,7 @@ export interface MasiCalendar {
   days: MasiDayCounts[];
   events: MasiCalendarEvent[];
   deadlines: MasiDeadline[];
+  dayKinds: MasiDayKinds;
 }
 
 /** `from`..`to` are calendar days (YYYY-MM-DD) in masi's zone, both ends inclusive. */

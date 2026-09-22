@@ -6,7 +6,7 @@ import {
   fetchMasiCalendar,
   MasiCalendar as Calendar,
   MasiCalendarEvent as Event,
-  MASI_DAY_KINDS,
+  MasiDayKinds,
   MASI_EVENT_KINDS,
   MASI_EVENT_OUTCOMES,
   updateMasiCalendarEvent,
@@ -448,6 +448,7 @@ export default function MasiCalendar() {
             anchor={anchor}
             today={today}
             counts={counts}
+            kinds={data?.dayKinds}
             eventsByDay={eventsByDay}
             deadlinesByDay={deadlinesByDay}
             onOpenDay={(d) => go({ view: 'day', day: d })}
@@ -459,6 +460,7 @@ export default function MasiCalendar() {
             days={days}
             today={today}
             counts={counts}
+            kinds={data?.dayKinds}
             eventsByDay={eventsByDay}
             deadlinesByDay={deadlinesByDay}
             onEdit={(e) => setDraft(draftOf(e))}
@@ -485,6 +487,8 @@ interface GridProps {
   days: Day[];
   today: Day;
   counts: Map<Day, { collected: number; sent: number; communicated: number }>;
+  /** The kinds each of the day's numbers counted, as the answer named them; the links carry them. */
+  kinds?: MasiDayKinds;
   eventsByDay: Map<Day, Event[]>;
   deadlinesByDay: Map<Day, Calendar['deadlines']>;
   onEdit: (e: Event) => void;
@@ -500,14 +504,18 @@ function logLink(day: Day, kind: string): string {
 }
 
 /** The day's three numbers, each a link into the log of that day. */
-function DayCounts({ day, counts }: Readonly<{ day: Day; counts: GridProps['counts'] }>) {
+function DayCounts({
+  day,
+  counts,
+  kinds,
+}: Readonly<{ day: Day; counts: GridProps['counts']; kinds?: MasiDayKinds }>) {
   const c = counts.get(day);
   if (!c || (c.collected === 0 && c.sent === 0 && c.communicated === 0)) return null;
-  // each number links to the rows it counted, and to no others
+  // each number links to the rows it counted, and to no others — as masi's own answer names them
   const items: Array<[string, number, string]> = [
-    ['sent', c.sent, MASI_DAY_KINDS.sent.join(',')],
-    ['collected', c.collected, MASI_DAY_KINDS.collected.join(',')],
-    ['talked', c.communicated, MASI_DAY_KINDS.communicated.join(',')],
+    ['sent', c.sent, (kinds?.sent ?? []).join(',')],
+    ['collected', c.collected, (kinds?.collected ?? []).join(',')],
+    ['talked', c.communicated, (kinds?.communicated ?? []).join(',')],
   ];
   // a phone column is too narrow for the word: it keeps its first letter there, and the label says both either way
   return (
@@ -532,6 +540,7 @@ function MonthGrid({
   anchor,
   today,
   counts,
+  kinds,
   eventsByDay,
   deadlinesByDay,
   onOpenDay,
@@ -575,7 +584,7 @@ function MonthGrid({
         >
           {Number(day.slice(8))}
         </button>
-        <DayCounts day={day} counts={counts} />
+        <DayCounts day={day} counts={counts} kinds={kinds} />
         {shown.map((e) => (
           <button
             key={e.id}
@@ -626,6 +635,7 @@ function HourGrid({
   days,
   today,
   counts,
+  kinds,
   eventsByDay,
   deadlinesByDay,
   onEdit,
@@ -652,7 +662,7 @@ function HourGrid({
               <span className="masi-col-day">
                 {days.length > 1 ? shortLabel(day) : dayLabel(day)}
               </span>
-              <DayCounts day={day} counts={counts} />
+              <DayCounts day={day} counts={counts} kinds={kinds} />
               {listed.map((e) => (
                 <button key={e.id} type="button" className={chipClass(e)} onClick={() => onEdit(e)}>
                   {headPrefix(e, day)}

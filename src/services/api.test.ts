@@ -805,6 +805,54 @@ describe('api - admin', () => {
   });
 });
 
+describe('api - masi calendar', () => {
+  it('asks for the calendar over inclusive days', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ days: [], events: [], deadlines: [] }));
+    await api.fetchMasiCalendar('2026-08-31', '2026-10-11');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/calendar?from=2026-08-31&to=2026-10-11');
+  });
+
+  /**
+   * A delete answers 204 with NO body: Response.json() rejects on one. Before the 204 branch the caller read a
+   * successful delete as "Failed to delete the event". The shared mockResponse helper resolves json() whatever the
+   * status, so it cannot see this at all — the response here rejects, as a real one does.
+   */
+  it('reads a 204 delete as a success, though its empty body cannot be parsed', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+      headers: { get: () => null },
+    });
+    await expect(api.deleteMasiCalendarEvent(5)).resolves.toBeUndefined();
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/masi/calendar/5');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('books and changes an event', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: 5 }));
+    await api.createMasiCalendarEvent({
+      kind: 'CALL',
+      startsAt: '2026-09-22T11:00:00.000Z',
+      title: 'Call',
+    });
+    const [createUrl, createInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(createUrl).toBe('/api/masi/calendar');
+    expect(createInit.method).toBe('POST');
+    expect(JSON.parse(createInit.body as string)).toEqual({
+      kind: 'CALL',
+      startsAt: '2026-09-22T11:00:00.000Z',
+      title: 'Call',
+    });
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: 5 }));
+    await api.updateMasiCalendarEvent(5, { outcome: 'DONE' });
+    const [patchUrl, patchInit] = mockFetch.mock.calls[1] as [string, RequestInit];
+    expect(patchUrl).toBe('/api/masi/calendar/5');
+    expect(patchInit.method).toBe('PATCH');
+  });
+});
+
 describe('api - masi', () => {
   it('drops empty filter values and keeps false and zero', async () => {
     mockFetch.mockResolvedValueOnce(
