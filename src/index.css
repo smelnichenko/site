@@ -1167,7 +1167,8 @@ a.muted,
 }
 
 .masi-filters input,
-.masi-filters select {
+.masi-filters select,
+.masi-log-form select {
   min-height: 36px;
   padding: 4px 8px;
   border: 1px solid #ccc;
@@ -1250,6 +1251,59 @@ a.muted,
 .masi-listings {
   padding-left: 1.2rem;
 }
+/* the activity log: one entry per line — when, what, the words with their links; masi's own rows quieter */
+.masi-activity {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.masi-activity li {
+  display: grid;
+  grid-template-columns: 9.5rem 8.5rem minmax(0, 1fr); /* 8.5rem: "message received" in 600 weight is 130 px */
+  gap: 0 0.75rem;
+  padding: 0.3rem 0;
+  border-top: 1px solid #f1f3f5;
+}
+.masi-activity-text {
+  min-width: 0;
+  overflow-wrap: anywhere; /* a pasted URL in a summary must not widen the page */
+}
+.masi-activity-when {
+  color: #666;
+  white-space: nowrap;
+}
+.masi-activity-kind {
+  font-weight: 600;
+}
+.masi-activity-system .masi-activity-kind {
+  font-weight: 400;
+  color: #666;
+}
+.masi-log-form {
+  flex-wrap: wrap;
+}
+.masi-log-form .masi-grow {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+/* the two rows align on their fields, not on the groups' outer margin */
+.masi-filters .form-group,
+.masi-log-form .form-group {
+  margin-bottom: 0;
+}
+.masi-log-form select {
+  width: 100%;
+}
+@media (max-width: 700px) {
+  .masi-activity li {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .masi-log-form .form-group {
+    flex: 1 1 100%;
+  }
+}
+
 /* the position's timeline: a labelled list, one entry per line; a wrapped entry keeps its date as the anchor */
 .masi-history {
   margin: 1rem 0; /* the listings above have no margin of their own: this gap is the whole step */
