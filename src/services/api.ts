@@ -1516,6 +1516,27 @@ export function addMasiJobManually(posting: MasiManualJob): Promise<MasiJob> {
   return masiSend('/jobs/manual', 'POST', posting, 'add the job');
 }
 
+/**
+ * One entry of a position's timeline. LISTED: a board first showed it (detail: the board's own title where it
+ * differs); GONE: that listing closed; CLOSED; REPOSTED (sourceKey: the board that brought it back); MERGED_IN
+ * (jobId: the duplicate absorbed, detail: its title); MERGED_INTO (jobId: the survivor).
+ */
+export interface MasiJobHistoryEntry {
+  at: string;
+  kind: 'LISTED' | 'GONE' | 'CLOSED' | 'REPOSTED' | 'MERGED_IN' | 'MERGED_INTO';
+  sourceKey: string | null;
+  jobId: number | null;
+  detail: string | null;
+}
+
+/** The position's timeline, oldest first. */
+export function fetchMasiJobHistory(
+  id: number,
+  signal?: AbortSignal,
+): Promise<MasiJobHistoryEntry[]> {
+  return masiGet(`/jobs/${id}/history`, signal, 'load the job history');
+}
+
 /** Open jobs of the same company that read like this one: a hint, never a merge. */
 export function fetchMasiSimilarJobs(id: number, signal?: AbortSignal): Promise<MasiSimilarJob[]> {
   return masiGet(`/jobs/${id}/similar`, signal, 'load similar jobs');
@@ -1645,6 +1666,8 @@ export interface MasiStats {
   registry: {
     newJobs: number;
     closedJobs: number;
+    /** Closed jobs that came back in the period: neither new nor closed in it. */
+    repostedJobs: number;
     newListings: number;
     closedListings: number;
     medianListingLifetimeHours: number | null;

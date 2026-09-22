@@ -7,6 +7,7 @@ export const stats: MasiStats = {
   registry: {
     newJobs: 2,
     closedJobs: 1,
+    repostedJobs: 1,
     newListings: 2,
     closedListings: 1,
     medianListingLifetimeHours: 120,

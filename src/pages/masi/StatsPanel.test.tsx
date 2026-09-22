@@ -4,9 +4,15 @@ import StatsPanel, { Bars } from './StatsPanel';
 import { stats } from './statsFixture';
 
 describe('StatsPanel', () => {
+  it('says nothing about reposts in a week without one', () => {
+    render(<StatsPanel stats={{ ...stats, registry: { ...stats.registry, repostedJobs: 0 } }} />);
+    expect(screen.getByTestId('jobs-tile')).toHaveTextContent('2new jobs1 closed');
+    expect(screen.getByTestId('jobs-tile')).not.toHaveTextContent('reposted');
+  });
+
   it('shows the tiles, the bars scaled to the largest, the salary line and the sources', () => {
     render(<StatsPanel stats={stats} />);
-    expect(screen.getByTestId('jobs-tile')).toHaveTextContent('2new jobs1 closed');
+    expect(screen.getByTestId('jobs-tile')).toHaveTextContent('2new jobs1 closed · 1 reposted');
     expect(screen.getByText('1 closed · median lifetime 5.0 days')).toBeInTheDocument();
     const funnel = screen.getByTestId('funnel-tile');
     expect(funnel).toHaveTextContent('2 packages requested · $0.20 per package');

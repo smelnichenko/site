@@ -4,8 +4,10 @@ import {
   fetchCvMaster,
   fetchMasiJob,
   fetchMasiPackages,
+  fetchMasiJobHistory,
   fetchMasiSimilarJobs,
   MasiJob,
+  MasiJobHistoryEntry,
   MasiPackage,
   MasiSimilarJob,
   requestMasiPackage,
@@ -17,6 +19,7 @@ import LoadingButton from '../../components/LoadingButton';
 import PackagePanel from './PackagePanel';
 import { errorMessage, formatDateTime } from './format';
 import SourceMarks from './SourceMarks';
+import JobHistory from './JobHistory';
 
 /** 18 × 10 s, then 57 × 60 s: an hour of polling at most. */
 const MAX_POLLS = 75;
@@ -37,6 +40,7 @@ export default function MasiJobDetail() {
   const [packages, setPackages] = useState<MasiPackage[]>([]);
   const [activeCv, setActiveCv] = useState<number | null>(null);
   const [similar, setSimilar] = useState<MasiSimilarJob[]>([]);
+  const [history, setHistory] = useState<MasiJobHistoryEntry[]>([]);
   const [polls, setPolls] = useState(0);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -47,13 +51,15 @@ export default function MasiJobDetail() {
     async (signal?: AbortSignal) => {
       // the hint is loaded WITH the job: it sits above the note and the buttons, and arriving late it pushed them
       // two to ten lines down under the finger. It is a hint — when it cannot be loaded the page is none the worse
-      const [j, ps, cv, alike] = await Promise.all([
+      const [j, ps, cv, alike, past] = await Promise.all([
         fetchMasiJob(jobId, signal),
         fetchMasiPackages({ job: jobId }, signal),
         fetchCvMaster(signal),
         fetchMasiSimilarJobs(jobId, signal).catch(() => [] as MasiSimilarJob[]),
+        fetchMasiJobHistory(jobId, signal).catch(() => [] as MasiJobHistoryEntry[]),
       ]);
       setSimilar(alike);
+      setHistory(past);
       setJob(j);
       setNote(j.userNote ?? '');
       setPackages(ps);
@@ -207,6 +213,7 @@ export default function MasiJobDetail() {
             </li>
           ))}
         </ul>
+        <JobHistory entries={history} />
         {job.descriptionText && <pre className="masi-description">{job.descriptionText}</pre>}
         <div className="form-group">
           <label htmlFor="job-note">Your note</label>

@@ -9,6 +9,7 @@ vi.mock('../../services/api', () => ({
   fetchMasiJob: vi.fn(),
   fetchMasiPackages: vi.fn(),
   fetchMasiSimilarJobs: vi.fn(),
+  fetchMasiJobHistory: vi.fn(),
   requestMasiPackage: vi.fn(),
   saveMasiJobNote: vi.fn(),
   reviewMasiPackage: vi.fn(),
@@ -35,6 +36,8 @@ beforeEach(() => {
   vi.mocked(api.fetchMasiPackages).mockReset();
   vi.mocked(api.fetchMasiSimilarJobs).mockReset();
   vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+  vi.mocked(api.fetchMasiJobHistory).mockReset();
+  vi.mocked(api.fetchMasiJobHistory).mockResolvedValue([]);
   vi.mocked(api.requestMasiPackage).mockReset();
   vi.mocked(api.reviewMasiPackage).mockReset();
   vi.mocked(api.regenerateMasiPackage).mockReset();
@@ -64,6 +67,79 @@ describe('MasiJobDetail', () => {
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
     await screen.findByText('Senior Java Developer');
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
+
+  it("tells the position's history as one timeline, oldest first, and says nothing when there is none", async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({ ...job, reopenedCount: 1 });
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiJobHistory).mockResolvedValue([
+      { at: '2026-09-01T08:00:00Z', kind: 'LISTED', sourceKey: 'cvee', jobId: null, detail: null },
+      { at: '2026-09-10T08:00:00Z', kind: 'GONE', sourceKey: 'cvee', jobId: null, detail: null },
+      { at: '2026-09-10T08:00:00Z', kind: 'CLOSED', sourceKey: null, jobId: null, detail: null },
+      {
+        at: '2026-09-20T08:00:00Z',
+        kind: 'LISTED',
+        sourceKey: 'meetfrank',
+        jobId: null,
+        detail: 'Senior Java Developer | SEB, Tallinn',
+      },
+      {
+        at: '2026-09-20T08:00:00Z',
+        kind: 'REPOSTED',
+        sourceKey: 'meetfrank',
+        jobId: null,
+        detail: null,
+      },
+      {
+        at: '2026-09-22T08:00:00Z',
+        kind: 'MERGED_IN',
+        sourceKey: null,
+        jobId: 234,
+        detail: 'Senior Java Developer | EE',
+      },
+    ]);
+    const view = renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const history = await screen.findByRole('list', { name: 'History' });
+    const items = within(history).getAllByRole('listitem');
+    expect(items.map((li) => li.textContent)).toEqual([
+      '1 Sept 2026 · listed on cvee',
+      '10 Sept 2026 · gone from cvee',
+      '10 Sept 2026 · closed',
+      '20 Sept 2026 · listed on meetfrank as “Senior Java Developer | SEB, Tallinn”',
+      '20 Sept 2026 · reposted on meetfrank',
+      '22 Sept 2026 · merged in job 234 “Senior Java Developer | EE”',
+    ]);
+    expect(within(items[5]).getByRole('link', { name: 'job 234' })).toHaveAttribute(
+      'href',
+      '/masi/jobs/234',
+    );
+    expect(api.fetchMasiJobHistory).toHaveBeenCalledWith(7, expect.anything());
+    view.unmount();
+    vi.mocked(api.fetchMasiJobHistory).mockResolvedValue([]);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    await screen.findByText('Senior Java Developer');
+    expect(screen.queryByRole('list', { name: 'History' })).not.toBeInTheDocument();
+  });
+
+  it('folds a long history to its latest entries, and unfolds on request', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    const entries = Array.from({ length: 11 }, (_, i) => ({
+      at: `2026-09-${String(i + 1).padStart(2, '0')}T08:00:00Z`,
+      kind: i % 2 === 0 ? ('LISTED' as const) : ('GONE' as const),
+      sourceKey: 'cvee',
+      jobId: null,
+      detail: null,
+    }));
+    vi.mocked(api.fetchMasiJobHistory).mockResolvedValue(entries);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const history = await screen.findByRole('list', { name: 'History' });
+    expect(within(history).getAllByRole('listitem')).toHaveLength(8);
+    expect(within(history).getAllByRole('listitem')[0]).toHaveTextContent('4 Sept 2026'); // the oldest three are folded
+    await userEvent.click(screen.getByRole('button', { name: 'Show all 11' }));
+    expect(within(history).getAllByRole('listitem')).toHaveLength(11);
+    expect(within(history).getAllByRole('listitem')[0]).toHaveTextContent('1 Sept 2026');
+    expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument();
   });
 
   it('says where a merged job went, and names the boards a job is on', async () => {
