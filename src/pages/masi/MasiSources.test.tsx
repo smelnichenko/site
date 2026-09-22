@@ -91,4 +91,57 @@ describe('MasiSources', () => {
     expect(await screen.findByTestId('runs-cvee')).toHaveTextContent('247');
     expect(screen.getByTestId('runs-cvee')).toHaveTextContent('12');
   });
+
+  it("shows a source's daily request cap, saves an edit into its config with the rest untouched, and clears it", async () => {
+    const meetfrank = {
+      ...cvee,
+      id: 9,
+      key: 'meetfrank',
+      name: 'MeetFrank (Estonia)',
+      configJson: '{"countryId":"5a08cc451b7ce3b929d4128b","pageSize":12,"dailyRequestCap":100}',
+    };
+    vi.mocked(api.fetchMasiSources).mockResolvedValue([cvee, meetfrank]);
+    vi.mocked(api.patchMasiSource).mockImplementation((_id, patch) =>
+      Promise.resolve({ ...meetfrank, configJson: patch.configJson ?? meetfrank.configJson }),
+    );
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+    const cap = await screen.findByLabelText('Requests per day for meetfrank');
+    expect(cap).toHaveValue(100);
+    // a source without a cap shows an empty field: no cap, not zero
+    expect(screen.getByLabelText('Requests per day for cvee')).toHaveValue(null);
+
+    await userEvent.clear(cap);
+    await userEvent.type(cap, '40');
+    await userEvent.tab();
+    await waitFor(() => expect(api.patchMasiSource).toHaveBeenCalledTimes(1));
+    const [id, patch] = vi.mocked(api.patchMasiSource).mock.calls[0];
+    expect(id).toBe(9);
+    const saved: unknown = JSON.parse(patch.configJson as string);
+    expect(saved).toEqual({
+      countryId: '5a08cc451b7ce3b929d4128b',
+      pageSize: 12,
+      dailyRequestCap: 40,
+    });
+    expect(patch.cron).toBeUndefined();
+
+    // emptied, the cap is removed from the config: the source is no longer budgeted
+    const again = await screen.findByLabelText('Requests per day for meetfrank');
+    await userEvent.clear(again);
+    await userEvent.tab();
+    await waitFor(() => expect(api.patchMasiSource).toHaveBeenCalledTimes(2));
+    const second: unknown = JSON.parse(
+      vi.mocked(api.patchMasiSource).mock.calls[1][1].configJson as string,
+    );
+    expect(second).toEqual({ countryId: '5a08cc451b7ce3b929d4128b', pageSize: 12 });
+  });
+
+  it('does not save a cap that is not a whole number of requests', async () => {
+    vi.mocked(api.fetchMasiSources).mockResolvedValue([cvee]);
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+    const cap = await screen.findByLabelText('Requests per day for cvee');
+    await userEvent.type(cap, '-5');
+    await userEvent.tab();
+    expect(api.patchMasiSource).not.toHaveBeenCalled();
+    expect(cap).toBeInvalid();
+  });
 });
