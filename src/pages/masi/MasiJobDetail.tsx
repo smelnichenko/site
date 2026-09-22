@@ -214,6 +214,11 @@ export default function MasiJobDetail() {
           ))}
         </ul>
         <JobHistory entries={history} />
+        <p className="muted masi-hint">
+          <Link to={`/masi/activity?job=${job.id}`}>
+            Log a call, a message or a note for this job
+          </Link>
+        </p>
         {job.descriptionText && <pre className="masi-description">{job.descriptionText}</pre>}
         <div className="form-group">
           <label htmlFor="job-note">Your note</label>

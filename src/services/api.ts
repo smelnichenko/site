@@ -1537,6 +1537,95 @@ export function fetchMasiJobHistory(
   return masiGet(`/jobs/${id}/history`, signal, 'load the job history');
 }
 
+/** One row of the search's log. `mine`: the caller's own row (a system row is everyone's). */
+export interface MasiActivity {
+  id: number;
+  at: string;
+  kind:
+    | 'COLLECTED'
+    | 'ANALYSED'
+    | 'PREPARED'
+    | 'APPLIED'
+    | 'SENT_MESSAGE'
+    | 'RECEIVED_MESSAGE'
+    | 'CALL'
+    | 'INTERVIEW'
+    | 'OFFER'
+    | 'REJECTED'
+    | 'NOTE'
+    | 'SCHEDULED';
+  origin: 'SYSTEM' | 'OPERATOR' | 'MAIL';
+  jobId: number | null;
+  jobTitle: string | null;
+  companyId: number | null;
+  companyName: string | null;
+  contactId: number | null;
+  contactName: string | null;
+  packageId: number | null;
+  summary: string;
+  detail: string | null;
+  mine: boolean;
+}
+
+/** The kinds the operator logs by hand. */
+export const MASI_ACTIVITY_KINDS = [
+  'CALL',
+  'SENT_MESSAGE',
+  'RECEIVED_MESSAGE',
+  'INTERVIEW',
+  'OFFER',
+  'REJECTED',
+  'NOTE',
+] as const;
+
+export interface MasiActivityFilter {
+  from?: string;
+  to?: string;
+  kind?: string;
+  job?: number;
+  company?: number;
+  contact?: number;
+  page?: number;
+  size?: number;
+}
+
+/** The log, newest first: the caller's rows and masi's own. */
+export function fetchMasiActivity(
+  filter: MasiActivityFilter,
+  signal?: AbortSignal,
+): Promise<Paged<MasiActivity>> {
+  return masiGet(`/activity${query({ ...filter })}`, signal, 'load the activity log');
+}
+
+/** The operator logs a call, a message, a note: one of their kinds, tied to a job, a company or a contact. */
+export function logMasiActivity(entry: {
+  at?: string;
+  kind: string;
+  jobId?: number;
+  companyId?: number;
+  contactId?: number;
+  summary: string;
+  detail?: string;
+}): Promise<MasiActivity> {
+  return masiSend('/activity', 'POST', entry, 'log the activity');
+}
+
+/** One day of the calendar: what was collected, sent and communicated. */
+export interface MasiDayCounts {
+  day: string;
+  collected: number;
+  sent: number;
+  communicated: number;
+}
+
+export function fetchMasiActivityDays(
+  from: string,
+  to: string,
+  signal?: AbortSignal,
+): Promise<MasiDayCounts[]> {
+  return masiGet(`/activity/days${query({ from, to })}`, signal, 'load the day counts');
+}
+
 /** Open jobs of the same company that read like this one: a hint, never a merge. */
 export function fetchMasiSimilarJobs(id: number, signal?: AbortSignal): Promise<MasiSimilarJob[]> {
   return masiGet(`/jobs/${id}/similar`, signal, 'load similar jobs');
