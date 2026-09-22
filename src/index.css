@@ -1152,6 +1152,16 @@ a.muted,
   outline-offset: 2px;
 }
 
+/* an input in a masi table (a cron, a request cap) is a control, not a 19 px text slot */
+.masi .table input {
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+}
+
 .masi-filters .btn-small {
   min-height: 36px;
 }

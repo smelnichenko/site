@@ -26,12 +26,38 @@ function keepEdits(
   return next;
 }
 
+/** The daily request cap a source's config carries, or '' for none. The collector enforces it; the rest of the config is not ours to touch here. */
+function capOf(configJson: string | null): string {
+  try {
+    const cap: unknown = configJson
+      ? (JSON.parse(configJson) as Record<string, unknown>).dailyRequestCap
+      : undefined;
+    return typeof cap === 'number' ? String(cap) : '';
+  } catch {
+    return '';
+  }
+}
+
+/** The config with the cap set (a whole number of requests) or removed (''); the other keys as they were. */
+function withCap(configJson: string | null, cap: string): string {
+  let config: Record<string, unknown> = {};
+  try {
+    config = configJson ? (JSON.parse(configJson) as Record<string, unknown>) : {};
+  } catch {
+    config = {};
+  }
+  if (cap === '') delete config.dailyRequestCap;
+  else config.dailyRequestCap = Number(cap);
+  return JSON.stringify(config);
+}
+
 /** Every collector agent: enable, cron, run now, and its last runs; a source without a bean (FAILING) cannot be enabled. */
 export default function MasiSources() {
   const [sources, setSources] = useState<MasiSource[] | null>(null);
   const [runs, setRuns] = useState<Record<number, MasiSourceRun[]>>({});
   const [openId, setOpenId] = useState<number | null>(null);
   const [cronDraft, setCronDraft] = useState<Record<number, string>>({});
+  const [capDraft, setCapDraft] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -111,6 +137,7 @@ export default function MasiSources() {
                 <th>Source</th>
                 <th>Kind</th>
                 <th>Cron</th>
+                <th>Requests/day</th>
                 <th>Health</th>
                 <th>Last success</th>
                 <th>Actions</th>
@@ -153,6 +180,31 @@ export default function MasiSources() {
                       />
                     </td>
                     <td>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        aria-label={`Requests per day for ${s.key}`}
+                        placeholder="no cap"
+                        value={capDraft[s.id] ?? capOf(s.configJson)}
+                        onChange={(e) => setCapDraft((cur) => ({ ...cur, [s.id]: e.target.value }))}
+                        onBlur={(e) => {
+                          const next = (capDraft[s.id] ?? capOf(s.configJson)).trim();
+                          if (!e.target.checkValidity()) return; // a negative or fractional cap is not saved
+                          if (next !== capOf(s.configJson))
+                            void act(
+                              s.id,
+                              () =>
+                                patchMasiSource(s.id, { configJson: withCap(s.configJson, next) }),
+                              next === ''
+                                ? `${s.key}: no request cap`
+                                : `${s.key}: ${next} requests a day`,
+                            );
+                        }}
+                        style={{ width: '6em' }}
+                      />
+                    </td>
+                    <td>
                       <span className={badgeClass(s.health)}>
                         {s.running ? 'running' : s.health.toLowerCase().replace('_', ' ')}
                       </span>
@@ -187,7 +239,7 @@ export default function MasiSources() {
                   </tr>
                   {openId === s.id && (
                     <tr>
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         {!runs[s.id] && <div className="loading">Loading runs...</div>}
                         {runs[s.id]?.length === 0 && (
                           <div className="empty-state">No runs yet.</div>
