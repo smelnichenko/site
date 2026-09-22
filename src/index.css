@@ -1250,11 +1250,28 @@ a.muted,
 .masi-listings {
   padding-left: 1.2rem;
 }
-/* where a job is listed: one small mark per source, wrapping in a narrow cell */
+/* where a job is listed: one small mark per source, a list that wraps in a narrow cell */
 .masi-sources {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* the detail's "Listed on" line: the label and the marks share one wrapping row; the marks take the rest of it */
+.masi-listed-on {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+}
+.masi-listed-on .masi-sources {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0; /* over .masi-hint ul, which indents a list of look-alikes */
+  padding: 0;
 }
 .masi-source-mark {
   display: inline-block;
@@ -1265,9 +1282,6 @@ a.muted,
   font-size: 0.8125rem;
   line-height: 1.5;
   white-space: nowrap;
-}
-.masi-sources-label {
-  margin-right: 0.25rem;
 }
 .masi-role ul {
   margin: 0.25rem 0 0.75rem;

@@ -21,6 +21,14 @@ import SourceMarks from './SourceMarks';
 /** 18 × 10 s, then 57 × 60 s: an hour of polling at most. */
 const MAX_POLLS = 75;
 
+/** The word beside the title: open, closed with its time, or merged. */
+function jobState(job: MasiJob): string {
+  if (job.status === 'MERGED') {
+    return 'merged';
+  }
+  return job.status === 'CLOSED' ? `closed ${formatDateTime(job.closedAt)}` : 'open';
+}
+
 /** One job: its listings per source, the description, the operator's note, and the package panel. */
 export default function MasiJobDetail() {
   const { id } = useParams();
@@ -141,7 +149,7 @@ export default function MasiJobDetail() {
         <div className="card-header">
           <span className="card-title">{job.title}</span>
           <span className="muted">
-            {job.status === 'CLOSED' ? `closed ${formatDateTime(job.closedAt)}` : 'open'}
+            {jobState(job)}
           </span>
         </div>
         <div className="muted">
@@ -162,17 +170,18 @@ export default function MasiJobDetail() {
         {job.status === 'MERGED' && (
           <div className="muted masi-hint" role="note" aria-label="merged">
             Merged: the same posting under another spelling of the title or the employer. Its
-            listings, package and score live on{' '}
+            listings live on{' '}
             {job.mergedIntoId ? (
               <Link to={`/masi/jobs/${job.mergedIntoId}`}>job {job.mergedIntoId}</Link>
             ) : (
               'the job it was merged into'
             )}
-            .
+            ; a package or score of this one that could move is there too, the rest stays here.
           </div>
         )}
-        <div className="muted masi-hint" role="group" aria-label="Listed on">
-          <span className="masi-sources-label">Listed on</span> <SourceMarks sources={job.sources} />
+        <div className="muted masi-hint masi-listed-on">
+          <span id="masi-listed-on-label">Listed on</span>
+          <SourceMarks sources={job.sources} labelledBy="masi-listed-on-label" />
         </div>
         {similar.length > 0 && (
           <div className="muted masi-hint" role="note">

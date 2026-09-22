@@ -1,5 +1,11 @@
-/** Where a job is listed right now: one mark per source with an open listing of it; a dash when it is present nowhere. */
-export default function SourceMarks({ sources }: Readonly<{ sources: string[] }>) {
+/**
+ * Where a job is listed right now: one mark per source with an open listing of it, as a list; a dash (with its
+ * spoken form) when it is present nowhere. `labelledBy`: the id of the text that names the list, where there is one.
+ */
+export default function SourceMarks({
+  sources,
+  labelledBy,
+}: Readonly<{ sources: string[]; labelledBy?: string }>) {
   if (sources.length === 0) {
     return (
       <>
@@ -11,12 +17,12 @@ export default function SourceMarks({ sources }: Readonly<{ sources: string[] }>
     );
   }
   return (
-    <span className="masi-sources">
+    <ul className="masi-sources" aria-labelledby={labelledBy}>
       {sources.map((s) => (
-        <span key={s} className="masi-source-mark">
+        <li key={s} className="masi-source-mark">
           {s}
-        </span>
+        </li>
       ))}
-    </span>
+    </ul>
   );
 }

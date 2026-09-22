@@ -77,6 +77,7 @@ describe('MasiJobDetail', () => {
     const view = renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
     const note = await screen.findByRole('note', { name: /merged/i });
     expect(note).toHaveTextContent('the same posting');
+    expect(screen.getByText('merged', { selector: '.card-header .muted' })).toBeInTheDocument();
     expect(within(note).getByRole('link', { name: /job 12/ })).toHaveAttribute(
       'href',
       '/masi/jobs/12',
@@ -86,7 +87,8 @@ describe('MasiJobDetail', () => {
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
     await screen.findByText('Senior Java Developer');
     expect(screen.queryByRole('note', { name: /merged/i })).not.toBeInTheDocument();
-    const listedOn = screen.getByRole('group', { name: 'Listed on' });
+    expect(screen.getByText('open', { selector: '.card-header .muted' })).toBeInTheDocument();
+    const listedOn = screen.getByRole('list', { name: 'Listed on' });
     expect(within(listedOn).getByText('cvee')).toBeInTheDocument();
     expect(within(listedOn).getByText('meetfrank')).toBeInTheDocument();
   });

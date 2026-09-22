@@ -166,7 +166,12 @@ export default function MasiJobs() {
                       <span className="muted">
                         {' ('}
                         {j.mergedIntoId ? (
-                          <Link to={`/masi/jobs/${j.mergedIntoId}`}>merged</Link>
+                          <Link
+                            to={`/masi/jobs/${j.mergedIntoId}`}
+                            aria-label={`merged into job ${j.mergedIntoId}`}
+                          >
+                            merged
+                          </Link>
                         ) : (
                           'merged'
                         )}

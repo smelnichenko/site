@@ -113,7 +113,7 @@ describe('MasiJobs', () => {
     expect(within(unlisted).getAllByRole('cell')[sourcesColumn]).toHaveTextContent('—');
     const merged = screen.getByRole('row', { name: /^Java Developer \| EE/ });
     expect(merged).toHaveTextContent('(merged)');
-    expect(within(merged).getByRole('link', { name: 'merged' })).toHaveAttribute(
+    expect(within(merged).getByRole('link', { name: 'merged into job 7' })).toHaveAttribute(
       'href',
       '/masi/jobs/7',
     );
