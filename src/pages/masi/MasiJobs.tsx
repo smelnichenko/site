@@ -162,6 +162,9 @@ export default function MasiJobs() {
                   <td>
                     <Link to={`/masi/jobs/${j.id}`}>{j.title}</Link>
                     {j.status === 'CLOSED' && <span className="muted"> (closed)</span>}
+                    {j.reopenedCount > 0 && (
+                      <span className="muted masi-repost"> reposted ×{j.reopenedCount}</span>
+                    )}
                     {j.status === 'MERGED' && (
                       <span className="muted">
                         {' ('}

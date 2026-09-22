@@ -85,7 +85,7 @@ describe('MasiJobs', () => {
   it('marks every row with the sources that list the job, and a merged job as merged', async () => {
     vi.mocked(api.fetchMasiJobs).mockResolvedValue({
       content: [
-        { ...job, sources: ['cvee', 'meetfrank'] },
+        { ...job, sources: ['cvee', 'meetfrank'], reopenedCount: 2 },
         { ...job, id: 8, title: 'Go Engineer', sources: [] },
         {
           ...job,
@@ -106,10 +106,12 @@ describe('MasiJobs', () => {
       .getAllByRole('columnheader')
       .findIndex((h) => h.textContent?.trim() === 'Sources');
     expect(sourcesColumn).toBeGreaterThan(-1);
+    expect(within(listed).getByText('reposted ×2')).toBeInTheDocument();
     const marks = within(listed).getAllByRole('cell')[sourcesColumn];
     expect(within(marks).getByText('cvee')).toBeInTheDocument();
     expect(within(marks).getByText('meetfrank')).toBeInTheDocument();
     const unlisted = screen.getByRole('row', { name: /Go Engineer/ });
+    expect(within(unlisted).queryByText(/reposted/)).not.toBeInTheDocument();
     expect(within(unlisted).getAllByRole('cell')[sourcesColumn]).toHaveTextContent('—');
     const merged = screen.getByRole('row', { name: /^Java Developer \| EE/ });
     expect(merged).toHaveTextContent('(merged)');
