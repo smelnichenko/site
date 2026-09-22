@@ -1493,6 +1493,10 @@ async function masiSend<T>(
     const data = await readErrorBody(response);
     throw new Error(data.error || `Failed to ${what}`);
   }
+  if (response.status === 204) {
+    // a delete answers no content: parsing it as JSON would throw and the caller would read a success as a failure
+    return undefined as T;
+  }
   return readJson<T>(response);
 }
 
@@ -1616,6 +1620,93 @@ export interface MasiDayCounts {
   collected: number;
   sent: number;
   communicated: number;
+}
+
+/** One booking of the operator's calendar: a call, an interview, a deadline they set themselves, a follow-up. */
+export interface MasiCalendarEvent {
+  id: number;
+  kind: 'CALL' | 'INTERVIEW' | 'DEADLINE' | 'FOLLOW_UP' | 'OTHER';
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  title: string;
+  jobId: number | null;
+  jobTitle: string | null;
+  companyId: number | null;
+  companyName: string | null;
+  contactId: number | null;
+  contactName: string | null;
+  location: string | null;
+  notes: string | null;
+  outcome: 'NONE' | 'DONE' | 'CANCELLED' | 'NO_SHOW';
+}
+
+/**
+ * What each of a day's three numbers counted, so a link opens exactly those rows — as the calendar's answer states it.
+ * masi owns these groupings; nothing here keeps a second copy of them.
+ */
+export interface MasiDayKinds {
+  sent: string[];
+  collected: string[];
+  communicated: string[];
+}
+
+export const MASI_EVENT_KINDS = ['CALL', 'INTERVIEW', 'FOLLOW_UP', 'DEADLINE', 'OTHER'] as const;
+export const MASI_EVENT_OUTCOMES = ['NONE', 'DONE', 'CANCELLED', 'NO_SHOW'] as const;
+
+/** A posting's own deadline, shown on the calendar without an event row: nobody books it, the board set it. */
+export interface MasiDeadline {
+  jobId: number;
+  title: string;
+  companyName: string | null;
+  expiresAt: string;
+}
+
+/** What a range of days holds: the operator's events, the postings closing, and the numbers of each day. */
+export interface MasiCalendar {
+  days: MasiDayCounts[];
+  events: MasiCalendarEvent[];
+  deadlines: MasiDeadline[];
+  dayKinds: MasiDayKinds;
+}
+
+/** `from`..`to` are calendar days (YYYY-MM-DD) in masi's zone, both ends inclusive. */
+export function fetchMasiCalendar(
+  from: string,
+  to: string,
+  signal?: AbortSignal,
+): Promise<MasiCalendar> {
+  return masiGet(`/calendar${query({ from, to })}`, signal, 'load the calendar');
+}
+
+/** What a caller may set on an event; the backend fills the rest. */
+export interface MasiCalendarEventInput {
+  kind: string;
+  startsAt: string;
+  endsAt?: string;
+  allDay?: boolean;
+  title: string;
+  jobId?: number;
+  companyId?: number;
+  contactId?: number;
+  location?: string;
+  notes?: string;
+  outcome?: string;
+}
+
+export function createMasiCalendarEvent(event: MasiCalendarEventInput): Promise<MasiCalendarEvent> {
+  return masiSend('/calendar', 'POST', event, 'save the event');
+}
+
+export function updateMasiCalendarEvent(
+  id: number,
+  patch: Partial<MasiCalendarEventInput>,
+): Promise<MasiCalendarEvent> {
+  return masiSend(`/calendar/${id}`, 'PATCH', patch, 'save the event');
+}
+
+export function deleteMasiCalendarEvent(id: number): Promise<void> {
+  return masiSend(`/calendar/${id}`, 'DELETE', undefined, 'delete the event');
 }
 
 export function fetchMasiActivityDays(

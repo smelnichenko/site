@@ -10,9 +10,9 @@ import {
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import { errorMessage, formatDateTime, pageParam } from './format';
+import { addDays, startOf } from './calendarTime';
 
 const PAGE_SIZE = 50;
-const TALLINN = 'Europe/Tallinn';
 
 /** The words for a kind, as a line of the log reads. */
 const WORDS: Record<Row['kind'], string> = {
@@ -29,24 +29,6 @@ const WORDS: Record<Row['kind'], string> = {
   NOTE: 'note',
   SCHEDULED: 'scheduled',
 };
-
-/** The instant a Tallinn calendar day starts, as ISO: the day's log is the half-open range to the next one. */
-function startOfTallinnDay(day: string): string {
-  const [y, m, d] = day.split('-').map(Number);
-  // the offset on that day, read off the day's noon (never on the DST edge): what hour Tallinn shows at 12:00 UTC
-  const noon = new Date(Date.UTC(y, m - 1, d, 12));
-  const hour = Number(
-    new Intl.DateTimeFormat('en-GB', { timeZone: TALLINN, hour: '2-digit', hourCycle: 'h23' })
-      .formatToParts(noon)
-      .find((p) => p.type === 'hour')?.value ?? '12',
-  );
-  return new Date(Date.UTC(y, m - 1, d, 0 - (hour - 12))).toISOString();
-}
-
-function nextDay(day: string): string {
-  const [y, m, d] = day.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
-}
 
 function countWords(n: number): string {
   return `${n} ${n === 1 ? 'entry' : 'entries'}`;
@@ -77,8 +59,8 @@ export default function MasiActivity() {
   const reload = useCallback(
     async (signal?: AbortSignal) => {
       const filter = {
-        from: day ? startOfTallinnDay(day) : undefined,
-        to: day ? startOfTallinnDay(nextDay(day)) : undefined,
+        from: day ? startOf(day) : undefined,
+        to: day ? startOf(addDays(day, 1)) : undefined,
         kind: kind || undefined,
         job: job ? Number(job) : undefined,
         company: company ? Number(company) : undefined,

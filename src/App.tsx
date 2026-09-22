@@ -33,6 +33,7 @@ const MasiContacts = lazy(() => import('./pages/masi/MasiContacts'));
 const MasiSources = lazy(() => import('./pages/masi/MasiSources'));
 const MasiReports = lazy(() => import('./pages/masi/MasiReports'));
 const MasiActivity = lazy(() => import('./pages/masi/MasiActivity'));
+const MasiCalendar = lazy(() => import('./pages/masi/MasiCalendar'));
 const MasiReportDetail = lazy(() => import('./pages/masi/MasiReportDetail'));
 
 function formatBuildTime(isoString: string): string {
@@ -335,6 +336,14 @@ function App() {
                 element={
                   <ProtectedRoute permission="JOBS">
                     <MasiActivity />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/calendar"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiCalendar />
                   </ProtectedRoute>
                 }
               />

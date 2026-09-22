@@ -82,6 +82,24 @@ describe('masi routes and nav', () => {
     expect(screen.getByRole('link', { name: 'Reports' })).toHaveClass('active');
   });
 
+  /**
+   * The page has to be reachable, not merely correct: every assertion about the calendar elsewhere renders the
+   * component directly, so a missing route or a missing tab would leave that whole file green with no way in.
+   */
+  it('renders /masi/calendar and its tab for a JOBS holder', async () => {
+    vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
+      email: 'me@example.com',
+      uuid: 'u1',
+      permissions: ['JOBS'],
+    });
+    renderApp('/masi/calendar');
+    // the page itself, not only its tab: "New event" belongs to no other masi page
+    expect(await screen.findByRole('button', { name: 'New event' })).toBeInTheDocument();
+    const tab = screen.getByRole('link', { name: 'Calendar' });
+    expect(tab).toHaveAttribute('href', '/masi/calendar');
+    expect(tab).toHaveClass('active');
+  });
+
   it('redirects /masi/jobs away and hides the Jobs link without JOBS', async () => {
     vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
       email: 'me@example.com',
