@@ -71,7 +71,10 @@ describe('MasiCalendar', () => {
       expect.anything(),
     );
     expect(screen.getByText('September 2026')).toBeInTheDocument();
-    expect(screen.getByRole('grid', { name: 'Month' })).toBeInTheDocument();
+    // the month is drawn as cells with a dated button each, not as an ARIA grid: the 22nd's button names its day
+    expect(
+      screen.getByRole('button', { name: 'Open Tuesday, 22 September 2026' }),
+    ).toBeInTheDocument();
   });
 
   it('shows the day numbers, its counts as links into that day of the log, and the deadline', async () => {

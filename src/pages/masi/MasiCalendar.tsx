@@ -405,7 +405,7 @@ export default function MasiCalendar() {
         </div>
         {error && <div className="error">{error}</div>}
         <div className="form-row masi-filters masi-calendar-bar">
-          <div className="btn-group" role="group" aria-label="View">
+          <div className="btn-group">
             {VIEWS.map((v) => (
               <button
                 key={v}
@@ -539,16 +539,18 @@ function MonthGrid({
 }: Readonly<GridProps & { anchor: Day; onOpenDay: (d: Day) => void }>) {
   const month = anchor.slice(0, 7);
   return (
-    <div className="masi-month" role="grid" aria-label="Month">
-      <div className="masi-month-row" role="row">
+    /* the month is a layout, not an ARIA grid: it has no arrow-key navigation to promise, and every cell's button
+       names its own date in full, so the reader never has to infer one from a column heading */
+    <div className="masi-month">
+      <div className="masi-month-row">
         {WEEKDAYS.map((w) => (
-          <div key={w} className="masi-month-head" role="columnheader">
+          <div key={w} className="masi-month-head">
             {w}
           </div>
         ))}
       </div>
       {weeks(days).map((week) => (
-        <div key={week[0]} className="masi-month-row" role="row">
+        <div key={week[0]} className="masi-month-row">
           {week.map((day) => cell(day))}
         </div>
       ))}
@@ -564,7 +566,7 @@ function MonthGrid({
     if (!day.startsWith(month)) classes.push('masi-outside');
     if (day === today) classes.push('masi-today');
     return (
-      <div key={day} className={classes.join(' ')} role="gridcell">
+      <div key={day} className={classes.join(' ')}>
         <button
           type="button"
           className="masi-day-number"
