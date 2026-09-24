@@ -5,7 +5,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['src/test/setup.ts'],
-    exclude: ['tests/**', 'node_modules/**'],
+    exclude: ['tests/**', 'layout/**', 'node_modules/**'], // tests/ and layout/ are Playwright's
     coverage: {
       provider: 'v8',
       reporter: ['lcov', 'text'],

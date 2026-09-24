@@ -42,6 +42,7 @@ steps:
     depends_on: [install]
     commands:
       - npx tsc --noEmit
+      - npx tsc --noEmit -p layout # the layout harness and its fixtures, typed against the API
     backend_options:
       kubernetes:
         resources:
@@ -74,6 +75,23 @@ steps:
         resources:
           requests: { cpu: 250m, memory: 1Gi }
           limits: { cpu: 2000m, memory: 2Gi }
+
+  # The masi pages' layout in headless Chromium with the real stylesheet (layout/): what vitest cannot see, as jsdom
+  # does no layout and no unit test loads index.css. The image's browsers are the ones @playwright/test expects:
+  # the first command fails when the two drift apart, so a bump of one is a bump of both.
+  - name: layout
+    image: mcr.microsoft.com/playwright:v1.58.2-noble
+    depends_on: [install]
+    environment:
+      CI: 'true'
+    commands:
+      - 'v=$(node -p "require(\"@playwright/test/package.json\").version"); [ "$v" = "1.58.2" ] || { echo "@playwright/test is $v, the image is 1.58.2: bump them together"; exit 1; }'
+      - npm run test:layout
+    backend_options:
+      kubernetes:
+        resources:
+          requests: { cpu: 500m, memory: 1Gi }
+          limits: { cpu: 2000m, memory: 3Gi }
 
   - name: sonar
     image: git.pmon.dev/schnappy/sonar-scanner:latest
