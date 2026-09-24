@@ -139,8 +139,8 @@ describe('MatchSummary', () => {
       'met Kubernetes experience — “Kubernetese kogemus”' +
         'shown by Kubernetes; Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present' +
         'Runs Kubernetes in the current role.',
-      'met 5+ years of Javashown by Tõrva FintechTen years in two rolescounted from the dates of your roles',
-      'partly Estonian C2shown by Estonian: C1read from the languages on your CV',
+      'met 5+ years of Javashown by Tõrva FintechTen years in two rolesCounted from the dates of your roles.',
+      'partly Estonian C2shown by Estonian: C1Read from the languages on your CV.',
       'not met GoNo Go anywhere.', // its English is its own words, spaced: shown once
     ]);
     expect(rows(within(region).getByRole('list', { name: 'What it would like' }))).toEqual([
@@ -229,7 +229,7 @@ describe('MatchSummary', () => {
     const required = rows(within(region).getByRole('list', { name: 'What the posting requires' }));
     expect(required).toHaveLength(4);
     expect(required[3]).toMatch(
-      /^met Estonian language proficiency — “eesti keele valdamine”shown by Estonian: native.*read from the languages on your CV$/,
+      /^met Estonian language proficiency — “eesti keele valdamine”shown by Estonian: native.*Read from the languages on your CV.$/,
     );
     expect(screen.getByRole('group')).toHaveTextContent('your CV shows 9 of 14');
   });

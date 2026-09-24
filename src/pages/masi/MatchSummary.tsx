@@ -24,8 +24,8 @@ const VERDICT_WORDS: Record<MasiMatchVerdict, string> = {
 /** Who decided, when it was not the model: masi counted it from the CV itself. */
 const DECIDED_BY: Record<MasiMatchRequirement['decidedBy'], string | null> = {
   model: null,
-  dates: 'counted from the dates of your roles',
-  languages: 'read from the languages on your CV',
+  dates: 'Counted from the dates of your roles.',
+  languages: 'Read from the languages on your CV.',
 };
 
 function Phrases({ label, phrases }: Readonly<{ label: string; phrases: string[] }>) {
