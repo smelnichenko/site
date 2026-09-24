@@ -1,0 +1,393 @@
+{
+  "score": 65,
+  "supportedMustHave": [
+    "vähemalt kolmeaastane erialane töökogemus",
+    "Java & Spring Boot",
+    "eesti keele valdamine"
+  ],
+  "missingMustHave": ["Angular või React"],
+  "notScored": [],
+  "unscored": null,
+  "method": "AI",
+  "requirements": [
+    {
+      "id": "M1",
+      "category": "MUST",
+      "text": "vähemalt kolmeaastane erialane töökogemus",
+      "english": "At least three years of professional experience in the field",
+      "kind": "YEARS",
+      "verdict": "MET",
+      "evidence": [
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" },
+        { "id": "R2", "label": "Riigi Infosüsteemide Amet · Software Developer, 2016-01 – 2021-02" }
+      ],
+      "reason": "Your CV shows ten years as a backend engineer in fintech and e-government, well exceeding three years.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "M2",
+      "category": "MUST",
+      "text": "Java & Spring Boot",
+      "english": "Java & Spring Boot",
+      "kind": "SKILL",
+      "verdict": "MET",
+      "evidence": [
+        { "id": "S1", "label": "Java" },
+        { "id": "S4", "label": "Spring Boot" },
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" },
+        { "id": "R2", "label": "Riigi Infosüsteemide Amet · Software Developer, 2016-01 – 2021-02" }
+      ],
+      "reason": "Your CV lists Java and Spring Boot as skills, and both roles used them extensively.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "M3",
+      "category": "MUST",
+      "text": "Angular või React",
+      "english": "Angular or React",
+      "kind": "SKILL",
+      "verdict": "NOT_MET",
+      "evidence": [],
+      "reason": "Your CV shows no experience with Angular or React; you have worked on backend services.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "M4",
+      "category": "MUST",
+      "text": "eesti keele valdamine",
+      "english": "Estonian language proficiency",
+      "kind": "LANGUAGE",
+      "verdict": "MET",
+      "evidence": [{ "id": "L1", "label": "Estonian: native" }],
+      "reason": "Your CV states Estonian as your native language.",
+      "decidedBy": "languages"
+    },
+    {
+      "id": "N1",
+      "category": "NICE",
+      "text": "Oracle Certified Professional: Java SE sertifikaat",
+      "english": "Oracle Certified Professional: Java SE certification",
+      "kind": "SKILL",
+      "verdict": "NOT_MET",
+      "evidence": [],
+      "reason": "Your CV lists a CKA certification but no Oracle Certified Professional: Java SE.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "N2",
+      "category": "NICE",
+      "text": "meeskonnamängija mentaliteet ja head suhtlusoskused",
+      "english": "Team player mentality and good communication skills",
+      "kind": "OTHER",
+      "verdict": "NOT_A_CV_THING",
+      "evidence": [],
+      "reason": "Communication and teamwork are traits assessed at interview, not shown in a CV.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "N3",
+      "category": "NICE",
+      "text": "kaasaegsete arendusmustrite tundmine",
+      "english": "Knowledge of modern development patterns",
+      "kind": "SKILL",
+      "verdict": "MET",
+      "evidence": [
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" },
+        {
+          "id": "R1.A1",
+          "label": "Tõrva Fintech OÜ: Cut p99 latency of the order API from 800 ms to 120 ms for 2 M daily requests"
+        },
+        {
+          "id": "R1.A2",
+          "label": "Tõrva Fintech OÜ: Reduced cloud spend of the settlement pipeline by 35 % by moving batch jobs to spot capacity"
+        }
+      ],
+      "reason": "Your recent role shows work with modern architectures: Kafka for event streaming, Kubernetes orchestration, and performance optimization patterns.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "N4",
+      "category": "NICE",
+      "text": "süsteemi- või ärianalüüsi kogemus",
+      "english": "System or business analysis experience",
+      "kind": "SKILL",
+      "verdict": "PARTLY",
+      "evidence": [
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" },
+        { "id": "R2", "label": "Riigi Infosüsteemide Amet · Software Developer, 2016-01 – 2021-02" }
+      ],
+      "reason": "Your CV shows you have owned services end-to-end and worked on authentication and settlement systems, implying analysis work, but does not explicitly state analysis experience.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "N5",
+      "category": "NICE",
+      "text": "automaattestide raamistike tundmine ja testide kirjutamise oskus",
+      "english": "Knowledge of automated testing frameworks and ability to write tests",
+      "kind": "SKILL",
+      "verdict": "NOT_MET",
+      "evidence": [],
+      "reason": "Your CV does not mention automated testing frameworks or testing practices.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "N6",
+      "category": "NICE",
+      "text": "nooremarendajate juhendamise kogemus",
+      "english": "Experience mentoring junior developers",
+      "kind": "SKILL",
+      "verdict": "PARTLY",
+      "evidence": [
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" }
+      ],
+      "reason": "Your current role lists team size of 6 and you are tech lead; this indicates mentoring responsibility, but no explicit mentoring achievement is described.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "N7",
+      "category": "NICE",
+      "text": "DevOps inseneridega koostöö kogemus",
+      "english": "Experience working with DevOps engineers",
+      "kind": "SKILL",
+      "verdict": "PARTLY",
+      "evidence": [
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" },
+        {
+          "id": "R1.A2",
+          "label": "Tõrva Fintech OÜ: Reduced cloud spend of the settlement pipeline by 35 % by moving batch jobs to spot capacity"
+        }
+      ],
+      "reason": "Your role involves Kubernetes and cost optimization of cloud infrastructure, suggesting DevOps collaboration, though not explicitly stated.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "N8",
+      "category": "NICE",
+      "text": "suhtlemine arenduse lõppkasutaja esindajatega",
+      "english": "Communication with end-user representatives",
+      "kind": "OTHER",
+      "verdict": "NOT_A_CV_THING",
+      "evidence": [],
+      "reason": "Communication with end users is a trait best assessed at interview; your CV does not show explicit end-user interaction work.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "N9",
+      "category": "NICE",
+      "text": "erialane tehniline kõrgem haridus",
+      "english": "Professional technical higher education",
+      "kind": "DEGREE",
+      "verdict": "MET",
+      "evidence": [{ "id": "E1", "label": "MSc Computer Science, Tartu Ülikool" }],
+      "reason": "Your CV shows an MSc in Computer Science from Tartu University.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "N10",
+      "category": "NICE",
+      "text": "uhkus töö kvaliteedi üle",
+      "english": "Pride in work quality",
+      "kind": "OTHER",
+      "verdict": "NOT_A_CV_THING",
+      "evidence": [
+        {
+          "id": "R1.A1",
+          "label": "Tõrva Fintech OÜ: Cut p99 latency of the order API from 800 ms to 120 ms for 2 M daily requests"
+        },
+        {
+          "id": "R1.A2",
+          "label": "Tõrva Fintech OÜ: Reduced cloud spend of the settlement pipeline by 35 % by moving batch jobs to spot capacity"
+        }
+      ],
+      "reason": "Pride in quality is a trait reflected in achievements; your latency reduction and cost optimization show quality-focused work, but the trait itself is assessed at interview.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K1",
+      "category": "KEYWORD",
+      "text": "Java",
+      "english": "Java",
+      "kind": "SKILL",
+      "verdict": "MET",
+      "evidence": [
+        { "id": "S1", "label": "Java" },
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" },
+        { "id": "R2", "label": "Riigi Infosüsteemide Amet · Software Developer, 2016-01 – 2021-02" }
+      ],
+      "reason": "Your CV lists Java as a skill and used it in both roles.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K2",
+      "category": "KEYWORD",
+      "text": "Spring Boot",
+      "english": "Spring Boot",
+      "kind": "SKILL",
+      "verdict": "MET",
+      "evidence": [
+        { "id": "S4", "label": "Spring Boot" },
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" }
+      ],
+      "reason": "Your CV lists Spring Boot as a platform skill and your current role uses it.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K3",
+      "category": "KEYWORD",
+      "text": "Angular",
+      "english": "Angular",
+      "kind": "SKILL",
+      "verdict": "NOT_MET",
+      "evidence": [],
+      "reason": "Your CV shows no Angular experience; your background is backend services.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K4",
+      "category": "KEYWORD",
+      "text": "React",
+      "english": "React",
+      "kind": "SKILL",
+      "verdict": "NOT_MET",
+      "evidence": [],
+      "reason": "Your CV shows no React experience; your background is backend services.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K5",
+      "category": "KEYWORD",
+      "text": "Oracle",
+      "english": "Oracle",
+      "kind": "SKILL",
+      "verdict": "PARTLY",
+      "evidence": [
+        { "id": "R2", "label": "Riigi Infosüsteemide Amet · Software Developer, 2016-01 – 2021-02" }
+      ],
+      "reason": "Your earlier role at the e-government agency used Oracle, but your current role uses PostgreSQL.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K6",
+      "category": "KEYWORD",
+      "text": "eesti keel",
+      "english": "Estonian language",
+      "kind": "LANGUAGE",
+      "verdict": "MET",
+      "evidence": [{ "id": "L1", "label": "Estonian: native" }],
+      "reason": "Your CV states Estonian as your native language.",
+      "decidedBy": "languages"
+    },
+    {
+      "id": "K7",
+      "category": "KEYWORD",
+      "text": "kaasaegsed arendusmustrid",
+      "english": "Modern development patterns",
+      "kind": "SKILL",
+      "verdict": "MET",
+      "evidence": [
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" },
+        {
+          "id": "R1.A1",
+          "label": "Tõrva Fintech OÜ: Cut p99 latency of the order API from 800 ms to 120 ms for 2 M daily requests"
+        },
+        {
+          "id": "R1.A2",
+          "label": "Tõrva Fintech OÜ: Reduced cloud spend of the settlement pipeline by 35 % by moving batch jobs to spot capacity"
+        }
+      ],
+      "reason": "Your recent work demonstrates modern patterns: event streaming with Kafka, container orchestration with Kubernetes, and performance optimization.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K8",
+      "category": "KEYWORD",
+      "text": "automaattestide raamistikud",
+      "english": "Automated testing frameworks",
+      "kind": "SKILL",
+      "verdict": "NOT_MET",
+      "evidence": [],
+      "reason": "Your CV does not mention automated testing frameworks.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K9",
+      "category": "KEYWORD",
+      "text": "testide kirjutamine",
+      "english": "Test writing",
+      "kind": "SKILL",
+      "verdict": "NOT_MET",
+      "evidence": [],
+      "reason": "Your CV does not mention test writing or testing practices.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K10",
+      "category": "KEYWORD",
+      "text": "süsteemianalüüs",
+      "english": "System analysis",
+      "kind": "SKILL",
+      "verdict": "PARTLY",
+      "evidence": [
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" },
+        { "id": "R2", "label": "Riigi Infosüsteemide Amet · Software Developer, 2016-01 – 2021-02" }
+      ],
+      "reason": "Your end-to-end service ownership implies systems thinking, but no explicit systems analysis work is described.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K11",
+      "category": "KEYWORD",
+      "text": "ärianalüüs",
+      "english": "Business analysis",
+      "kind": "SKILL",
+      "verdict": "PARTLY",
+      "evidence": [
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" }
+      ],
+      "reason": "Your role in payment and settlement services suggests business domain knowledge, but no explicit business analysis experience is stated.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K12",
+      "category": "KEYWORD",
+      "text": "nooremarendajate juhendamine",
+      "english": "Mentoring junior developers",
+      "kind": "SKILL",
+      "verdict": "PARTLY",
+      "evidence": [
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" }
+      ],
+      "reason": "You are tech lead of a 6-person team, which implies mentoring, but no explicit mentoring achievement is shown.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K13",
+      "category": "KEYWORD",
+      "text": "DevOps",
+      "english": "DevOps",
+      "kind": "SKILL",
+      "verdict": "MET",
+      "evidence": [
+        { "id": "R1", "label": "Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present" },
+        {
+          "id": "R1.A2",
+          "label": "Tõrva Fintech OÜ: Reduced cloud spend of the settlement pipeline by 35 % by moving batch jobs to spot capacity"
+        },
+        { "id": "S7", "label": "Kubernetes" }
+      ],
+      "reason": "Your CV shows Kubernetes expertise and cloud cost optimization, which are DevOps practices.",
+      "decidedBy": "model"
+    },
+    {
+      "id": "K14",
+      "category": "KEYWORD",
+      "text": "lõppkasutaja esindajatega suhtlemine",
+      "english": "Communication with end-user representatives",
+      "kind": "SKILL",
+      "verdict": "NOT_MET",
+      "evidence": [],
+      "reason": "Your CV does not describe work directly with end-user representatives.",
+      "decidedBy": "model"
+    }
+  ]
+}
