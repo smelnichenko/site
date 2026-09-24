@@ -1,29 +1,41 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import {
   fetchMasiCompany,
   fetchMasiCompanyContacts,
+  fetchMasiCompanyPersons,
   fetchMasiJobs,
   MasiCompany,
   MasiContact,
   MasiJob,
+  MasiPerson,
   patchMasiCompany,
   patchMasiContact,
+  patchMasiPerson,
 } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
-import { badgeClass, errorMessage, formatDate, formatDateTime } from './format';
+import { badgeClass, errorMessage, formatDate } from './format';
 import MasiTable from '../../components/MasiTable';
+import RegisterCard from './RegisterCard';
+import { byCompany, rolesText, whereLabel } from './people';
+import { agencyText } from './register';
 
-/** One company: its facts from the register and the boards, its open and closed jobs, its contacts, the operator's flags. */
+/**
+ * One company: its facts from the register and the boards, which registered company it is, its open and closed jobs,
+ * the people tied to it, the operator's flags.
+ */
 export default function MasiCompanyDetail() {
   const { id } = useParams();
   const companyId = Number(id);
+  const mergedFrom = (useLocation().state as { mergedFrom?: string } | null)?.mergedFrom;
   const [company, setCompany] = useState<MasiCompany | null>(null);
   const [jobs, setJobs] = useState<MasiJob[]>([]);
   const [jobTotal, setJobTotal] = useState(0);
-  const [busyContact, setBusyContact] = useState<number | null>(null);
-  const [contacts, setContacts] = useState<MasiContact[]>([]);
+  const [busyPerson, setBusyPerson] = useState<number | null>(null);
+  const [people, setPeople] = useState<MasiPerson[]>([]);
+  const [addresses, setAddresses] = useState<MasiContact[]>([]);
+  const [busyAddress, setBusyAddress] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [careersUrl, setCareersUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +44,10 @@ export default function MasiCompanyDetail() {
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
-      const [c, js, cs] = await Promise.all([
+      const [c, js, ps, cs] = await Promise.all([
         fetchMasiCompany(companyId, signal),
         fetchMasiJobs({ company: companyId, status: 'ALL', size: 100 }, signal),
+        fetchMasiCompanyPersons(companyId, signal),
         fetchMasiCompanyContacts(companyId, signal),
       ]);
       setCompany(c);
@@ -42,7 +55,11 @@ export default function MasiCompanyDetail() {
       setCareersUrl(c.careersUrl ?? '');
       setJobs(js.content);
       setJobTotal(js.totalElements);
-      setContacts(cs.content);
+      setPeople(ps);
+      // the rows nobody was made a person of — a desk, the register's company address — are listed apart
+      setAddresses(cs.content.filter((x) => x.personId === null));
+      setError(null);
+      setMessage(null); // a message about the company this page showed before is not about this one
     },
     [companyId],
   );
@@ -72,15 +89,33 @@ export default function MasiCompanyDetail() {
     }
   }
 
-  async function toggleContact(c: MasiContact) {
-    setBusyContact(c.id);
+  /** A placement or its taking back changes the code, the facts and the board: everything the page shows is read again. */
+  function registerChanged(c: MasiCompany) {
+    setCompany(c);
+    void reload().catch((e: unknown) => setError(errorMessage(e, 'Failed to reload the company')));
+  }
+
+  async function toggleAddress(c: MasiContact) {
+    setBusyAddress(c.id);
     try {
       const next = await patchMasiContact(c.id, { doNotContact: !c.doNotContact });
-      setContacts((cur) => cur.map((x) => (x.id === next.id ? next : x)));
+      setAddresses((cur) => cur.map((x) => (x.id === next.id ? next : x)));
     } catch (e: unknown) {
-      setMessage(errorMessage(e, 'Saving the contact failed'));
+      setMessage(errorMessage(e, 'Saving the address failed'));
     } finally {
-      setBusyContact(null);
+      setBusyAddress(null);
+    }
+  }
+
+  async function togglePerson(p: MasiPerson) {
+    setBusyPerson(p.id);
+    try {
+      const next = await patchMasiPerson(p.id, { doNotContact: !p.doNotContact });
+      setPeople((cur) => cur.map((x) => (x.id === next.id ? next : x)));
+    } catch (e: unknown) {
+      setMessage(errorMessage(e, 'Saving the person failed'));
+    } finally {
+      setBusyPerson(null);
     }
   }
 
@@ -107,6 +142,11 @@ export default function MasiCompanyDetail() {
   return (
     <div className="masi">
       <MasiNav />
+      {mergedFrom && (
+        <output className="masi-intro">
+          “{mergedFrom}” is this company now: its jobs, people and notes moved here.
+        </output>
+      )}
       <div className="card">
         <div className="card-header">
           <span className="card-title">{company.name}</span>
@@ -128,6 +168,30 @@ export default function MasiCompanyDetail() {
             </a>
           )}
           {company.atsVendor ? ` · ATS ${company.atsVendor}` : ''}
+        </div>
+        <div className="badge-group masi-agency">
+          <span className="muted">{agencyText(company)}</span>
+          <LoadingButton
+            type="button"
+            className="status-badge action"
+            onClick={() =>
+              void save(
+                { agency: !company.agency },
+                company.agency ? 'Marked: not an agency' : 'Marked: an agency',
+              )
+            }
+            loading={busy}
+            label={company.agency ? 'Not an agency' : 'Mark as agency'}
+          />
+          {company.agencyMark !== null && (
+            <LoadingButton
+              type="button"
+              className="status-badge action"
+              onClick={() => void save({ agencyFromRegister: true }, 'The register decides again')}
+              loading={busy}
+              label="Let the register decide"
+            />
+          )}
         </div>
         <div className="form-group">
           <label htmlFor="careers-url">Careers URL</label>
@@ -172,6 +236,7 @@ export default function MasiCompanyDetail() {
           />
         </div>
       </div>
+      <RegisterCard company={company} onChange={registerChanged} />
       <div className="card">
         <div className="card-header">
           <span className="card-title">Jobs</span>
@@ -213,44 +278,97 @@ export default function MasiCompanyDetail() {
       </div>
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Contacts</span>
-          <span className="muted">{contacts.length}</span>
+          <span className="card-title">People</span>
+          <span className="card-header-aside">
+            <span className="muted">{people.length}</span>
+            <Link to={`/masi/persons?company=${companyId}`} className="muted">
+              in the people list
+            </Link>
+          </span>
         </div>
-        {contacts.length === 0 && <div className="empty-state">No contacts recorded.</div>}
-        {contacts.length > 0 && (
-          <MasiTable label="Contacts of the company">
+        {people.length === 0 && <div className="empty-state">Nobody tied to this company yet.</div>}
+        {people.length > 0 && (
+          <MasiTable label="People of the company" testId="company-people">
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Title</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Seen</th>
+                <th>Here</th>
+                <th>Address</th>
                 <th>Contact?</th>
               </tr>
             </thead>
             <tbody>
-              {contacts.map((c) => (
+              {people.map((p) => {
+                const here = byCompany(p.ties).find((c) => c.companyId === companyId);
+                const tie = p.ties.find((t) => t.companyId === companyId);
+                return (
+                  <tr key={p.id}>
+                    <td>
+                      <Link to={`/masi/persons/${p.id}`}>{p.name ?? 'unnamed'}</Link>
+                      {p.title && <div className="muted">{p.title}</div>}
+                    </td>
+                    <td>{here ? rolesText(here.roles) : ''}</td>
+                    <td>
+                      {p.email ?? ''}
+                      {tie && whereLabel(tie.where) && (
+                        <div className="muted">{whereLabel(tie.where)}</div>
+                      )}
+                    </td>
+                    <td>
+                      <LoadingButton
+                        className={p.doNotContact ? 'status-badge error' : 'status-badge success'}
+                        onClick={() => void togglePerson(p)}
+                        loading={busyPerson === p.id}
+                        label={p.doNotContact ? 'do not contact' : 'ok to contact'}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </MasiTable>
+        )}
+      </div>
+      {addresses.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Company addresses</span>
+            <span className="muted">{addresses.length}</span>
+          </div>
+          <div className="muted">
+            A desk or the company's own address: nobody's person, still somewhere to write to.
+          </div>
+          <MasiTable label="Company addresses" testId="company-addresses">
+            <thead>
+              <tr>
+                <th>Address</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Contact?</th>
+              </tr>
+            </thead>
+            <tbody>
+              {addresses.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.name ?? <span className="muted">{c.kind.toLowerCase()}</span>}</td>
-                  <td>{c.title ?? ''}</td>
                   <td>{c.email ?? ''}</td>
+                  <td>{c.name ?? ''}</td>
                   <td>{c.phone ?? ''}</td>
-                  <td>{formatDateTime(c.lastSeenAt)}</td>
                   <td>
                     <LoadingButton
+                      type="button"
                       className={c.doNotContact ? 'status-badge error' : 'status-badge success'}
-                      onClick={() => void toggleContact(c)}
-                      loading={busyContact === c.id}
+                      onClick={() => void toggleAddress(c)}
+                      loading={busyAddress === c.id}
                       label={c.doNotContact ? 'do not contact' : 'ok to contact'}
+                      aria-label={`${c.doNotContact ? 'Allow contact at' : 'Do not contact'} ${c.email ?? c.name ?? 'this address'}`}
                     />
                   </td>
                 </tr>
               ))}
             </tbody>
           </MasiTable>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import React from 'react';
 
 interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  /** React 19 passes a ref as a prop; it reaches the button with the rest, for a caller that moves focus to it. */
+  ref?: React.Ref<HTMLButtonElement>;
   loading?: boolean;
   loadingLabel?: string;
   label: string;

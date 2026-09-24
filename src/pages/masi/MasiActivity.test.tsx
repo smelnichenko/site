@@ -32,6 +32,7 @@ const rows: Row[] = [
     companyName: 'Nortal AS',
     contactId: 11,
     contactName: 'Mari Maasikas',
+    personId: 40,
     packageId: null,
     summary: 'Screening call',
     detail: '30 min, next: tech interview',
@@ -48,6 +49,7 @@ const rows: Row[] = [
     companyName: 'Nortal AS',
     contactId: null,
     contactName: null,
+    personId: null,
     packageId: 11,
     summary: 'Senior Java Developer',
     detail: null,
@@ -64,6 +66,7 @@ const rows: Row[] = [
     companyName: 'Nortal AS',
     contactId: null,
     contactName: null,
+    personId: null,
     packageId: null,
     summary: 'Senior Java Developer',
     detail: null,
@@ -100,7 +103,7 @@ describe('MasiActivity', () => {
     );
     expect(within(items[0]).getByRole('link', { name: 'Mari Maasikas' })).toHaveAttribute(
       'href',
-      '/masi/contacts', // contacts have no page of their own yet: the list
+      '/masi/persons/40', // the person the contact is
     );
     expect(within(items[1]).getByRole('link', { name: 'package' })).toHaveAttribute(
       'href',
@@ -119,6 +122,81 @@ describe('MasiActivity', () => {
         expect.anything(),
       ),
     );
+  });
+
+  it("narrows to one person's rows, and logs with them only once a company says which of their contacts", async () => {
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 50,
+      totalElements: 0,
+    });
+    renderAt('/masi/activity?person=40', '/masi/activity', <MasiActivity />);
+    expect(
+      await screen.findByRole('button', { name: 'Clear the scope: person 40' }),
+    ).toBeInTheDocument();
+    expect(vi.mocked(api.fetchMasiActivity).mock.calls[0][0]).toMatchObject({ person: 40 });
+    expect(screen.queryByLabelText('Summary')).not.toBeInTheDocument();
+  });
+
+  it('logs with a person at a company as their contact there', async () => {
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 50,
+      totalElements: 0,
+    });
+    vi.mocked(api.logMasiActivity).mockResolvedValue({ ...rows[0], summary: 'Called Mari' });
+    renderAt('/masi/activity?person=40&company=3', '/masi/activity', <MasiActivity />);
+    expect(
+      await screen.findByRole('button', { name: 'Clear the scope: person 40 at company 3' }),
+    ).toBeInTheDocument();
+    expect(vi.mocked(api.fetchMasiActivity).mock.calls[0][0]).toMatchObject({
+      person: 40,
+      company: 3,
+    });
+    await userEvent.type(screen.getByLabelText('Summary'), 'Called Mari');
+    await userEvent.click(screen.getByRole('button', { name: 'Log' }));
+    await waitFor(() =>
+      expect(api.logMasiActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          personId: 40,
+          companyId: 3,
+          contactId: undefined,
+          summary: 'Called Mari',
+        }),
+      ),
+    );
+  });
+
+  it('names a row whose contact or person has no name by its number', async () => {
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [
+        { ...rows[0], id: 1, personId: null, contactName: null, contactId: 77 },
+        { ...rows[0], id: 2, personId: 40, contactName: null },
+      ],
+      page: 0,
+      size: 50,
+      totalElements: 2,
+    });
+    renderAt('/masi/activity', '/masi/activity', <MasiActivity />);
+    expect(await screen.findByText(/contact 77/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'person 40' })).toHaveAttribute(
+      'href',
+      '/masi/persons/40',
+    );
+  });
+
+  it('names a contact masi has not made a person of yet, without a link to a page that is not there', async () => {
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [{ ...rows[0], personId: null, contactName: 'Unplaced Desk' }],
+      page: 0,
+      size: 50,
+      totalElements: 1,
+    });
+    renderAt('/masi/activity', '/masi/activity', <MasiActivity />);
+    expect(await screen.findByText(/Unplaced Desk/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Unplaced Desk' })).not.toBeInTheDocument();
   });
 
   it('logs a note from the form and shows it at the top', async () => {

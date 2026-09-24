@@ -21,6 +21,22 @@ vi.mock('./services/api', async (importOriginal) => ({
   fetchMasiJobs: vi.fn().mockResolvedValue({ content: [], page: 0, size: 50, totalElements: 0 }),
   fetchMasiReports: vi.fn().mockResolvedValue([]),
   fetchMasiStats: vi.fn().mockRejectedValue(new Error('no stats in this test')),
+  fetchMasiPersons: vi.fn().mockResolvedValue({ content: [], page: 0, size: 50, totalElements: 0 }),
+  fetchMasiPerson: vi.fn().mockResolvedValue({
+    id: 5,
+    name: 'Kadri Kask',
+    email: null,
+    phone: null,
+    title: null,
+    doNotContact: false,
+    userNote: null,
+    firstSeenAt: '2026-09-18T08:00:00Z',
+    lastSeenAt: '2026-09-18T08:00:00Z',
+    ties: [],
+  }),
+  fetchMasiActivity: vi
+    .fn()
+    .mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0 }),
 }));
 
 const originalLocation = globalThis.location;
@@ -98,6 +114,33 @@ describe('masi routes and nav', () => {
     const tab = screen.getByRole('link', { name: 'Calendar' });
     expect(tab).toHaveAttribute('href', '/masi/calendar');
     expect(tab).toHaveClass('active');
+  });
+
+  /** The people list is reachable, and a saved link to the contacts list it replaced lands on it. */
+  it.each(['/masi/persons', '/masi/contacts'])(
+    'renders the people list at %s with its tab',
+    async (route) => {
+      vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
+        email: 'me@example.com',
+        uuid: 'u1',
+        permissions: ['JOBS'],
+      });
+      renderApp(route);
+      expect(await screen.findByText('Nobody matches.')).toBeInTheDocument();
+      const tab = screen.getByRole('link', { name: 'People' });
+      expect(tab).toHaveAttribute('href', '/masi/persons');
+      expect(tab).toHaveClass('active');
+    },
+  );
+
+  it("renders a person's page at /masi/persons/:id", async () => {
+    vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
+      email: 'me@example.com',
+      uuid: 'u1',
+      permissions: ['JOBS'],
+    });
+    renderApp('/masi/persons/5');
+    expect(await screen.findByText('Kadri Kask', { selector: '.card-title' })).toBeInTheDocument();
   });
 
   it('redirects /masi/jobs away and hides the Jobs link without JOBS', async () => {

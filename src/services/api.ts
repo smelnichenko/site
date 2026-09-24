@@ -1317,9 +1317,36 @@ export interface MasiCompany {
   lastSeenAt: string;
   registerSeenAt: string | null;
   blacklisted: boolean;
+  /** Whether it places people at others: the operator's mark if given, else the register's line of business (EMTAK 78). */
+  agency: boolean;
+  /** The operator's own word either way; null when they gave none and the register decides. */
+  agencyMark: boolean | null;
   userNote: string | null;
 }
 
+/** What a person is to a company; each is claimed only by the evidence that can say it. */
+export type MasiTieRole = 'POSTED_FOR' | 'REPRESENTS' | 'WORKS_AT' | 'RECRUITS_FOR' | 'TALKED_TO';
+/** Who says so. */
+export type MasiTieEvidence = 'LISTING' | 'REGISTER' | 'PARTNER' | 'OPERATOR';
+/** Whether the address a person published is the company's: SOMEWHERE_ELSE is a recruiter writing from outside it. */
+export type MasiEmailDomain = 'THE_COMPANYS' | 'SOMEWHERE_ELSE' | 'COMPANY_UNKNOWN' | 'NO_ADDRESS';
+
+/** One tie of a person to a company, with what says so. */
+export interface MasiPersonTie {
+  companyId: number;
+  companyName: string | null;
+  agency: boolean;
+  role: MasiTieRole;
+  evidence: MasiTieEvidence;
+  evidenceRef: string | null;
+  since: string | null;
+  until: string | null;
+  where: MasiEmailDomain;
+  /** The person's contact at that company, which a log written with them goes to; null for a tie made by word alone. */
+  contactId: number | null;
+}
+
+/** A row the company page lists apart from its people: a desk, a company address, a contact nobody was made of. */
 export interface MasiContact {
   id: number;
   companyId: number | null;
@@ -1330,12 +1357,59 @@ export interface MasiContact {
   email: string | null;
   phone: string | null;
   origin: string;
-  sourceId: number | null;
-  firstListingId: number | null;
   firstSeenAt: string;
   lastSeenAt: string;
   doNotContact: boolean;
   userNote: string | null;
+  /** The person the contact is; null for a desk or a company address. */
+  personId: number | null;
+}
+
+export interface MasiPerson {
+  id: number;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+  doNotContact: boolean;
+  userNote: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  ties: MasiPersonTie[];
+}
+
+/** A registered company an employer might be; `sure` is the one masi would attach without asking. */
+export interface MasiRegisterCandidate {
+  registryCode: string;
+  name: string;
+  legalForm: string | null;
+  emtakCode: string | null;
+  hqCity: string | null;
+  sizeBand: string | null;
+  website: string | null;
+  /** EXACT: the whole name; PREFIX: the registered name begins with it; CODE: the operator typed its code. */
+  how: 'EXACT' | 'PREFIX' | 'CODE';
+  sure: boolean;
+  employerForm: boolean;
+  heldById: number | null;
+  heldByName: string | null;
+}
+
+/** The candidates, and why there are few or none: the register not read yet, or too many names beginning with it. */
+export interface MasiRegisterCandidates {
+  indexed: boolean;
+  truncated: boolean;
+  candidates: MasiRegisterCandidate[];
+}
+
+/** A placement the operator or the weekly pass made, and what it replaced — which taking it back restores. */
+export interface MasiRegisterPlacement {
+  registryCode: string;
+  placedAt: string;
+  priorWebsite: string | null;
+  priorHqCity: string | null;
+  priorEmtakCode: string | null;
+  priorSizeBand: string | null;
 }
 
 export interface MasiSource {
@@ -1565,6 +1639,8 @@ export interface MasiActivity {
   companyName: string | null;
   contactId: number | null;
   contactName: string | null;
+  /** The person the contact is: their page is where the row links. */
+  personId: number | null;
   packageId: number | null;
   summary: string;
   detail: string | null;
@@ -1589,6 +1665,8 @@ export interface MasiActivityFilter {
   job?: number;
   company?: number;
   contact?: number;
+  /** Everything with this person, at whichever company: their contacts' rows. */
+  person?: number;
   page?: number;
   size?: number;
 }
@@ -1608,6 +1686,8 @@ export function logMasiActivity(entry: {
   jobId?: number;
   companyId?: number;
   contactId?: number;
+  /** With a company: the person's contact there is the one the row is with. */
+  personId?: number;
   summary: string;
   detail?: string;
 }): Promise<MasiActivity> {
@@ -1739,30 +1819,102 @@ export function fetchMasiCompany(id: number, signal?: AbortSignal): Promise<Masi
 
 export function patchMasiCompany(
   id: number,
-  patch: { userNote?: string; blacklisted?: boolean; userRating?: number; careersUrl?: string },
+  patch: {
+    userNote?: string;
+    blacklisted?: boolean;
+    userRating?: number;
+    careersUrl?: string;
+    agency?: boolean;
+    agencyFromRegister?: boolean;
+  },
 ): Promise<MasiCompany> {
   return masiSend(`/companies/${id}`, 'PATCH', patch, 'save the company');
 }
 
+/** The registered companies this employer might be; with a code, the one company the register has under it, or none. */
+export function fetchMasiRegisterCandidates(
+  id: number,
+  signal?: AbortSignal,
+  code?: string,
+): Promise<MasiRegisterCandidates> {
+  return masiGet(
+    `/companies/${id}/register-candidates${query({ code })}`,
+    signal,
+    'look in the register',
+  );
+}
+
+/** The company's own rows — its desks and addresses among them, which are nobody's person. */
 export function fetchMasiCompanyContacts(
   id: number,
   signal?: AbortSignal,
 ): Promise<Paged<MasiContact>> {
-  return masiGet(`/companies/${id}/contacts?size=200`, signal, 'load contacts');
-}
-
-export function fetchMasiContacts(
-  filter: { company?: number; page?: number; size?: number },
-  signal?: AbortSignal,
-): Promise<Paged<MasiContact>> {
-  return masiGet(`/contacts${query({ ...filter })}`, signal, 'load contacts');
+  return masiGet(`/companies/${id}/contacts?size=200`, signal, 'load the addresses');
 }
 
 export function patchMasiContact(
   id: number,
   patch: { doNotContact?: boolean; userNote?: string },
 ): Promise<MasiContact> {
-  return masiSend(`/contacts/${id}`, 'PATCH', patch, 'save the contact');
+  return masiSend(`/contacts/${id}`, 'PATCH', patch, 'save the address');
+}
+
+/** The company's placement on the register, or null (204) when none was made: a code from the register import itself. */
+export async function fetchMasiRegisterPlacement(
+  id: number,
+  signal?: AbortSignal,
+): Promise<MasiRegisterPlacement | null> {
+  const response = await apiFetch(`${API_BASE}/masi/companies/${id}/register-match`, { signal });
+  if (response.status === 204) return null;
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || 'Failed to load the placement');
+  }
+  return readJson<MasiRegisterPlacement>(response);
+}
+
+/** The operator's word: this employer is the registered company with that code. */
+export function placeMasiCompany(id: number, registryCode: string): Promise<MasiCompany> {
+  return masiSend(`/companies/${id}/register-match`, 'POST', { registryCode }, 'place the company');
+}
+
+export function takeBackMasiPlacement(id: number): Promise<MasiCompany> {
+  return masiSend(
+    `/companies/${id}/register-match`,
+    'DELETE',
+    undefined,
+    'take the placement back',
+  );
+}
+
+export function fetchMasiPersons(
+  filter: { q?: string; company?: number; agency?: boolean; page?: number; size?: number },
+  signal?: AbortSignal,
+): Promise<Paged<MasiPerson>> {
+  return masiGet(`/persons${query({ ...filter })}`, signal, 'load people');
+}
+
+export function fetchMasiPerson(id: number, signal?: AbortSignal): Promise<MasiPerson> {
+  return masiGet(`/persons/${id}`, signal, 'load the person');
+}
+
+/** The people tied to one company: who posted for it, who represents it, who was spoken to. */
+export function fetchMasiCompanyPersons(id: number, signal?: AbortSignal): Promise<MasiPerson[]> {
+  return masiGet(`/persons/of-company/${id}`, signal, 'load the people');
+}
+
+export function patchMasiPerson(
+  id: number,
+  patch: {
+    name?: string;
+    title?: string;
+    email?: string;
+    phone?: string;
+    doNotContact?: boolean;
+    userNote?: string;
+  },
+): Promise<MasiPerson> {
+  return masiSend(`/persons/${id}`, 'PATCH', patch, 'save the person');
 }
 
 export function fetchMasiSources(signal?: AbortSignal): Promise<MasiSource[]> {

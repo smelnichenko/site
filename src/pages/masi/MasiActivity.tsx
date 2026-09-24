@@ -35,7 +35,9 @@ function countWords(n: number): string {
 }
 
 /** What the log is narrowed to, for the chip that clears it. */
-function scopeWords(job: string, company: string, contact: string): string {
+function scopeWords(job: string, company: string, contact: string, person: string): string {
+  if (person && company) return `person ${person} at company ${company}`;
+  if (person) return `person ${person}`;
   if (job) return `job ${job}`;
   if (company) return `company ${company}`;
   return `contact ${contact}`;
@@ -49,6 +51,7 @@ export default function MasiActivity() {
   const job = params.get('job') ?? '';
   const company = params.get('company') ?? '';
   const contact = params.get('contact') ?? '';
+  const person = params.get('person') ?? '';
   const pageNo = pageParam(params.get('page'));
   const [page, setPage] = useState<Paged<Row> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,12 +68,13 @@ export default function MasiActivity() {
         job: job ? Number(job) : undefined,
         company: company ? Number(company) : undefined,
         contact: contact ? Number(contact) : undefined,
+        person: person ? Number(person) : undefined,
         page: pageNo,
         size: PAGE_SIZE,
       };
       setPage(await fetchMasiActivity(filter, signal));
     },
-    [day, kind, job, company, contact, pageNo],
+    [day, kind, job, company, contact, person, pageNo],
   );
 
   useEffect(() => {
@@ -93,7 +97,8 @@ export default function MasiActivity() {
     setParams(next);
   }
 
-  const canLog = Boolean(job || company || contact);
+  // a row with a person is with their contact at one company, so the person's log takes a company before a form
+  const canLog = person ? Boolean(company) : Boolean(job || company || contact);
 
   async function onLog() {
     setBusy(true);
@@ -104,6 +109,7 @@ export default function MasiActivity() {
         jobId: job ? Number(job) : undefined,
         companyId: company ? Number(company) : undefined,
         contactId: contact ? Number(contact) : undefined,
+        personId: person ? Number(person) : undefined,
         summary: draft.summary.trim(),
         detail: draft.detail.trim() || undefined,
       });
@@ -152,14 +158,14 @@ export default function MasiActivity() {
               ))}
             </select>
           </div>
-          {(job || company || contact) && (
+          {(job || company || contact || person) && (
             <button
               type="button"
               className="status-badge"
-              aria-label={`Clear the scope: ${scopeWords(job, company, contact)}`}
+              aria-label={`Clear the scope: ${scopeWords(job, company, contact, person)}`}
               onClick={() => setParams({})}
             >
-              {scopeWords(job, company, contact)} ×
+              {scopeWords(job, company, contact, person)} ×
             </button>
           )}
         </div>
@@ -245,7 +251,13 @@ export default function MasiActivity() {
                   {a.contactId && (
                     <>
                       {' with '}
-                      <Link to="/masi/contacts">{a.contactName ?? `contact ${a.contactId}`}</Link>
+                      {a.personId ? (
+                        <Link to={`/masi/persons/${a.personId}`}>
+                          {a.contactName ?? `person ${a.personId}`}
+                        </Link>
+                      ) : (
+                        (a.contactName ?? `contact ${a.contactId}`)
+                      )}
                     </>
                   )}
                   {a.packageId && (

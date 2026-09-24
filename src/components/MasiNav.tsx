@@ -5,7 +5,7 @@ const TABS: Array<{ to: string; label: string; exact?: boolean }> = [
   { to: '/masi/jobs', label: 'Jobs' },
   { to: '/masi/packages', label: 'Review queue' },
   { to: '/masi/companies', label: 'Companies' },
-  { to: '/masi/contacts', label: 'Contacts' },
+  { to: '/masi/persons', label: 'People' },
   { to: '/masi/calendar', label: 'Calendar' },
   { to: '/masi/activity', label: 'Activity' },
   { to: '/masi/sources', label: 'Sources' },

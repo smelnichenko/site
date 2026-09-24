@@ -1090,6 +1090,53 @@ a.muted,
   padding: 6px 16px;
   border-radius: 20px;
   white-space: nowrap;
+  /* as a button (a toggle) it would keep the browser's 2px outset border and font: flat like the action buttons */
+  border: none;
+  font-family: inherit;
+}
+
+/* a label beside a name — "agency" — that is not a button: no fill of the buttons, no pointer, apart from the name */
+.masi .masi-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #eceff3;
+  color: #444;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* the row of the agency answer and its buttons, and the placement's confirmation: apart from what comes next */
+.masi .masi-agency,
+.masi .masi-confirm {
+  margin: 8px 0 12px;
+}
+
+/* the confirmation is a fieldset for what it groups, not for a fieldset's frame */
+.masi fieldset.masi-confirm {
+  border: none;
+  padding: 0;
+  min-width: 0;
+}
+
+/* the note of where a merged company went is text in the flow, not an inline <output> */
+.masi output.masi-intro {
+  display: block;
+}
+
+/* the candidate the operator chose, while its placement waits to be confirmed */
+.masi tr.masi-chosen td {
+  background: #eef4fb;
+}
+
+/* a link in a table cell that is the whole target: reachable by a thumb */
+.masi .masi-log-link {
+  display: inline-block;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 3px 6px;
 }
 
 /* in a column tile a badge would stretch to the tile's width: it is as wide as its word */
@@ -1175,6 +1222,11 @@ a.muted,
   border-radius: 4px;
   background: #fff;
   font: inherit;
+}
+
+/* a checkbox in a filter row is a box, not a 36px-tall field: its glyph would sit above the label's text */
+.masi-filters input[type='checkbox'] {
+  min-height: auto;
 }
 
 .masi-match {
