@@ -94,7 +94,7 @@ const packages: MasiPackage[] = [
     ...(prepared as MasiPackage),
     id: 12,
     status: 'FAILED_GUARD',
-    claims: [{ rule: 'metric', detail: `role 1 dropped '40 teenust': ${LONG_TITLE}` }],
+    claims: [{ rule: 'metric', detail: `role 1 dropped '40 teenust': ${LONG_TITLE} ${UNBROKEN}` }],
   },
 ];
 
@@ -155,7 +155,7 @@ function calendar(from: string, to: string): MasiCalendar {
       booking(10 + i, second, '00:00', '00:00', `All-day ${i + 1}: ${LONG_TITLE}`, {
         allDay: true,
         kind: 'DEADLINE',
-        endsAt: `${second}T23:59:00Z`,
+        endsAt: `${second}T20:00:00Z` /* 23:00 in Tallinn: the same day there */,
       }),
     ),
   ];

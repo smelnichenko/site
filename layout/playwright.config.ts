@@ -18,13 +18,17 @@ export default defineConfig({
     baseURL: 'http://localhost:5199',
     screenshot: 'only-on-failure',
     ...devices['Desktop Chrome'],
+    // the pages format in the browser's zone; the fixtures' day is a Tallinn day
+    timezoneId: 'Europe/Tallinn',
+    locale: 'en-GB',
     // a CI pod's /dev/shm is 64 MB, which Chromium outgrows and crashes on
     launchOptions: { args: ['--disable-dev-shm-usage'] },
   },
   webServer: {
     command: 'npx vite --config layout/vite.config.ts',
     url: 'http://localhost:5199',
-    reuseExistingServer: !process.env.CI,
+    // never another tree's server: a revert check against a stale one reads green
+    reuseExistingServer: false,
     timeout: 60_000,
     cwd: '..',
   },
