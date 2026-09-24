@@ -4,7 +4,8 @@
  * a desktop's, must hold:
  * - no sideways scroll: after scrollTo(200, 0) the page is still at x 0;
  * - no text past its own box, unless a box scrolls it on purpose (a table's scroller);
- * - every control a finger or a pointer aims at is at least 20 px either way, or has that much room around it;
+ * - every control a finger or a pointer aims at is at least 20 px either way, or has that much room around it,
+ *   and every select is the masi control height (36 px), not the browser's bare one;
  * and the calendar's week and day: no two bookings on top of each other, every day's hour grid at the same height.
  */
 import { expect, test, type Page } from '@playwright/test';
@@ -164,6 +165,17 @@ for (const { name, path, ready } of PAGES) {
         tiny,
         'every control is at least 20 px either way, or has that much room around it',
       ).toEqual([]);
+
+      // every select is drawn as masi draws them (36 px, the page's font), not as the browser's bare control
+      const bare = await page.evaluate(() =>
+        [...document.querySelectorAll('main select')]
+          .filter((el) => el.getClientRects().length > 0 && el.getBoundingClientRect().height < 36)
+          .map(
+            (el) =>
+              `select "${el.getAttribute('aria-label') ?? el.id}" ${el.getBoundingClientRect().height.toFixed(0)} px`,
+          ),
+      );
+      expect(bare, 'every select is the masi control height').toEqual([]);
     });
   }
 }
