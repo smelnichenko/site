@@ -1215,7 +1215,8 @@ a.muted,
 
 .masi-filters input,
 .masi-filters select,
-.masi-log-form select {
+.masi-log-form select,
+.masi-package-language select {
   min-height: 36px;
   padding: 4px 8px;
   border: 1px solid #ccc;
@@ -1905,4 +1906,70 @@ a.muted,
   .masi-week.masi-one-day {
     grid-template-columns: 3.2rem minmax(0, 1fr);
   }
+}
+
+/* a package's language choice and the button it is for wrap together, never apart */
+.masi-package-language {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.masi-package-language select {
+  max-width: 100%;
+}
+
+/* a parity problem starts with a JSON pointer, one long word: it wraps inside its box, never widens the page */
+.masi-cv-translations .error {
+  overflow-wrap: anywhere;
+}
+
+/* an <output>: inline by default, a line of its own here */
+.masi-cv-translations .masi-cv-translation-status {
+  display: block;
+  margin: 8px 0;
+}
+
+/* empty, it takes no room — but stays rendered, so what arrives in it is announced */
+.masi-cv-translations .masi-cv-translation-status:empty {
+  margin: 0;
+}
+
+.masi-cv-translations .badge-group {
+  margin-bottom: 8px;
+}
+
+.masi-translation-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.masi-translation-list > li + li {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+.masi-translation-list .error {
+  padding-left: 20px;
+}
+
+/* a button styled as a badge drops the browser's border and font, as the badges beside it have none */
+.masi button.status-badge {
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* and says when it cannot be pressed: a disabled Approve looked exactly like an enabled one */
+.masi button.status-badge:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.masi-translation-list .badge-group {
+  margin-top: 6px;
 }

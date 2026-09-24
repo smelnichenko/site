@@ -1125,6 +1125,27 @@ export interface CvVersionMeta {
   activatedAt: string | null;
   createdAt: string;
   schemaVersion: string;
+  /** The language the version is written in (en, et, ru). */
+  language: string | null;
+  /** For a translation: the version it was translated from; null for a master the operator wrote. */
+  translatedFrom: number | null;
+  /** For a translation: when the operator approved it. */
+  reviewedAt: string | null;
+  /** For a translation: reviewed, still passing, and its source is the active master — packages may be tuned from it. */
+  current: boolean | null;
+  /** For a translation: what stands between it and its approval; empty when nothing does. */
+  parity: string[] | null;
+}
+
+/** A translation of the master being made, or the last one made: it takes the model half a minute or more. */
+export interface CvTranslationStatus {
+  state: 'RUNNING' | 'DONE' | 'FAILED';
+  sourceVersion: number;
+  language: string;
+  version: number | null;
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
 }
 
 export interface CvCompleteness {
@@ -1171,17 +1192,21 @@ export async function validateCv(yaml: string): Promise<CvValidation> {
   return readJson(response);
 }
 
-/** Creates a new, inactive version; a schema refusal comes back as the error list, not a throw. */
+/**
+ * Creates a new, inactive version; a schema refusal comes back as the error list, not a throw. With
+ * {@code translatedFrom} it is an edited translation of that version, checked for parity the same way.
+ */
 export async function createCvVersion(
   yaml: string,
   note: string,
+  translatedFrom?: number,
 ): Promise<{ version: CvVersionMeta | null; errors: string[] }> {
   const response = await apiFetch(`${API_BASE}/masi/cv/versions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ yaml, note }),
+    body: JSON.stringify({ yaml, note, translatedFrom }),
   });
-  if (response.status === 400) {
+  if (response.status === 400 || response.status === 409) {
     const body = (await response.json().catch(() => ({}))) as { errors?: string[]; error?: string };
     return { version: null, errors: body.errors ?? [body.error ?? 'Invalid CV master'] };
   }
@@ -1194,6 +1219,45 @@ export async function activateCvVersion(version: number): Promise<CvVersionMeta>
     method: 'POST',
   });
   if (!response.ok) throw new Error('Failed to activate the CV version');
+  return readJson(response);
+}
+
+/** Starts translating a version into {@code language}; the model works in the background (202). */
+export async function startCvTranslation(
+  version: number,
+  language: string,
+): Promise<CvTranslationStatus> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}/translations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ language }),
+  });
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || 'Failed to start the translation');
+  }
+  return readJson(response);
+}
+
+/** The latest translation since masi started: running, made or failed; null when there has been none. */
+export async function fetchCvTranslationStatus(
+  signal?: AbortSignal,
+): Promise<CvTranslationStatus | null> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/translation`, { signal });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error('Failed to fetch the translation status');
+  return readJson(response);
+}
+
+/** Approves a translation; refused (with its parity problems) while one stands. */
+export async function reviewCvTranslation(version: number): Promise<CvVersionMeta> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}/review`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || 'Failed to approve the translation');
+  }
   return readJson(response);
 }
 
@@ -1520,6 +1584,11 @@ export interface MasiPackage {
   companyName: string | null;
   cvVersionId: number;
   cvVersion: number | null;
+  /** The language the operator asked for; null follows the posting. */
+  language: string | null;
+  /** The version the last tune was made from (the master or its translation), and the language it is written in. */
+  tunedFromVersion: number | null;
+  writtenIn: string | null;
   status: string;
   attempts: number;
   tunedCv: MasiTunedCv | null;
@@ -1990,8 +2059,20 @@ export function fetchMasiPackage(id: number, signal?: AbortSignal): Promise<Masi
   return masiGet(`/packages/${id}`, signal, 'load the package');
 }
 
-export function requestMasiPackage(jobId: number): Promise<MasiPackage> {
-  return masiSend(`/jobs/${jobId}/packages`, 'POST', undefined, 'prepare the package');
+/** A package language: a language masi writes, or 'auto' to follow the posting. */
+export type MasiPackageLanguage = 'auto' | 'en' | 'et';
+
+export function requestMasiPackage(
+  jobId: number,
+  language?: MasiPackageLanguage,
+): Promise<MasiPackage> {
+  const asked = language === undefined || language === 'auto' ? undefined : language;
+  return masiSend(
+    `/jobs/${jobId}/packages${query({ language: asked })}`,
+    'POST',
+    undefined,
+    'prepare the package',
+  );
 }
 
 export function reviewMasiPackage(
@@ -2008,8 +2089,17 @@ export function reviewMasiPackage(
   );
 }
 
-export function regenerateMasiPackage(id: number): Promise<MasiPackage> {
-  return masiSend(`/packages/${id}/regenerate`, 'POST', undefined, 'regenerate the package');
+/** Regenerates; a language changes the package's (and 'auto' hands it back to the posting), none keeps it. */
+export function regenerateMasiPackage(
+  id: number,
+  language?: MasiPackageLanguage,
+): Promise<MasiPackage> {
+  return masiSend(
+    `/packages/${id}/regenerate${query({ language })}`,
+    'POST',
+    undefined,
+    'regenerate the package',
+  );
 }
 
 export function fetchMasiRetuneEstimate(

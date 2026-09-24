@@ -923,6 +923,81 @@ describe('api - masi', () => {
     expect(plain.body).toBeUndefined();
   });
 
+  it('CV translations: start, status (404 is none), review — URLs, bodies and server reasons', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ state: 'RUNNING' }, { status: 202 }));
+    await api.startCvTranslation(1, 'et');
+    const [startUrl, startInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(startUrl).toBe('/api/masi/cv/versions/1/translations');
+    expect(startInit.method).toBe('POST');
+    expect(JSON.parse(startInit.body as string)).toEqual({ language: 'et' });
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({ error: 'a translation is already running' }, { status: 409 }),
+    );
+    await expect(api.startCvTranslation(1, 'et')).rejects.toThrow(
+      'a translation is already running',
+    );
+
+    mockFetch.mockResolvedValueOnce(mockResponse(null, { status: 404 }));
+    await expect(api.fetchCvTranslationStatus()).resolves.toBeNull();
+    expect(mockFetch.mock.calls[2][0]).toBe('/api/masi/cv/translation');
+    mockFetch.mockResolvedValueOnce(mockResponse({}, { status: 500 }));
+    await expect(api.fetchCvTranslationStatus()).rejects.toThrow(
+      'Failed to fetch the translation status',
+    );
+
+    mockFetch.mockResolvedValueOnce(mockResponse({ version: 3 }));
+    await api.reviewCvTranslation(3);
+    const [reviewUrl, reviewInit] = mockFetch.mock.calls[4] as [string, RequestInit];
+    expect(reviewUrl).toBe('/api/masi/cv/versions/3/review');
+    expect(reviewInit.method).toBe('POST');
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({ error: 'v3 has 1 parity problem' }, { status: 409 }),
+    );
+    await expect(api.reviewCvTranslation(3)).rejects.toThrow('v3 has 1 parity problem');
+  });
+
+  it('saves an edited translation with its source, and reads a 409 refusal as the error list', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ version: 3 }));
+    await api.createCvVersion('a: 1', 'n', 1);
+    expect(
+      JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string),
+    ).toEqual({
+      yaml: 'a: 1',
+      note: 'n',
+      translatedFrom: 1,
+    });
+    // the body masi's GlobalExceptionHandler.handleParity sends with its 409: the message and every violation
+    mockFetch.mockResolvedValueOnce(
+      mockResponse(
+        {
+          error: 'v3 does not match v1',
+          errors: ['/summary: "juhtisin" claims more than the source\'s wording'],
+        },
+        { status: 409 },
+      ),
+    );
+    await expect(api.createCvVersion('a: 1', 'n', 1)).resolves.toEqual({
+      version: null,
+      errors: ['/summary: "juhtisin" claims more than the source\'s wording'],
+    });
+  });
+
+  it("asks for a package's language: 'auto' is left out on request, sent on regenerate", async () => {
+    mockFetch.mockResolvedValue(mockResponse({ id: 11 }));
+    await api.requestMasiPackage(7, 'auto');
+    await api.requestMasiPackage(7, 'et');
+    await api.regenerateMasiPackage(11, 'auto');
+    await api.regenerateMasiPackage(11, 'en');
+    await api.regenerateMasiPackage(11);
+    expect(mockFetch.mock.calls.map((c: unknown[]) => c[0] as string)).toEqual([
+      '/api/masi/jobs/7/packages',
+      '/api/masi/jobs/7/packages?language=et',
+      '/api/masi/packages/11/regenerate?language=auto',
+      '/api/masi/packages/11/regenerate?language=en',
+      '/api/masi/packages/11/regenerate',
+    ]);
+  });
+
   it('fetches an artifact by its lower-cased kind as a blob', async () => {
     const blob = new Blob(['%PDF-'], { type: 'application/pdf' });
     mockFetch.mockResolvedValueOnce({

@@ -62,6 +62,9 @@ export const prepared = {
   companyName: 'Nortal AS',
   cvVersionId: 1,
   cvVersion: 2,
+  language: null,
+  tunedFromVersion: 2,
+  writtenIn: 'en',
   status: 'PREPARED',
   attempts: 1,
   tunedCv: {
