@@ -178,8 +178,13 @@ describe('MasiCv', () => {
       vi.mocked(api.fetchCvMaster).mockResolvedValue(master);
       vi.mocked(api.fetchCvVersions).mockResolvedValue([current, pending, blocked, v1]);
       vi.mocked(api.reviewCvTranslation).mockResolvedValue({ ...pending, reviewedAt: '2026-09-24T11:00:00Z' });
+      vi.mocked(api.fetchCvTranslationStatus).mockResolvedValue({
+        state: 'DONE', sourceVersion: 1, language: 'et', version: 3, error: null,
+        startedAt: '2026-09-24T10:00:00Z', finishedAt: '2026-09-24T10:00:40Z',
+      });
       renderAt('/masi/cv', '/masi/cv', <MasiCv />);
       const card = await screen.findByTestId('cv-translations');
+      expect(await screen.findByRole('status')).toHaveTextContent('v3 made in Estonian: read it, then approve it below.');
       expect(card).toHaveTextContent('the master is in English');
       expect(screen.getByTestId('translation-2')).toHaveTextContent('1 problem');
       expect(screen.getByTestId('translation-2')).toHaveTextContent('claims more than the source');
