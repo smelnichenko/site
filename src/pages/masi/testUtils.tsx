@@ -50,6 +50,7 @@ export const job = {
   ],
   sources: ['cvee'],
   mergedIntoId: null,
+  becameId: null,
   packageId: null,
   packageStatus: null,
 };

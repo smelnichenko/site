@@ -168,6 +168,7 @@ describe('MasiJobDetail', () => {
       ...job,
       status: 'MERGED',
       mergedIntoId: 12,
+      becameId: 12,
       sources: [],
     });
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
@@ -461,7 +462,12 @@ describe('MasiJobDetail', () => {
   });
 
   it("gives a merged job's card the job it became", async () => {
-    vi.mocked(api.fetchMasiJob).mockResolvedValue({ ...job, status: 'MERGED', mergedIntoId: 9 });
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({
+      ...job,
+      status: 'MERGED',
+      mergedIntoId: 9,
+      becameId: 9,
+    });
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
     vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
@@ -472,27 +478,39 @@ describe('MasiJobDetail', () => {
     );
   });
 
-  it('sends notes and the log of a merged job to the job it became, and keeps its own note readable', async () => {
+  it('sends notes, bookings and the log of a merged job to where its chain of merges ends, and keeps its own note readable', async () => {
     vi.mocked(api.fetchMasiJob).mockResolvedValue({
       ...job,
       status: 'MERGED',
-      mergedIntoId: 9,
+      mergedIntoId: 9, // itself merged later into 12
+      becameId: 12,
       userNote: 'asked Kati about the salary',
     });
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
     vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
     const kept = await screen.findByRole('region', { name: 'Your note' });
+    expect(within(kept).getByRole('heading', { name: 'Your note' })).toBeInTheDocument();
     expect(kept).toHaveTextContent('asked Kati about the salary');
-    expect(within(kept).getByRole('link', { name: 'job 9' })).toHaveAttribute(
+    expect(kept).toHaveTextContent('It is kept here. Notes on this position go on job 12.');
+    expect(within(kept).getByRole('link', { name: 'job 12' })).toHaveAttribute(
       'href',
-      '/masi/jobs/9',
+      '/masi/jobs/12',
     );
+    expect(within(kept).queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Your note' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Save note' })).not.toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Log a call, a message or a note for the job it became' }),
-    ).toHaveAttribute('href', '/masi/activity?job=9');
+    ).toHaveAttribute('href', '/masi/activity?job=12');
+    expect(
+      within(screen.getByRole('note', { name: /merged/i })).getByRole('link', { name: 'job 12' }),
+    ).toHaveAttribute('href', '/masi/jobs/12');
+    const bookings = screen.getByRole('region', { name: 'Bookings' });
+    expect(within(bookings).getByRole('link', { name: 'the job it became' })).toHaveAttribute(
+      'href',
+      '/masi/jobs/12',
+    );
   });
 
   it('says nothing of a note a merged job never had, and still sends notes on', async () => {
@@ -500,6 +518,7 @@ describe('MasiJobDetail', () => {
       ...job,
       status: 'MERGED',
       mergedIntoId: 9,
+      becameId: 9,
       userNote: null,
     });
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
@@ -508,6 +527,41 @@ describe('MasiJobDetail', () => {
     const kept = await screen.findByRole('region', { name: 'Your note' });
     expect(kept).toHaveTextContent('Notes on this position go on job 9.');
     expect(kept).not.toHaveTextContent('kept here');
+  });
+
+  it('takes no note on a merged job that points nowhere, as masi refuses one, and logs for the job itself', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({
+      ...job,
+      status: 'MERGED',
+      mergedIntoId: null,
+      becameId: null,
+      userNote: 'from before',
+    });
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const kept = await screen.findByRole('region', { name: 'Your note' });
+    expect(kept).toHaveTextContent('from before');
+    expect(kept).toHaveTextContent('It is kept here. A merged position takes no new notes.');
+    expect(within(kept).queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save note' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Log a call, a message or a note for this job' }),
+    ).toHaveAttribute('href', '/masi/activity?job=7');
+  });
+
+  it('logs, writes and saves the note of an open job for the job itself', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    expect(
+      await screen.findByRole('link', { name: 'Log a call, a message or a note for this job' }),
+    ).toHaveAttribute('href', '/masi/activity?job=7');
+    expect(screen.getByRole('textbox', { name: 'Your note' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save note' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Your note' })).not.toBeInTheDocument();
   });
 
   it("reads the next job's bookings when the page moves to another job", async () => {

@@ -164,8 +164,10 @@ export default function MasiJobDetail() {
       </div>
     );
   }
-  /** The job a merged one became: its bookings, notes and log rows live there. */
-  const becameId = job.status === 'MERGED' ? job.mergedIntoId : null;
+  // masi takes no note on a merged job, whether or not it says where the job went
+  const merged = job.status === 'MERGED';
+  /** Where a merged job's chain of merges ends: its listings, bookings, notes and log rows are there. */
+  const becameId = merged ? job.becameId : null;
   return (
     <div className="masi">
       <MasiNav />
@@ -189,12 +191,12 @@ export default function MasiJobDetail() {
             : ''}
           {` · first seen ${formatDateTime(job.firstSeenAt)}`}
         </div>
-        {job.status === 'MERGED' && (
+        {merged && (
           <div className="muted masi-hint" role="note" aria-label="merged">
             Merged: the same posting under another spelling of the title or the employer. Its
             listings live on{' '}
-            {job.mergedIntoId ? (
-              <Link to={`/masi/jobs/${job.mergedIntoId}`}>job {job.mergedIntoId}</Link>
+            {becameId ? (
+              <Link to={`/masi/jobs/${becameId}`}>job {becameId}</Link>
             ) : (
               'the job it was merged into'
             )}
@@ -247,7 +249,26 @@ export default function MasiJobDetail() {
           </Link>
         </p>
         {job.descriptionText && <pre className="masi-description">{job.descriptionText}</pre>}
-        {becameId === null ? (
+        {merged ? (
+          // masi refuses a note on a merged job; one written before the merge stays readable here
+          <section className="masi-job-note" aria-labelledby="job-note-label">
+            <h3 id="job-note-label" className="masi-card-label">
+              Your note
+            </h3>
+            {job.userNote && <p className="masi-kept-note">{job.userNote}</p>}
+            <p className="muted">
+              {job.userNote ? 'It is kept here. ' : ''}
+              {becameId ? (
+                <>
+                  Notes on this position go on{' '}
+                  <Link to={`/masi/jobs/${becameId}`}>job {becameId}</Link>.
+                </>
+              ) : (
+                'A merged position takes no new notes.'
+              )}
+            </p>
+          </section>
+        ) : (
           <div className="form-group">
             <label htmlFor="job-note">Your note</label>
             <textarea
@@ -257,40 +278,29 @@ export default function MasiJobDetail() {
               rows={2}
             />
           </div>
-        ) : (
-          // masi refuses a note on a merged job; one written before the merge stays readable here
-          <section className="form-group" aria-labelledby="job-note-label">
-            <span id="job-note-label" className="masi-card-label">
-              Your note
-            </span>
-            {job.userNote && <p className="masi-kept-note">{job.userNote}</p>}
-            <p className="muted">
-              {job.userNote ? 'It is kept here. ' : ''}Notes on this position go on{' '}
-              <Link to={`/masi/jobs/${becameId}`}>job {becameId}</Link>.
-            </p>
-          </section>
         )}
         {message && <div className="muted">{message}</div>}
-        <div className="badge-group">
-          {becameId === null && (
+        {/* a merged job has neither a note to save nor a package to prepare: no empty row under its card */}
+        {!merged && (
+          <div className="badge-group">
             <LoadingButton
               className="status-badge action"
               onClick={() => void onSaveNote()}
               loading={busy}
               label="Save note"
             />
-          )}
-          {job.status === 'OPEN' &&
-            activeCv !== null &&
-            !packages.some((p) => p.cvVersion === activeCv) && (
-              <LoadingButton
-                className="status-badge add"
-                onClick={() => void onPrepare()}
-                loading={busy}
-                label="Prepare package"
-              />
-            )}
-        </div>
+            {job.status === 'OPEN' &&
+              activeCv !== null &&
+              !packages.some((p) => p.cvVersion === activeCv) && (
+                <LoadingButton
+                  className="status-badge add"
+                  onClick={() => void onPrepare()}
+                  loading={busy}
+                  label="Prepare package"
+                />
+              )}
+          </div>
+        )}
       </div>
       {packages.map((p) => (
         <PackagePanel

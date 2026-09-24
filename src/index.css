@@ -1388,6 +1388,14 @@ a.muted,
   font-weight: normal;
   color: #666;
 }
+/* the job's description is a pre, its margin zeroed globally: the note below it would read as its last line */
+.masi .masi-description {
+  margin-bottom: 1rem;
+}
+/* a merged job's read-only note ends the card: no form-group margin under it */
+.masi .masi-job-note {
+  margin: 0;
+}
 /* a merged job's own note, read-only: its line breaks as written, a long address wrapped rather than overflowing */
 .masi .masi-kept-note {
   margin: 0.25rem 0;
