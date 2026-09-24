@@ -258,7 +258,8 @@ export default function MasiCalendar() {
   const askedDay = params.get('day') ?? '';
   const anchor: Day = /^\d{4}-\d{2}-\d{2}$/.test(askedDay) ? askedDay : today;
   // a job opened its calendar: what is booked from here is about that job
-  const job = params.get('job') ? Number(params.get('job')) : null;
+  const asJob = Number(params.get('job'));
+  const job = Number.isInteger(asJob) && asJob > 0 ? asJob : null; // ?job=abc is no job, not NaN sent as one
   const [data, setData] = useState<Calendar | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);

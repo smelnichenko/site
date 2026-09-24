@@ -1,8 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import MasiJobDetail from './MasiJobDetail';
 import { job, prepared, renderAt } from './testUtils';
+import type { MasiCalendarEvent } from '../../services/api';
+
+const booking: MasiCalendarEvent = {
+  id: 1,
+  kind: 'CALL',
+  startsAt: '2026-11-03T21:30:00Z',
+  endsAt: '2026-11-03T22:30:00Z',
+  allDay: false,
+  title: 'Booked',
+  jobId: 8,
+  jobTitle: null,
+  companyId: null,
+  companyName: null,
+  contactId: null,
+  contactName: null,
+  location: null,
+  notes: null,
+  outcome: 'NONE',
+};
 
 vi.mock('../../services/api', () => ({
   fetchCvMaster: vi.fn(),
@@ -405,14 +425,81 @@ describe('MasiJobDetail', () => {
     expect(screen.getByTestId('package-panel')).toHaveTextContent('new');
   });
 
-  it("shows the job's bookings on its page, asked for by this job's id", async () => {
+  it("shows the job's bookings on its page, loaded with the job — nothing arrives later to push the note down", async () => {
     vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
     vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+    let release!: (v: []) => void;
+    vi.mocked(api.fetchMasiJobBookings).mockReturnValueOnce(
+      new Promise<[]>((r) => {
+        release = r;
+      }),
+    );
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
-    expect(
-      await screen.findByRole('region', { name: 'Bookings for this job' }),
-    ).toBeInTheDocument();
-    expect(api.fetchMasiJobBookings).toHaveBeenCalledWith(7, expect.anything());
+    // the page waits for them: the job is not shown while its bookings are on their way
+    await waitFor(() =>
+      expect(api.fetchMasiJobBookings).toHaveBeenCalledWith(7, expect.anything()),
+    );
+    expect(screen.queryByLabelText('Your note')).not.toBeInTheDocument();
+    await act(async () => {
+      release([]);
+      await Promise.resolve();
+    });
+    expect(await screen.findByRole('region', { name: 'Bookings' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Your note')).toBeInTheDocument();
+  });
+
+  it('says in the card when the bookings cannot be loaded, and shows the job all the same', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiJobBookings).mockRejectedValueOnce(new Error('bookings down'));
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const card = await screen.findByRole('region', { name: 'Bookings' });
+    expect(within(card).getByRole('alert')).toHaveTextContent('bookings down');
+    expect(screen.getByLabelText('Your note')).toBeInTheDocument();
+  });
+
+  it("gives a merged job's card the job it became", async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({ ...job, status: 'MERGED', mergedIntoId: 9 });
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const card = await screen.findByRole('region', { name: 'Bookings' });
+    expect(within(card).getByRole('link', { name: 'the job it became' })).toHaveAttribute(
+      'href',
+      '/masi/jobs/9',
+    );
+  });
+
+  it("reads the next job's bookings when the page moves to another job", async () => {
+    vi.mocked(api.fetchMasiJob).mockImplementation((id: number) =>
+      Promise.resolve({ ...job, id, title: `Job ${id}` }),
+    );
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiJobBookings).mockImplementation((id: number) =>
+      Promise.resolve(id === 8 ? [{ ...booking, id: 80, title: 'For job eight' }] : []),
+    );
+    function Next() {
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => void navigate('/masi/jobs/8')}>
+          next job
+        </button>
+      );
+    }
+    render(
+      <MemoryRouter initialEntries={['/masi/jobs/7']}>
+        <Next />
+        <Routes>
+          <Route path="/masi/jobs/:id" element={<MasiJobDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText('Nothing booked for this position.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'next job' }));
+    expect(await screen.findByText(/For job eight/)).toBeInTheDocument();
+    expect(api.fetchMasiJobBookings).toHaveBeenLastCalledWith(8, expect.anything());
   });
 });

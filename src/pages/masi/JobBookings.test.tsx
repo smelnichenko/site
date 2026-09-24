@@ -1,12 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import JobBookings from './JobBookings';
 import { renderAt } from './testUtils';
 import { formatDate, formatDateTime } from './format';
 import type { MasiCalendarEvent } from '../../services/api';
-
-vi.mock('../../services/api', () => ({ fetchMasiJobBookings: vi.fn() }));
-const api = await import('../../services/api');
 
 const interview: MasiCalendarEvent = {
   id: 1,
@@ -37,42 +34,63 @@ const call: MasiCalendarEvent = {
   outcome: 'DONE',
 };
 
-beforeEach(() => {
-  vi.mocked(api.fetchMasiJobBookings).mockReset();
-});
+function show(props: Partial<Parameters<typeof JobBookings>[0]>) {
+  return renderAt(
+    '/masi/jobs/7',
+    '/masi/jobs/:id',
+    <JobBookings jobId={7} events={[]} error={null} mergedIntoId={null} {...props} />,
+  );
+}
 
 describe('JobBookings', () => {
-  it("lists the job's bookings, each opening its day in the calendar, and offers to book one for this job", async () => {
-    vi.mocked(api.fetchMasiJobBookings).mockResolvedValue([call, interview]);
-    renderAt('/masi/jobs/7', '/masi/jobs/:id', <JobBookings jobId={7} />);
-    const section = await screen.findByRole('region', { name: 'Bookings for this job' });
+  it("lists the job's bookings, each opening its day in the calendar for this job, and offers to book one", () => {
+    show({ events: [call, interview] });
+    const section = screen.getByRole('region', { name: 'Bookings' });
+    expect(within(section).getByRole('heading', { name: 'Bookings' })).toBeInTheDocument();
     const [first, second] = within(section).getAllByRole('listitem');
     expect(
       within(first).getByRole('link', { name: `${formatDate(call.startsAt)}, all day` }),
-    ).toHaveAttribute('href', '/masi/calendar?view=day&day=2026-09-28');
+    ).toHaveAttribute('href', '/masi/calendar?view=day&day=2026-09-28&job=7');
     expect(first).toHaveTextContent('call · Screening');
     expect(within(first).getByText('done')).toBeInTheDocument();
     expect(
       within(second).getByRole('link', { name: formatDateTime(interview.startsAt) }),
-    ).toHaveAttribute('href', '/masi/calendar?view=day&day=2026-09-29');
+    ).toHaveAttribute('href', '/masi/calendar?view=day&day=2026-09-29&job=7');
     expect(second).toHaveTextContent('interview · Technical round · with Kati Kask');
     expect(within(second).queryByText('not yet')).not.toBeInTheDocument(); // an outcome only once there is one
     expect(screen.getByRole('link', { name: 'Book a call or an interview' })).toHaveAttribute(
       'href',
       '/masi/calendar?job=7&view=week',
     );
-    expect(api.fetchMasiJobBookings).toHaveBeenCalledWith(7, expect.anything());
   });
 
-  it('says when nothing is booked, and shows a failure instead of nothing', async () => {
-    vi.mocked(api.fetchMasiJobBookings).mockResolvedValueOnce([]);
-    const { unmount } = renderAt('/masi/jobs/7', '/masi/jobs/:id', <JobBookings jobId={7} />);
-    expect(await screen.findByText('Nothing booked for this position.')).toBeInTheDocument();
+  it('says when nothing is booked, and shows a failure instead of nothing', () => {
+    const { unmount } = show({ events: [] });
+    expect(screen.getByText('Nothing booked for this position.')).toBeInTheDocument();
     unmount();
-    vi.mocked(api.fetchMasiJobBookings).mockRejectedValueOnce(
-      new Error('Failed to load the bookings'),
+    show({ events: null, error: 'Failed to load the bookings' });
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load the bookings');
+    expect(screen.queryByText('Nothing booked for this position.')).not.toBeInTheDocument();
+  });
+
+  it("sends a merged job's bookings to the job it became, and books nothing under it", () => {
+    show({ events: [], mergedIntoId: 9 });
+    expect(screen.getByRole('link', { name: 'the job it became' })).toHaveAttribute(
+      'href',
+      '/masi/jobs/9',
     );
-    renderAt('/masi/jobs/7', '/masi/jobs/:id', <JobBookings jobId={7} />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load the bookings');
+    expect(
+      screen.queryByRole('link', { name: 'Book a call or an interview' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Nothing booked for this position.')).not.toBeInTheDocument();
+  });
+
+  it('opens the right day in winter, when Tallinn is two hours ahead, not three', () => {
+    show({
+      events: [{ ...interview, startsAt: '2026-11-03T21:30:00Z', endsAt: '2026-11-03T22:30:00Z' }],
+    });
+    expect(
+      screen.getByRole('link', { name: formatDateTime('2026-11-03T21:30:00Z') }),
+    ).toHaveAttribute('href', '/masi/calendar?view=day&day=2026-11-03&job=7');
   });
 });

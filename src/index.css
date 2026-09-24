@@ -1360,6 +1360,34 @@ a.muted,
 .masi-history {
   margin: 1rem 0; /* the listings above have no margin of their own: this gap is the whole step */
 }
+
+/* the job's bookings: the same step as the history above them, so no neighbour decides the gap */
+.masi-job-bookings {
+  margin: 1rem 0;
+}
+.masi-job-bookings ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}
+/* the title and the booking link share a line while they fit, and wrap apart — never touching — when they do not */
+.masi-job-bookings-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+/* the outcome follows a space in the row's own text: a margin as well indents it when it wraps to a line of its own */
+.masi .masi-job-bookings .masi-tag {
+  margin-left: 0;
+}
+/* a card's label as a heading — found by heading navigation — at the size of the history's label beside it */
+.masi .masi-card-label {
+  margin: 0;
+  font-size: inherit;
+  font-weight: normal;
+  color: #666;
+}
 .masi-history ol {
   margin: 0.25rem 0 0;
   padding-left: 0;

@@ -171,6 +171,44 @@ describe('MasiCalendar', () => {
     expect(api.fetchMasiCalendar).toHaveBeenCalledTimes(2);
   });
 
+  it("files a booking made from a job's page under that job", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.createMasiCalendarEvent).mockResolvedValue(view.events[0]);
+    renderAt('/masi/calendar?view=day&day=2026-09-22&job=7', '/masi/calendar', <MasiCalendar />);
+    await user.click(await screen.findByRole('button', { name: /Book 14:00/ }));
+    const form = screen.getByRole('region', { name: 'New event' });
+    await user.type(within(form).getByLabelText('Title'), 'Interview about the Java role');
+    await user.click(within(form).getByRole('button', { name: 'Book it' }));
+    await waitFor(() => expect(api.createMasiCalendarEvent).toHaveBeenCalled());
+    expect(vi.mocked(api.createMasiCalendarEvent).mock.calls[0][0].jobId).toBe(7);
+  });
+
+  it('files a booking under no job when the job in the address is not one', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.createMasiCalendarEvent).mockResolvedValue(view.events[0]);
+    renderAt('/masi/calendar?view=day&day=2026-09-22&job=abc', '/masi/calendar', <MasiCalendar />);
+    await user.click(await screen.findByRole('button', { name: /Book 14:00/ }));
+    const form = screen.getByRole('region', { name: 'New event' });
+    await user.type(within(form).getByLabelText('Title'), 'Call');
+    await user.click(within(form).getByRole('button', { name: 'Book it' }));
+    await waitFor(() => expect(api.createMasiCalendarEvent).toHaveBeenCalled());
+    expect(vi.mocked(api.createMasiCalendarEvent).mock.calls[0][0].jobId ?? null).toBeNull();
+  });
+
+  /** Every kind and outcome in words, typed out here: compared with the shared constant, a changed word would pass. */
+  it('says every kind and every outcome in words', async () => {
+    const user = userEvent.setup();
+    renderAt('/masi/calendar?view=day&day=2026-09-22', '/masi/calendar', <MasiCalendar />);
+    await user.click(await screen.findByRole('button', { name: /Tech interview, Nortal/ }));
+    const form = screen.getByRole('region', { name: 'Edit event' });
+    const words = (label: string) =>
+      within(within(form).getByLabelText(label))
+        .getAllByRole('option')
+        .map((o) => o.textContent);
+    expect(words('What')).toEqual(['call', 'interview', 'follow-up', 'deadline', 'other']);
+    expect(words('Outcome')).toEqual(['not yet', 'done', 'cancelled', 'no show']);
+  });
+
   it('edits an event from its block, keeps its outcome and can delete it', async () => {
     const user = userEvent.setup();
     vi.mocked(api.updateMasiCalendarEvent).mockResolvedValue(view.events[0]);
