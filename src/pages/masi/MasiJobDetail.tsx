@@ -20,6 +20,7 @@ import PackagePanel from './PackagePanel';
 import { errorMessage, formatDateTime } from './format';
 import SourceMarks from './SourceMarks';
 import JobHistory from './JobHistory';
+import JobBookings from './JobBookings';
 
 /** 18 × 10 s, then 57 × 60 s: an hour of polling at most. */
 const MAX_POLLS = 75;
@@ -214,6 +215,7 @@ export default function MasiJobDetail() {
           ))}
         </ul>
         <JobHistory entries={history} />
+        <JobBookings jobId={job.id} />
         <p className="muted masi-hint">
           <Link to={`/masi/activity?job=${job.id}`}>
             Log a call, a message or a note for this job

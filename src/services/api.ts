@@ -1785,6 +1785,14 @@ export function updateMasiCalendarEvent(
   return masiSend(`/calendar/${id}`, 'PATCH', patch, 'save the event');
 }
 
+/** A job's own bookings, oldest first: what is arranged about this position. */
+export function fetchMasiJobBookings(
+  jobId: number,
+  signal?: AbortSignal,
+): Promise<MasiCalendarEvent[]> {
+  return masiGet(`/calendar/job/${jobId}`, signal, 'load the bookings');
+}
+
 export function deleteMasiCalendarEvent(id: number): Promise<void> {
   return masiSend(`/calendar/${id}`, 'DELETE', undefined, 'delete the event');
 }

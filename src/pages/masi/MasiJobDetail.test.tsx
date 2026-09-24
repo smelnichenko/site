@@ -15,6 +15,7 @@ vi.mock('../../services/api', () => ({
   reviewMasiPackage: vi.fn(),
   regenerateMasiPackage: vi.fn(),
   fetchMasiArtifact: vi.fn(),
+  fetchMasiJobBookings: vi.fn().mockResolvedValue([]),
 }));
 const api = await import('../../services/api');
 
@@ -402,5 +403,16 @@ describe('MasiJobDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
     await waitFor(() => expect(api.regenerateMasiPackage).toHaveBeenCalledWith(11));
     expect(screen.getByTestId('package-panel')).toHaveTextContent('new');
+  });
+
+  it("shows the job's bookings on its page, asked for by this job's id", async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    expect(
+      await screen.findByRole('region', { name: 'Bookings for this job' }),
+    ).toBeInTheDocument();
+    expect(api.fetchMasiJobBookings).toHaveBeenCalledWith(7, expect.anything());
   });
 });

@@ -26,6 +26,7 @@ import {
   toLocalInput,
   weekOf,
 } from './calendarTime';
+import { KIND_WORDS, OUTCOME_WORDS } from './calendarWords';
 
 type View = 'month' | 'week' | 'day';
 
@@ -39,21 +40,6 @@ const HOUR_PX = 40;
 const DEFAULT_MINUTES = 60;
 /** How many chips a month cell shows of each kind before it says "+N": a cell is an inch tall, not a list. */
 const CELL_CHIPS = 3;
-
-const KIND_WORDS: Record<Event['kind'], string> = {
-  CALL: 'call',
-  INTERVIEW: 'interview',
-  FOLLOW_UP: 'follow-up',
-  DEADLINE: 'deadline',
-  OTHER: 'other',
-};
-
-const OUTCOME_WORDS: Record<Event['outcome'], string> = {
-  NONE: 'not yet',
-  DONE: 'done',
-  CANCELLED: 'cancelled',
-  NO_SHOW: 'no show',
-};
 
 interface Draft {
   id: number | null;
