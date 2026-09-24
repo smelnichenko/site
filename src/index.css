@@ -1952,8 +1952,18 @@ a.muted,
 }
 
 /* a button styled as a badge drops the browser's border and font, as the badges beside it have none */
-.masi button.status-badge.edit {
+.masi button.status-badge {
   border: none;
   font-family: inherit;
   cursor: pointer;
+}
+
+/* and says when it cannot be pressed: a disabled Approve looked exactly like an enabled one */
+.masi button.status-badge:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.masi-translation-list .badge-group {
+  margin-top: 6px;
 }

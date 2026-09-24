@@ -191,6 +191,7 @@ describe('MasiCv', () => {
       await userEvent.click(within(screen.getByTestId('translation-3')).getByRole('button', { name: 'Approve' }));
       await waitFor(() => expect(api.reviewCvTranslation).toHaveBeenCalledWith(3));
       expect(await screen.findByText('v3 approved')).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent(/^v3 approved$/);   // the one message, not joined to an older one
       expect(api.fetchCvVersions).toHaveBeenCalledTimes(2);   // reloaded after the approval
     });
 

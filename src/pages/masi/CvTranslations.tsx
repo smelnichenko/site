@@ -70,6 +70,7 @@ export default function CvTranslations({ active, versions, busy, onVersionsChang
     const s = await fetchCvTranslationStatus();
     setStatus(s);
     setPolls((n) => n + 1);
+    if (s && s.state !== 'RUNNING') setMessage(null); // the news is the translation's now
     if (s && s.state !== 'RUNNING') await changed.current();
   }, []);
 
@@ -104,6 +105,7 @@ export default function CvTranslations({ active, versions, busy, onVersionsChang
     try {
       setStatus(await startCvTranslation(active.version, target));
       setPolls(0);
+      setMessage(null);
       statusLine.current?.focus(); // the button is disabled while the model works: focus goes where the news will be
     } catch (e: unknown) {
       setRefusal(errorMessage(e, 'The translation could not start'));
@@ -149,8 +151,7 @@ export default function CvTranslations({ active, versions, busy, onVersionsChang
       )}
       {/* always present, so a screen reader announces what changes in it */}
       <p className="muted masi-cv-translation-status" role="status" ref={statusLine} tabIndex={-1}>
-        {statusText(shownStatus, polls >= MAX_POLLS)}
-        {message}
+        {message ?? statusText(shownStatus, polls >= MAX_POLLS)}
       </p>
       {shownStatus?.state === 'FAILED' && (
         <p className="error" role="alert">
