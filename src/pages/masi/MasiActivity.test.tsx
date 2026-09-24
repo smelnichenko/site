@@ -32,6 +32,7 @@ const rows: Row[] = [
     companyName: 'Nortal AS',
     contactId: 11,
     contactName: 'Mari Maasikas',
+    personId: 40,
     packageId: null,
     summary: 'Screening call',
     detail: '30 min, next: tech interview',
@@ -48,6 +49,7 @@ const rows: Row[] = [
     companyName: 'Nortal AS',
     contactId: null,
     contactName: null,
+    personId: null,
     packageId: 11,
     summary: 'Senior Java Developer',
     detail: null,
@@ -64,6 +66,7 @@ const rows: Row[] = [
     companyName: 'Nortal AS',
     contactId: null,
     contactName: null,
+    personId: null,
     packageId: null,
     summary: 'Senior Java Developer',
     detail: null,
@@ -100,7 +103,7 @@ describe('MasiActivity', () => {
     );
     expect(within(items[0]).getByRole('link', { name: 'Mari Maasikas' })).toHaveAttribute(
       'href',
-      '/masi/contacts', // contacts have no page of their own yet: the list
+      '/masi/persons/40', // the person the contact is
     );
     expect(within(items[1]).getByRole('link', { name: 'package' })).toHaveAttribute(
       'href',
@@ -119,6 +122,18 @@ describe('MasiActivity', () => {
         expect.anything(),
       ),
     );
+  });
+
+  it('names a contact masi has not made a person of yet, without a link to a page that is not there', async () => {
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [{ ...rows[0], personId: null, contactName: 'Unplaced Desk' }],
+      page: 0,
+      size: 50,
+      totalElements: 1,
+    });
+    renderAt('/masi/activity', '/masi/activity', <MasiActivity />);
+    expect(await screen.findByText(/Unplaced Desk/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Unplaced Desk' })).not.toBeInTheDocument();
   });
 
   it('logs a note from the form and shows it at the top', async () => {

@@ -24,6 +24,8 @@ const nortal = {
   lastSeenAt: '2026-09-18T09:00:00Z',
   registerSeenAt: '2026-09-18T08:00:00Z',
   blacklisted: true,
+  agency: false,
+  agencyMark: null,
   userNote: null,
 };
 

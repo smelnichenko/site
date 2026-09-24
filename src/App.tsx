@@ -1,5 +1,5 @@
 import { useEffect, useRef, lazy, Suspense } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { useLoading } from './contexts/LoadingContext';
 import { saveLastPath } from './services/api';
@@ -29,7 +29,8 @@ const MasiPackages = lazy(() => import('./pages/masi/MasiPackages'));
 const MasiPackageDetail = lazy(() => import('./pages/masi/MasiPackageDetail'));
 const MasiCompanies = lazy(() => import('./pages/masi/MasiCompanies'));
 const MasiCompanyDetail = lazy(() => import('./pages/masi/MasiCompanyDetail'));
-const MasiContacts = lazy(() => import('./pages/masi/MasiContacts'));
+const MasiPersons = lazy(() => import('./pages/masi/MasiPersons'));
+const MasiPersonDetail = lazy(() => import('./pages/masi/MasiPersonDetail'));
 const MasiSources = lazy(() => import('./pages/masi/MasiSources'));
 const MasiReports = lazy(() => import('./pages/masi/MasiReports'));
 const MasiActivity = lazy(() => import('./pages/masi/MasiActivity'));
@@ -316,13 +317,23 @@ function App() {
                 }
               />
               <Route
-                path="/masi/contacts"
+                path="/masi/persons"
                 element={
                   <ProtectedRoute permission="JOBS">
-                    <MasiContacts />
+                    <MasiPersons />
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/masi/persons/:id"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiPersonDetail />
+                  </ProtectedRoute>
+                }
+              />
+              {/* the contacts list became the people list: a saved link lands there */}
+              <Route path="/masi/contacts" element={<Navigate to="/masi/persons" replace />} />
               <Route
                 path="/masi/sources"
                 element={
