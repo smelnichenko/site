@@ -1388,6 +1388,12 @@ a.muted,
   font-weight: normal;
   color: #666;
 }
+/* a merged job's own note, read-only: its line breaks as written, a long address wrapped rather than overflowing */
+.masi .masi-kept-note {
+  margin: 0.25rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .masi-history ol {
   margin: 0.25rem 0 0;
   padding-left: 0;

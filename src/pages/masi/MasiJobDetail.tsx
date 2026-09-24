@@ -164,6 +164,8 @@ export default function MasiJobDetail() {
       </div>
     );
   }
+  /** The job a merged one became: its bookings, notes and log rows live there. */
+  const becameId = job.status === 'MERGED' ? job.mergedIntoId : null;
   return (
     <div className="masi">
       <MasiNav />
@@ -234,26 +236,50 @@ export default function MasiJobDetail() {
           jobId={job.id}
           events={bookings.events}
           error={bookings.error}
-          mergedIntoId={job.status === 'MERGED' ? job.mergedIntoId : null}
+          mergedIntoId={becameId}
         />
         <p className="muted masi-hint">
-          <Link to={`/masi/activity?job=${job.id}`}>
-            Log a call, a message or a note for this job
+          {/* masi files a row about a merged job under the job it became: the link says so */}
+          <Link to={`/masi/activity?job=${becameId ?? job.id}`}>
+            {becameId === null
+              ? 'Log a call, a message or a note for this job'
+              : 'Log a call, a message or a note for the job it became'}
           </Link>
         </p>
         {job.descriptionText && <pre className="masi-description">{job.descriptionText}</pre>}
-        <div className="form-group">
-          <label htmlFor="job-note">Your note</label>
-          <textarea id="job-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
-        </div>
+        {becameId === null ? (
+          <div className="form-group">
+            <label htmlFor="job-note">Your note</label>
+            <textarea
+              id="job-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+            />
+          </div>
+        ) : (
+          // masi refuses a note on a merged job; one written before the merge stays readable here
+          <section className="form-group" aria-labelledby="job-note-label">
+            <span id="job-note-label" className="masi-card-label">
+              Your note
+            </span>
+            {job.userNote && <p className="masi-kept-note">{job.userNote}</p>}
+            <p className="muted">
+              {job.userNote ? 'It is kept here. ' : ''}Notes on this position go on{' '}
+              <Link to={`/masi/jobs/${becameId}`}>job {becameId}</Link>.
+            </p>
+          </section>
+        )}
         {message && <div className="muted">{message}</div>}
         <div className="badge-group">
-          <LoadingButton
-            className="status-badge action"
-            onClick={() => void onSaveNote()}
-            loading={busy}
-            label="Save note"
-          />
+          {becameId === null && (
+            <LoadingButton
+              className="status-badge action"
+              onClick={() => void onSaveNote()}
+              loading={busy}
+              label="Save note"
+            />
+          )}
           {job.status === 'OPEN' &&
             activeCv !== null &&
             !packages.some((p) => p.cvVersion === activeCv) && (

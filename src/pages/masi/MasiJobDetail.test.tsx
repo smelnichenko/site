@@ -472,6 +472,44 @@ describe('MasiJobDetail', () => {
     );
   });
 
+  it('sends notes and the log of a merged job to the job it became, and keeps its own note readable', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({
+      ...job,
+      status: 'MERGED',
+      mergedIntoId: 9,
+      userNote: 'asked Kati about the salary',
+    });
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const kept = await screen.findByRole('region', { name: 'Your note' });
+    expect(kept).toHaveTextContent('asked Kati about the salary');
+    expect(within(kept).getByRole('link', { name: 'job 9' })).toHaveAttribute(
+      'href',
+      '/masi/jobs/9',
+    );
+    expect(screen.queryByRole('textbox', { name: 'Your note' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save note' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Log a call, a message or a note for the job it became' }),
+    ).toHaveAttribute('href', '/masi/activity?job=9');
+  });
+
+  it('says nothing of a note a merged job never had, and still sends notes on', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({
+      ...job,
+      status: 'MERGED',
+      mergedIntoId: 9,
+      userNote: null,
+    });
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiSimilarJobs).mockResolvedValue([]);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    const kept = await screen.findByRole('region', { name: 'Your note' });
+    expect(kept).toHaveTextContent('Notes on this position go on job 9.');
+    expect(kept).not.toHaveTextContent('kept here');
+  });
+
   it("reads the next job's bookings when the page moves to another job", async () => {
     vi.mocked(api.fetchMasiJob).mockImplementation((id: number) =>
       Promise.resolve({ ...job, id, title: `Job ${id}` }),
