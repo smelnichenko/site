@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import MatchSummary from './MatchSummary';
 import type { MasiMatch, MasiMatchRequirement } from '../../services/api';
+import realAi from './aiMatchFixture.json';
 
 const scored: MasiMatch = {
   score: 57,
@@ -58,9 +59,22 @@ const ai: MasiMatch = {
       decidedBy: 'languages',
       evidence: [{ id: 'L1', label: 'Estonian: C1' }],
     }),
-    req({ id: 'M4', text: 'Go', english: 'go', verdict: 'NOT_MET', reason: 'No Go anywhere.' }),
-    req({ id: 'M5', text: 'a team player', verdict: 'NOT_A_CV_THING' }),
-    req({ id: 'N1', category: 'NICE', text: 'Terraform', verdict: 'NOT_MET' }),
+    req({ id: 'M4', text: 'Go', english: ' go ', verdict: 'NOT_MET', reason: 'No Go anywhere.' }),
+    req({
+      id: 'M5',
+      text: 'meeskonnamängija',
+      english: 'a team player',
+      verdict: 'NOT_A_CV_THING',
+    }),
+    req({
+      id: 'N1',
+      category: 'NICE',
+      text: 'Terraform',
+      verdict: 'PARTLY',
+      evidence: [{ id: 'S8', label: 'AWS' }],
+      reason: 'Cloud, not Terraform.',
+    }),
+    req({ id: 'N2', category: 'NICE', text: 'curiosity', verdict: 'NOT_A_CV_THING' }),
     req({ id: 'K1', category: 'KEYWORD', text: 'Kafka', evidence: [{ id: 'S5', label: 'Kafka' }] }),
     req({
       id: 'K2',
@@ -70,8 +84,16 @@ const ai: MasiMatch = {
       evidence: [{ id: 'S3', label: 'SQL' }],
     }),
     req({ id: 'K3', category: 'KEYWORD', text: 'Rust', verdict: 'NOT_MET' }),
+    req({ id: 'K4', category: 'KEYWORD', text: 'agile mindset', verdict: 'NOT_A_CV_THING' }),
   ],
 };
+
+/** The rows of a list, as text. */
+function rows(list: HTMLElement) {
+  return within(list)
+    .getAllByRole('listitem')
+    .map((li) => li.textContent);
+}
 
 describe('MatchSummary', () => {
   it('says the score and names the must-haves on either side of it', () => {
@@ -110,60 +132,109 @@ describe('MatchSummary', () => {
   it('lists each requirement of an AI match with its verdict in words, what shows it and why', () => {
     render(<MatchSummary match={ai} />);
     const region = screen.getByRole('region', { name: 'Match with your CV' });
-    expect(region).toHaveTextContent('93 of 100 — what the posting asks for, judged by AI');
-    const required = within(region).getByRole('list', { name: 'What the posting requires' });
-    const items = within(required).getAllByRole('listitem');
-    expect(items.map((li) => /^(met|partly|not met) /.exec(li.textContent ?? '')?.[1])).toEqual([
-      'met',
-      'met',
-      'partly',
-      'not met',
+    expect(region).toHaveTextContent(
+      '93 of 100 — what the posting asks for, judged by AI against the evidence in your CV',
+    );
+    expect(rows(within(region).getByRole('list', { name: 'What the posting requires' }))).toEqual([
+      'met Kubernetes experience — “Kubernetese kogemus”' +
+        'shown by Kubernetes; Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present' +
+        'Runs Kubernetes in the current role.',
+      'met 5+ years of Javashown by Tõrva FintechTen years in two roles — counted from the dates of your roles',
+      'partly Estonian C2shown by Estonian: C1read from the languages on your CV',
+      'not met GoNo Go anywhere.', // its English is its own words, spaced: shown once
     ]);
-    expect(items[0]).toHaveTextContent('Kubernetes experience — “Kubernetese kogemus”');
-    expect(items[0]).toHaveTextContent(
-      'shown by Kubernetes; Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present',
-    );
-    expect(items[0]).toHaveTextContent('Runs Kubernetes in the current role.');
-    expect(items[1]).toHaveTextContent('5+ years of Java');
-    expect(items[1]).not.toHaveTextContent('“');
-    expect(items[3]).toHaveTextContent('not met GoNo Go anywhere.'); // its English is its own words: shown once
-    expect(items[1]).toHaveTextContent(
-      'Ten years in two roles — counted from the dates of your roles',
-    );
-    expect(items[2]).toHaveTextContent('read from the languages on your CV');
-    expect(items[3]).not.toHaveTextContent('shown by');
-    expect(
-      within(within(region).getByRole('list', { name: 'What it would like' })).getAllByRole(
-        'listitem',
-      ),
-    ).toHaveLength(1);
-    expect(
-      within(within(region).getByRole('list', { name: 'Not something a CV shows' })).getByRole(
-        'listitem',
-      ),
-    ).toHaveTextContent('a team player');
+    expect(rows(within(region).getByRole('list', { name: 'What it would like' }))).toEqual([
+      'partly Terraformshown by AWSCloud, not Terraform.',
+    ]);
+    expect(rows(within(region).getByRole('list', { name: 'Not something a CV shows' }))).toEqual([
+      'a team player',
+      'curiosity',
+      'agile mindset',
+    ]);
+    const kube = within(region).getAllByRole('listitem')[0];
+    expect(kube).toHaveClass('masi-req-met');
     expect(within(region).queryByText('Your CV shows')).not.toBeInTheDocument();
   });
 
-  it('folds the keywords, counting how many the CV shows, partly counted as shown', () => {
+  it('puts what is required first, then what is liked, the keywords, and what a CV cannot show', () => {
+    render(<MatchSummary match={ai} />);
+    const region = screen.getByRole('region', { name: 'Match with your CV' });
+    const order = [
+      ...region.querySelectorAll('h4, summary, .masi-match-label'), // eslint-disable-line testing-library/no-node-access
+    ].map((el) => el.textContent);
+    expect(order).toEqual([
+      'What the posting requires',
+      'What it would like',
+      'The posting’s keywords: your CV shows 2 of 3',
+      'Keywords',
+      'Not something a CV shows',
+    ]);
+  });
+
+  it('folds the keywords, each with its verdict and evidence, partly counted as shown', () => {
     render(<MatchSummary match={ai} />);
     const folded = screen.getByRole('group');
     expect(folded).toHaveTextContent('The posting’s keywords: your CV shows 2 of 3');
     expect(folded).not.toHaveAttribute('open');
-    expect(within(folded).getByRole('list', { name: 'Keywords' })).toBeInTheDocument();
+    expect(rows(within(folded).getByRole('list', { name: 'Keywords' }))).toEqual([
+      'met Kafkashown by Kafka',
+      'partly SQLshown by SQL',
+      'not met Rust',
+    ]);
   });
 
-  it('shows an AI match with nothing to judge as the reason, and a word match as before', () => {
-    const { rerender } = render(
-      <MatchSummary match={{ ...ai, score: null, unscored: 'NOTHING_STATED', requirements: [] }} />,
+  it('folds nothing when the posting names no keywords', () => {
+    render(
+      <MatchSummary
+        match={{ ...ai, requirements: ai.requirements?.filter((r) => r.category !== 'KEYWORD') }}
+      />,
+    );
+    expect(screen.getByRole('list', { name: 'What the posting requires' })).toBeInTheDocument();
+    expect(screen.queryByRole('group')).not.toBeInTheDocument();
+  });
+
+  it('shows an AI match with nothing to judge as the reason and what a CV cannot show, never the word lists', () => {
+    render(
+      <MatchSummary
+        match={{
+          ...ai,
+          score: null,
+          unscored: 'NOTHING_STATED',
+          supportedMustHave: ['Java'],
+          requirements: [req({ text: 'a team player', verdict: 'NOT_A_CV_THING' })],
+        }}
+      />,
     );
     expect(
       screen.getByText(/states no requirement a CV could be compared with/),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('list')).not.toBeInTheDocument();
-    rerender(<MatchSummary match={{ ...scored, method: 'WORDS' }} />);
+    expect(rows(screen.getByRole('list', { name: 'Not something a CV shows' }))).toEqual([
+      'a team player',
+    ]);
+    expect(screen.queryByRole('list', { name: 'Your CV shows' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group')).not.toBeInTheDocument();
+  });
+
+  it('shows a word match as before, and a row older than the AI match as a word match', () => {
+    const { rerender } = render(<MatchSummary match={{ ...scored, method: 'WORDS' }} />);
     expect(screen.getByText(/your CV shows in words/)).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Your CV shows' })).toBeInTheDocument();
+    rerender(<MatchSummary match={scored} />);
+    expect(screen.getByText(/your CV shows in words/)).toBeInTheDocument();
+    expect(screen.queryByText(/judged by AI/)).not.toBeInTheDocument();
+  });
+
+  it('reads the AI match masi sends as it sends it', () => {
+    // a real answer of masi's AI match (its evaluation, against the fictitious sample CV), as stored and served
+    render(<MatchSummary match={realAi as MasiMatch} />);
+    const region = screen.getByRole('region', { name: 'Match with your CV' });
+    expect(region).toHaveTextContent('65 of 100 — what the posting asks for, judged by AI');
+    const required = rows(within(region).getByRole('list', { name: 'What the posting requires' }));
+    expect(required).toHaveLength(4);
+    expect(required[3]).toMatch(
+      /^met Estonian language proficiency — “eesti keele valdamine”shown by Estonian: native.*read from the languages on your CV$/,
+    );
+    expect(screen.getByRole('group')).toHaveTextContent('your CV shows 9 of 14');
   });
 
   it('renders nothing for a job that has not been analysed', () => {
