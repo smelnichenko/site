@@ -213,6 +213,16 @@ describe('RegisterCard', () => {
     expect(screen.queryByRole('group', { name: 'Confirm the placement' })).not.toBeInTheDocument();
   });
 
+  it('says the list is not all of them when more names begin with it than can be listed', async () => {
+    vi.mocked(api.fetchMasiRegisterCandidates).mockResolvedValue(
+      found([candidate({ how: 'EXACT' })], { truncated: true }),
+    );
+    showCard(bolt);
+    expect(
+      await screen.findByText(/if it is none of these, type its registry code/),
+    ).toBeInTheDocument();
+  });
+
   it('says why there are no candidates', async () => {
     vi.mocked(api.fetchMasiRegisterCandidates).mockResolvedValue(found([], { indexed: false }));
     showCard(bolt);

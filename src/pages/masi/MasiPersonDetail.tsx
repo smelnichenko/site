@@ -50,13 +50,18 @@ export default function MasiPersonDetail() {
     return () => controller.abort();
   }, [personId]);
 
-  async function save(patch: Parameters<typeof patchMasiPerson>[1], done: string) {
+  /** `keepDraft`: a flag toggled while edits are typed and not saved leaves the edits as they are. */
+  async function save(
+    patch: Parameters<typeof patchMasiPerson>[1],
+    done: string,
+    keepDraft = false,
+  ) {
     setBusy(true);
     setMessage(null);
     try {
       const next = await patchMasiPerson(personId, patch);
       setPerson(next);
-      setDraft(draftOf(next));
+      if (!keepDraft) setDraft(draftOf(next));
       setMessage(done);
     } catch (e: unknown) {
       setMessage(errorMessage(e, 'Saving failed'));
@@ -149,6 +154,7 @@ export default function MasiPersonDetail() {
                 void save(
                   { doNotContact: !person.doNotContact },
                   person.doNotContact ? 'May be contacted again' : 'Marked: do not contact',
+                  true,
                 )
               }
               loading={busy}
@@ -179,9 +185,8 @@ export default function MasiPersonDetail() {
             <tbody>
               {person.ties.map((t, i) => {
                 const companyName = t.companyName ?? `company ${t.companyId}`;
-                // one log per company, and only where they are a contact: a tie made by word alone has nowhere to write
+                // one log per company, on its first tie that has a contact: a tie by word alone has nowhere to write
                 const logHere =
-                  t.contactId !== null &&
                   person.ties.findIndex(
                     (o) => o.companyId === t.companyId && o.contactId !== null,
                   ) === i;

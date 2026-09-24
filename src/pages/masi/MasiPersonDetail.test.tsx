@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import MasiPersonDetail from './MasiPersonDetail';
 import { renderAt } from './testUtils';
@@ -246,5 +247,44 @@ describe('MasiPersonDetail', () => {
     await userEvent.type(screen.getByLabelText('Address'), 'KADRI@X.EE');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByLabelText('Address')).toHaveValue('kadri@x.ee'));
+  });
+
+  it("keeps what was typed when the flag is toggled, and forgets one person's message on the next person's page", async () => {
+    vi.mocked(api.fetchMasiPerson).mockImplementation((id: number) =>
+      Promise.resolve({ ...kadri, id, name: id === 21 ? 'Mari Maasikas' : kadri.name }),
+    );
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    vi.mocked(api.patchMasiPerson).mockResolvedValue({ ...kadri, doNotContact: true });
+    function Next() {
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => void navigate('/masi/persons/21')}>
+          next person
+        </button>
+      );
+    }
+    render(
+      <MemoryRouter initialEntries={['/masi/persons/20']}>
+        <Next />
+        <Routes>
+          <Route path="/masi/persons/:id" element={<MasiPersonDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await userEvent.type(await screen.findByLabelText('Your note'), 'half-typed');
+    await userEvent.click(screen.getByRole('button', { name: 'Do not contact' }));
+    expect(await screen.findByText('Marked: do not contact')).toBeInTheDocument();
+    expect(screen.getByLabelText('Your note')).toHaveValue('half-typed');
+
+    await userEvent.click(screen.getByRole('button', { name: 'next person' }));
+    expect(
+      await screen.findByText('Mari Maasikas', { selector: '.card-title' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Marked: do not contact')).not.toBeInTheDocument();
   });
 });

@@ -163,6 +163,12 @@ export default function RegisterCard({ company, onChange }: Readonly<Props>) {
             sure.
           </div>
           {candidates.length === 0 && <div className="empty-state">{whyNone(found)}</div>}
+          {candidates.length > 0 && found.truncated && (
+            <div className="muted">
+              More registered companies begin with this name than can be listed: if it is none of
+              these, type its registry code.
+            </div>
+          )}
           {candidates.length > 0 && (
             <MasiTable label="Registered companies it might be" testId="register-candidates">
               <thead>
