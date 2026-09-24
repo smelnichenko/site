@@ -295,15 +295,20 @@ export default function MasiJobDetail() {
             {job.status === 'OPEN' &&
               activeCv !== null &&
               !packages.some((p) => p.cvVersion === activeCv) && (
-                <>
-                  <PackageLanguage id="prepare-language" value={prepareLanguage} onChange={setPrepareLanguage} disabled={busy} />
+                <PackageLanguage
+                  id="prepare-language"
+                  label="Language of the new package"
+                  value={prepareLanguage}
+                  onChange={setPrepareLanguage}
+                  disabled={busy}
+                >
                   <LoadingButton
                     className="status-badge add"
                     onClick={() => void onPrepare()}
                     loading={busy}
                     label="Prepare package"
                   />
-                </>
+                </PackageLanguage>
               )}
           </div>
         )}

@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MasiCv from './MasiCv';
 import { renderAt } from './testUtils';
+import type { CvVersionMeta } from '../../services/api';
 
 vi.mock('../../services/api', () => ({
   fetchCvMaster: vi.fn(),
@@ -19,7 +20,7 @@ vi.mock('../../services/api', () => ({
 
 const api = await import('../../services/api');
 
-const v1 = {
+const v1: CvVersionMeta = {
   version: 1,
   note: 'first',
   active: true,
@@ -213,6 +214,51 @@ describe('MasiCv', () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it("keeps the editor's unsaved text when a translation is approved or made, and keeps asking while it is typed in", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        const pending = translation(3, {});
+        vi.mocked(api.fetchCvMaster).mockResolvedValue(master);
+        vi.mocked(api.fetchCvVersions).mockResolvedValue([pending, v1]);
+        vi.mocked(api.reviewCvTranslation).mockResolvedValue({ ...pending, reviewedAt: '2026-09-24T11:00:00Z' });
+        const running = { state: 'RUNNING' as const, sourceVersion: 1, language: 'et', version: null, error: null, startedAt: '2026-09-24T10:00:00Z', finishedAt: null };
+        vi.mocked(api.startCvTranslation).mockResolvedValue(running);
+        vi.mocked(api.fetchCvTranslationStatus).mockResolvedValueOnce(null).mockResolvedValue(running);
+        renderAt('/masi/cv', '/masi/cv', <MasiCv />);
+        const editor = await screen.findByLabelText('Evidence bank (YAML)');
+        await userEvent.type(editor, '# my unsaved edit');
+        await userEvent.click(within(screen.getByTestId('translation-3')).getByRole('button', { name: 'Approve' }));
+        expect(await screen.findByText('v3 approved')).toBeInTheDocument();
+        expect(editor).toHaveValue('language: en\n# my unsaved edit');
+        await userEvent.click(screen.getByRole('button', { name: 'Translate into Estonian' }));
+        const asked = vi.mocked(api.fetchCvTranslationStatus).mock.calls.length;
+        for (let i = 0; i < 6; i++) {
+          await userEvent.type(editor, 'x');
+          await vi.advanceTimersByTimeAsync(1_000);
+        }
+        expect(vi.mocked(api.fetchCvTranslationStatus).mock.calls.length).toBeGreaterThan(asked);
+        expect(editor).toHaveValue('language: en\n# my unsaved editxxxxxx');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('colours where each translation stands, and says in words how to get past its problems', async () => {
+      vi.mocked(api.fetchCvMaster).mockResolvedValue(master);
+      vi.mocked(api.fetchCvVersions).mockResolvedValue([
+        translation(4, { reviewedAt: '2026-09-24T10:00:00Z', current: true }),
+        translation(3, {}),
+        translation(2, { parity: ['/summary: left in the source\'s language'], current: true }),
+        v1,
+      ]);
+      renderAt('/masi/cv', '/masi/cv', <MasiCv />);
+      expect(within(await screen.findByTestId('translation-4')).getByText('current')).toHaveClass('status-badge', 'success');
+      expect(within(screen.getByTestId('translation-3')).getByText('awaiting approval')).toHaveClass('status-badge', 'add');
+      expect(within(screen.getByTestId('translation-2')).getByText('1 problem')).toHaveClass('status-badge', 'error');
+      expect(screen.getByTestId('translation-2')).toHaveTextContent('save it as a new translation, then approve that one');
+      expect(screen.getByTestId('translation-3')).not.toHaveTextContent('save it as a new translation');
     });
 
     it('says why a translation failed', async () => {

@@ -437,9 +437,9 @@ describe('MasiJobDetail', () => {
     vi.mocked(api.regenerateMasiPackage).mockResolvedValue({ ...prepared, status: 'NEW', language: 'en', writtenIn: null, tunedFromVersion: null });
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
     await waitFor(() =>
-      expect(screen.getByTestId('package-language')).toHaveTextContent('written in Estonian from v3 · follows the posting'),
+      expect(screen.getByTestId('package-language')).toHaveTextContent('written in Estonian from CV v3 · follows the posting'),
     );
-    await userEvent.selectOptions(screen.getByLabelText('Package language'), 'en');
+    await userEvent.selectOptions(screen.getByLabelText('Language of package #11'), 'en');
     await userEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
     await waitFor(() => expect(api.regenerateMasiPackage).toHaveBeenCalledWith(11, 'en'));
     expect(screen.getByTestId('package-language')).toHaveTextContent('not written yet · English asked');
@@ -450,7 +450,7 @@ describe('MasiJobDetail', () => {
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
     vi.mocked(api.requestMasiPackage).mockResolvedValue({ ...prepared, status: 'NEW', language: 'et', writtenIn: null, tunedFromVersion: null });
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
-    await userEvent.selectOptions(await screen.findByLabelText('Package language'), 'et');
+    await userEvent.selectOptions(await screen.findByLabelText('Language of the new package'), 'et');
     await userEvent.click(screen.getByRole('button', { name: 'Prepare package' }));
     await waitFor(() => expect(api.requestMasiPackage).toHaveBeenCalledWith(7, 'et'));
   });

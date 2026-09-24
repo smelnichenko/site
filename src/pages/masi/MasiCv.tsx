@@ -12,6 +12,7 @@ import {
 } from '../../services/api';
 import LoadingButton from '../../components/LoadingButton';
 import MasiNav from '../../components/MasiNav';
+import MasiTable from '../../components/MasiTable';
 import CvTranslations from './CvTranslations';
 import { languageName } from './language';
 import { openBlob } from './format';
@@ -93,6 +94,13 @@ function MasiCv() {
       setYaml(EMPTY_MASTER);
       setShown(null);
     }
+  }, []);
+
+  // after a translation is made or approved: the list and the active version only — the editor is the operator's
+  const reloadVersions = useCallback(async () => {
+    const [master, list] = await Promise.all([fetchCvMaster(), fetchCvVersions()]);
+    setActive(master.active);
+    setVersions(list);
   }, []);
 
   useEffect(() => {
@@ -285,7 +293,7 @@ function MasiCv() {
         active={active}
         versions={versions}
         busy={busy}
-        onChanged={() => reload()}
+        onVersionsChanged={reloadVersions}
         onShow={(v) => void onShow(v)}
         onPreview={(v) => void onPreview(v)}
       />
@@ -297,7 +305,7 @@ function MasiCv() {
         {versions.length === 0 ? (
           <p className="muted">No versions yet. Fill in the evidence bank and save it.</p>
         ) : (
-          <table className="data-table">
+          <MasiTable label="CV versions">
             <thead>
               <tr>
                 <th>Version</th>
@@ -347,7 +355,7 @@ function MasiCv() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </MasiTable>
         )}
       </div>
     </div>

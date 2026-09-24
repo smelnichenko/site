@@ -254,15 +254,20 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
           />
         )}
         {canRegenerate && (
-          <>
-            <PackageLanguage id={`package-language-${pkg.id}`} value={language} onChange={setLanguage} disabled={busy} />
+          <PackageLanguage
+            id={`package-language-${pkg.id}`}
+            label={`Language of package #${pkg.id}`}
+            value={language}
+            onChange={setLanguage}
+            disabled={busy}
+          >
             <LoadingButton
               className="status-badge edit"
               onClick={() => void act(() => regenerateMasiPackage(pkg.id, language), 'Regenerating…')}
               loading={busy}
               label="Regenerate"
             />
-          </>
+          </PackageLanguage>
         )}
       </div>
     </div>

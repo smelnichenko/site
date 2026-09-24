@@ -10,7 +10,7 @@ export function languageName(code: string | null): string {
 export function languageLine(writtenIn: string | null, tunedFromVersion: number | null, asked: string | null): string {
   let written = 'not written yet';
   if (writtenIn) {
-    const from = tunedFromVersion ? ` from v${tunedFromVersion}` : '';
+    const from = tunedFromVersion ? ` from CV v${tunedFromVersion}` : '';
     written = `written in ${languageName(writtenIn)}${from}`;
   }
   const choice = asked ? `${languageName(asked)} asked` : 'follows the posting';
