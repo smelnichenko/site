@@ -45,7 +45,10 @@ function Phrases({ label, phrases }: Readonly<{ label: string; phrases: string[]
   );
 }
 
-/** One requirement: its verdict, what it asks in English with the posting's own words beside, what shows it and why. */
+/**
+ * One requirement: its verdict, what it asks in English with the posting's own words beside, what shows it and why, and
+ * who decided when it was masi. The verdict and the body are two columns: a wrapped line stays under its own text.
+ */
 function Requirement({ r }: Readonly<{ r: MasiMatchRequirement }>) {
   const decided = DECIDED_BY[r.decidedBy];
   // the model gives English for a requirement in another language; the same words again are no translation
@@ -54,19 +57,18 @@ function Requirement({ r }: Readonly<{ r: MasiMatchRequirement }>) {
   return (
     <li className={`masi-req masi-req-${r.verdict.toLowerCase()}`}>
       <span className="masi-tag masi-verdict">{VERDICT_WORDS[r.verdict]}</span>{' '}
-      <span>{english ?? r.text}</span>
-      {english && <span className="muted"> — “{r.text}”</span>}
-      {r.evidence.length > 0 && (
-        <div className="masi-req-detail">
-          <span className="muted">shown by </span>
-          {r.evidence.map((e) => e.label).join('; ')}
-        </div>
-      )}
-      {(r.reason ?? decided) && (
-        <div className="masi-req-detail muted">
-          {[r.reason, decided].filter(Boolean).join(' — ')}
-        </div>
-      )}
+      <div className="masi-req-body">
+        <span>{english ?? r.text}</span>
+        {english && <span className="muted"> — “{r.text}”</span>}
+        {r.evidence.length > 0 && (
+          <div className="masi-req-detail">
+            <span className="muted">shown by </span>
+            {r.evidence.map((e) => e.label).join('; ')}
+          </div>
+        )}
+        {r.reason && <div className="masi-req-detail muted">{r.reason}</div>}
+        {decided && <div className="masi-req-detail muted">{decided}</div>}
+      </div>
     </li>
   );
 }
@@ -79,12 +81,54 @@ function Requirements({
   if (items.length === 0) return null;
   return (
     <div className="masi-match-reqs">
-      <h4 id={id} className="masi-card-label">
+      <h3 id={id} className="masi-card-label">
         {label}
-      </h4>
+      </h3>
+      <RequirementList labelledBy={id} items={items} />
+    </div>
+  );
+}
+
+function RequirementList({
+  labelledBy,
+  items,
+}: Readonly<{ labelledBy: string; items: MasiMatchRequirement[] }>) {
+  return (
+    <ul aria-labelledby={labelledBy}>
+      {items.map((r) => (
+        <Requirement key={r.id} r={r} />
+      ))}
+    </ul>
+  );
+}
+
+/** The keywords, folded: the summary says how many the CV shows and names the list it opens. */
+function Keywords({ items }: Readonly<{ items: MasiMatchRequirement[] }>) {
+  const id = useId();
+  if (items.length === 0) return null;
+  const shown = items.filter((r) => r.verdict !== 'NOT_MET').length;
+  return (
+    <details className="masi-match-keywords">
+      <summary id={id}>
+        The posting’s keywords: your CV shows {shown} of {items.length}
+      </summary>
+      <RequirementList labelledBy={id} items={items} />
+    </details>
+  );
+}
+
+/** What no CV can show, from every list, named once: a heading of its own like the lists above it. */
+function Traits({ items }: Readonly<{ items: MasiMatchRequirement[] }>) {
+  const id = useId();
+  if (items.length === 0) return null;
+  return (
+    <div className="masi-match-list">
+      <h3 className="masi-match-label" id={id}>
+        Not for a CV
+      </h3>
       <ul aria-labelledby={id}>
         {items.map((r) => (
-          <Requirement key={r.id} r={r} />
+          <li key={r.id}>{r.english ?? r.text}</li>
         ))}
       </ul>
     </div>
@@ -97,26 +141,12 @@ function AiMatch({ match }: Readonly<{ match: MasiMatch }>) {
   const scored = judged.filter((r) => r.verdict !== 'NOT_A_CV_THING');
   const of = (category: MasiMatchRequirement['category']) =>
     scored.filter((r) => r.category === category);
-  const keywords = of('KEYWORD');
-  const shown = keywords.filter((r) => r.verdict !== 'NOT_MET').length;
   return (
     <>
       <Requirements label="What the posting requires" items={of('MUST')} />
       <Requirements label="What it would like" items={of('NICE')} />
-      {keywords.length > 0 && (
-        <details className="masi-match-keywords">
-          <summary>
-            The posting’s keywords: your CV shows {shown} of {keywords.length}
-          </summary>
-          <Requirements label="Keywords" items={keywords} />
-        </details>
-      )}
-      <Phrases
-        label="Not something a CV shows"
-        phrases={judged
-          .filter((r) => r.verdict === 'NOT_A_CV_THING')
-          .map((r) => r.english ?? r.text)}
-      />
+      <Keywords items={of('KEYWORD')} />
+      <Traits items={judged.filter((r) => r.verdict === 'NOT_A_CV_THING')} />
     </>
   );
 }

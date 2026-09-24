@@ -139,14 +139,14 @@ describe('MatchSummary', () => {
       'met Kubernetes experience — “Kubernetese kogemus”' +
         'shown by Kubernetes; Tõrva Fintech OÜ · Senior Backend Engineer, 2021-03 – present' +
         'Runs Kubernetes in the current role.',
-      'met 5+ years of Javashown by Tõrva FintechTen years in two roles — counted from the dates of your roles',
+      'met 5+ years of Javashown by Tõrva FintechTen years in two rolescounted from the dates of your roles',
       'partly Estonian C2shown by Estonian: C1read from the languages on your CV',
       'not met GoNo Go anywhere.', // its English is its own words, spaced: shown once
     ]);
     expect(rows(within(region).getByRole('list', { name: 'What it would like' }))).toEqual([
       'partly Terraformshown by AWSCloud, not Terraform.',
     ]);
-    expect(rows(within(region).getByRole('list', { name: 'Not something a CV shows' }))).toEqual([
+    expect(rows(within(region).getByRole('list', { name: 'Not for a CV' }))).toEqual([
       'a team player',
       'curiosity',
       'agile mindset',
@@ -160,14 +160,13 @@ describe('MatchSummary', () => {
     render(<MatchSummary match={ai} />);
     const region = screen.getByRole('region', { name: 'Match with your CV' });
     const order = [
-      ...region.querySelectorAll('h4, summary, .masi-match-label'), // eslint-disable-line testing-library/no-node-access
+      ...region.querySelectorAll('h3, summary'), // eslint-disable-line testing-library/no-node-access
     ].map((el) => el.textContent);
     expect(order).toEqual([
       'What the posting requires',
       'What it would like',
       'The posting’s keywords: your CV shows 2 of 3',
-      'Keywords',
-      'Not something a CV shows',
+      'Not for a CV',
     ]);
   });
 
@@ -176,11 +175,11 @@ describe('MatchSummary', () => {
     const folded = screen.getByRole('group');
     expect(folded).toHaveTextContent('The posting’s keywords: your CV shows 2 of 3');
     expect(folded).not.toHaveAttribute('open');
-    expect(rows(within(folded).getByRole('list', { name: 'Keywords' }))).toEqual([
-      'met Kafkashown by Kafka',
-      'partly SQLshown by SQL',
-      'not met Rust',
-    ]);
+    expect(
+      rows(
+        within(folded).getByRole('list', { name: 'The posting’s keywords: your CV shows 2 of 3' }),
+      ),
+    ).toEqual(['met Kafkashown by Kafka', 'partly SQLshown by SQL', 'not met Rust']);
   });
 
   it('folds nothing when the posting names no keywords', () => {
@@ -208,9 +207,7 @@ describe('MatchSummary', () => {
     expect(
       screen.getByText(/states no requirement a CV could be compared with/),
     ).toBeInTheDocument();
-    expect(rows(screen.getByRole('list', { name: 'Not something a CV shows' }))).toEqual([
-      'a team player',
-    ]);
+    expect(rows(screen.getByRole('list', { name: 'Not for a CV' }))).toEqual(['a team player']);
     expect(screen.queryByRole('list', { name: 'Your CV shows' })).not.toBeInTheDocument();
     expect(screen.queryByRole('group')).not.toBeInTheDocument();
   });
