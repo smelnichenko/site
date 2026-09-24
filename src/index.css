@@ -1274,6 +1274,59 @@ a.muted,
   overflow-wrap: anywhere;
 }
 
+/* the AI match: one line per requirement, its verdict a word first, what shows it and why beneath */
+.masi-match-reqs {
+  margin-top: 8px;
+}
+.masi-match-reqs ul {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.masi .masi-req {
+  padding: 4px 0;
+  overflow-wrap: anywhere;
+}
+.masi .masi-req + .masi-req {
+  border-top: 1px solid #f0f0f0;
+}
+.masi .masi-req .masi-verdict {
+  margin-left: 0;
+  min-width: 4.5em;
+  text-align: center;
+}
+.masi .masi-req-met .masi-verdict {
+  background: #e3f4e8;
+  color: #1e5e32;
+}
+.masi .masi-req-partly .masi-verdict {
+  background: #fff3d6;
+  color: #7a5200;
+}
+.masi .masi-req-not_met .masi-verdict {
+  background: #fbe4e4;
+  color: #8a1f1f;
+}
+.masi .masi-req-detail {
+  margin-left: calc(4.5em + 20px);
+  font-size: 0.9rem;
+}
+/* on a phone the indent under the verdict would leave the evidence a column of a few words */
+@media (max-width: 600px) {
+  .masi .masi-req-detail {
+    margin-left: 0;
+  }
+}
+/* the keywords fold: the summary is what a thumb opens them with */
+.masi-match-keywords {
+  margin-top: 8px;
+}
+.masi-match-keywords summary {
+  min-height: 44px;
+  padding: 10px 0;
+  cursor: pointer;
+  color: #555;
+}
 .masi-hint a {
   text-decoration: underline;
 }

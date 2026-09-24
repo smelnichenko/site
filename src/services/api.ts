@@ -1274,6 +1274,33 @@ export interface MasiMatch {
   /** Must-haves that are about nothing a CV shows in words ("strong experience"). */
   notScored: string[];
   unscored: MasiUnscored | null;
+  /** Who judged: the free word scorer, or the AI match checked against the master. Absent on rows older than the AI match. */
+  method?: 'WORDS' | 'AI';
+  /** The AI match only: every requirement with its verdict and the evidence it stands on. */
+  requirements?: MasiMatchRequirement[];
+}
+
+export type MasiMatchVerdict = 'MET' | 'PARTLY' | 'NOT_MET' | 'NOT_A_CV_THING';
+
+/** An item of the CV master a verdict stands on: its catalogue id (S3, R1, R1.A2 …) and what it is. */
+export interface MasiMatchEvidence {
+  id: string;
+  label: string;
+}
+
+export interface MasiMatchRequirement {
+  id: string;
+  category: 'MUST' | 'KEYWORD' | 'NICE';
+  /** The posting's own words. */
+  text: string;
+  /** The model's English for a requirement written in another language; null for one in English. */
+  english: string | null;
+  kind: string | null;
+  verdict: MasiMatchVerdict;
+  evidence: MasiMatchEvidence[];
+  reason: string | null;
+  /** Who decided: the model on its evidence, the master's role dates (years), or its languages list (a level). */
+  decidedBy: 'model' | 'dates' | 'languages';
 }
 
 export interface MasiManualJob {
