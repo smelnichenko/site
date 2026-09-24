@@ -160,8 +160,10 @@ export default function CvTranslations({
         </div>
       ) : (
         <p className="muted">
-          A {languageName(active.language)} master is not translated: masi translates between
-          English and Estonian.
+          {active.language
+            ? `A ${languageName(active.language)} master is not translated`
+            : 'A master that does not say its language is not translated'}
+          : masi translates between English and Estonian.
         </p>
       )}
       {/* always present, so a screen reader announces what changes in it (an <output> is a status region) */}

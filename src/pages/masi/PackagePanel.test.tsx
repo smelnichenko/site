@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import PackagePanel from './PackagePanel';
 import { prepared } from './testUtils';
 
@@ -11,6 +12,15 @@ vi.mock('../../services/api', () => ({
 
 /** What each state offers and withholds — the transitions masi's backend would refuse are never shown. */
 describe('PackagePanel', () => {
+  it('regenerates a package in the language the operator asked for before, unless they change it', async () => {
+    const api = await import('../../services/api');
+    vi.mocked(api.regenerateMasiPackage).mockResolvedValue({ ...prepared, status: 'NEW' });
+    render(<PackagePanel pkg={{ ...prepared, language: 'et' }} onChanged={() => undefined} />);
+    expect(screen.getByLabelText('Language of package #11')).toHaveValue('et');
+    await userEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
+    await waitFor(() => expect(api.regenerateMasiPackage).toHaveBeenCalledWith(11, 'et'));
+  });
+
   it('a PREPARING package offers nothing but its notes', () => {
     render(
       <PackagePanel
