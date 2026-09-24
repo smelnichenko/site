@@ -284,7 +284,11 @@ function MasiCv() {
             className="status-badge add"
             onClick={() => void onSave()}
             loading={busy}
-            label={editingTranslationOf === null ? 'Save as new version' : `Save as a new translation of v${editingTranslationOf}`}
+            label={
+              editingTranslationOf === null
+                ? 'Save as new version'
+                : `Save as a new translation of v${editingTranslationOf}`
+            }
           />
         </div>
       </div>

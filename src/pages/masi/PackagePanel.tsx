@@ -31,7 +31,9 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [language, setLanguage] = useState<MasiPackageLanguage>((pkg.language as MasiPackageLanguage | null) ?? 'auto');
+  const [language, setLanguage] = useState<MasiPackageLanguage>(
+    (pkg.language as MasiPackageLanguage | null) ?? 'auto',
+  );
 
   async function act(fn: () => Promise<MasiPackage>, done: string) {
     setBusy(true);
@@ -263,7 +265,9 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
           >
             <LoadingButton
               className="status-badge edit"
-              onClick={() => void act(() => regenerateMasiPackage(pkg.id, language), 'Regenerating…')}
+              onClick={() =>
+                void act(() => regenerateMasiPackage(pkg.id, language), 'Regenerating…')
+              }
               loading={busy}
               label="Regenerate"
             />

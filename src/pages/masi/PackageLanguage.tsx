@@ -23,13 +23,25 @@ interface Props {
  * current Estonian translation of the master, when there is one), or the operator's choice — which masi
  * refuses when the master has no current translation into it.
  */
-export default function PackageLanguage({ id, label, value, onChange, disabled = false, children }: Readonly<Props>) {
+export default function PackageLanguage({
+  id,
+  label,
+  value,
+  onChange,
+  disabled = false,
+  children,
+}: Readonly<Props>) {
   return (
     <span className="masi-package-language">
       <label htmlFor={id} className="sr-only">
         {label}
       </label>
-      <select id={id} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value as MasiPackageLanguage)}>
+      <select
+        id={id}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value as MasiPackageLanguage)}
+      >
         {CHOICES.map((c) => (
           <option key={c.value} value={c.value}>
             {c.label}

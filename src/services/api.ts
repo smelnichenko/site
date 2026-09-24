@@ -1223,7 +1223,10 @@ export async function activateCvVersion(version: number): Promise<CvVersionMeta>
 }
 
 /** Starts translating a version into {@code language}; the model works in the background (202). */
-export async function startCvTranslation(version: number, language: string): Promise<CvTranslationStatus> {
+export async function startCvTranslation(
+  version: number,
+  language: string,
+): Promise<CvTranslationStatus> {
   const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}/translations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1237,7 +1240,9 @@ export async function startCvTranslation(version: number, language: string): Pro
 }
 
 /** The latest translation since masi started: running, made or failed; null when there has been none. */
-export async function fetchCvTranslationStatus(signal?: AbortSignal): Promise<CvTranslationStatus | null> {
+export async function fetchCvTranslationStatus(
+  signal?: AbortSignal,
+): Promise<CvTranslationStatus | null> {
   const response = await apiFetch(`${API_BASE}/masi/cv/translation`, { signal });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error('Failed to fetch the translation status');
@@ -1246,7 +1251,9 @@ export async function fetchCvTranslationStatus(signal?: AbortSignal): Promise<Cv
 
 /** Approves a translation; refused (with its parity problems) while one stands. */
 export async function reviewCvTranslation(version: number): Promise<CvVersionMeta> {
-  const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}/review`, { method: 'POST' });
+  const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}/review`, {
+    method: 'POST',
+  });
   if (!response.ok) {
     const data = await readErrorBody(response);
     throw new Error(data.error || 'Failed to approve the translation');
@@ -2055,9 +2062,17 @@ export function fetchMasiPackage(id: number, signal?: AbortSignal): Promise<Masi
 /** A package language: a language masi writes, or 'auto' to follow the posting. */
 export type MasiPackageLanguage = 'auto' | 'en' | 'et';
 
-export function requestMasiPackage(jobId: number, language?: MasiPackageLanguage): Promise<MasiPackage> {
+export function requestMasiPackage(
+  jobId: number,
+  language?: MasiPackageLanguage,
+): Promise<MasiPackage> {
   const asked = language === undefined || language === 'auto' ? undefined : language;
-  return masiSend(`/jobs/${jobId}/packages${query({ language: asked })}`, 'POST', undefined, 'prepare the package');
+  return masiSend(
+    `/jobs/${jobId}/packages${query({ language: asked })}`,
+    'POST',
+    undefined,
+    'prepare the package',
+  );
 }
 
 export function reviewMasiPackage(
@@ -2075,8 +2090,16 @@ export function reviewMasiPackage(
 }
 
 /** Regenerates; a language changes the package's (and 'auto' hands it back to the posting), none keeps it. */
-export function regenerateMasiPackage(id: number, language?: MasiPackageLanguage): Promise<MasiPackage> {
-  return masiSend(`/packages/${id}/regenerate${query({ language })}`, 'POST', undefined, 'regenerate the package');
+export function regenerateMasiPackage(
+  id: number,
+  language?: MasiPackageLanguage,
+): Promise<MasiPackage> {
+  return masiSend(
+    `/packages/${id}/regenerate${query({ language })}`,
+    'POST',
+    undefined,
+    'regenerate the package',
+  );
 }
 
 export function fetchMasiRetuneEstimate(

@@ -1926,6 +1926,12 @@ a.muted,
   overflow-wrap: anywhere;
 }
 
+/* an <output>: inline by default, a line of its own here */
+.masi-cv-translations .masi-cv-translation-status {
+  display: block;
+  margin: 8px 0;
+}
+
 /* empty, it takes no room — but stays rendered, so what arrives in it is announced */
 .masi-cv-translations .masi-cv-translation-status:empty {
   margin: 0;

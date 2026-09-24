@@ -30,7 +30,10 @@ interface Props {
 function standing(t: CvVersionMeta): { text: string; badge: string } {
   const problems = t.parity ?? [];
   if (problems.length > 0) {
-    return { text: `${problems.length} problem${problems.length === 1 ? '' : 's'}`, badge: 'status-badge error' };
+    return {
+      text: `${problems.length} problem${problems.length === 1 ? '' : 's'}`,
+      badge: 'status-badge error',
+    };
   }
   if (t.current) return { text: 'current', badge: 'status-badge success' };
   if (t.reviewedAt) return { text: 'approved, not current', badge: 'status-badge' };
@@ -42,9 +45,12 @@ function statusText(status: CvTranslationStatus | null, stoppedAsking: boolean):
   if (!status) return '';
   const into = languageName(status.language);
   if (status.state === 'RUNNING') {
-    return stoppedAsking ? `Still translating into ${into}; reload the page to look again.` : `Translating into ${into}…`;
+    return stoppedAsking
+      ? `Still translating into ${into}; reload the page to look again.`
+      : `Translating into ${into}…`;
   }
-  if (status.state === 'DONE') return `v${status.version} made in ${into}: read it, then approve it below.`;
+  if (status.state === 'DONE')
+    return `v${status.version} made in ${into}: read it, then approve it below.`;
   return '';
 }
 
@@ -53,13 +59,20 @@ function statusText(status: CvTranslationStatus | null, stoppedAsking: boolean):
  * (every figure, every fact, no stronger verb), approved by the operator, and kept. An Estonian posting
  * is then tuned from the current Estonian translation instead of the English master.
  */
-export default function CvTranslations({ active, versions, busy, onVersionsChanged, onShow, onPreview }: Readonly<Props>) {
+export default function CvTranslations({
+  active,
+  versions,
+  busy,
+  onVersionsChanged,
+  onShow,
+  onPreview,
+}: Readonly<Props>) {
   const [status, setStatus] = useState<CvTranslationStatus | null>(null);
   const [polls, setPolls] = useState(0);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
-  const statusLine = useRef<HTMLParagraphElement>(null);
+  const statusLine = useRef<HTMLOutputElement>(null);
   // read through a ref: a parent re-rendering (the editor, keystroke by keystroke) must not restart the poll's timer
   const changed = useRef(onVersionsChanged);
   useEffect(() => {
@@ -93,7 +106,8 @@ export default function CvTranslations({ active, versions, busy, onVersionsChang
     return null;
   }
   const target = TRANSLATED.find((l) => l !== active.language);
-  const translatable = active.language !== null && TRANSLATED.includes(active.language) && target !== undefined;
+  const translatable =
+    active.language !== null && TRANSLATED.includes(active.language) && target !== undefined;
   const translations = versions.filter((v) => v.translatedFrom === active.version);
   const shownStatus = status?.sourceVersion === active.version ? status : null;
 
@@ -146,13 +160,14 @@ export default function CvTranslations({ active, versions, busy, onVersionsChang
         </div>
       ) : (
         <p className="muted">
-          A {languageName(active.language)} master is not translated: masi translates between English and Estonian.
+          A {languageName(active.language)} master is not translated: masi translates between
+          English and Estonian.
         </p>
       )}
-      {/* always present, so a screen reader announces what changes in it */}
-      <p className="muted masi-cv-translation-status" role="status" ref={statusLine} tabIndex={-1}>
+      {/* always present, so a screen reader announces what changes in it (an <output> is a status region) */}
+      <output className="muted masi-cv-translation-status" ref={statusLine} tabIndex={-1}>
         {message ?? statusText(shownStatus, polls >= MAX_POLLS)}
-      </p>
+      </output>
       {shownStatus?.state === 'FAILED' && (
         <p className="error" role="alert">
           The translation failed: {shownStatus.error ?? 'no reason given'}
@@ -173,7 +188,8 @@ export default function CvTranslations({ active, versions, busy, onVersionsChang
             return (
               <li key={t.version} data-testid={`translation-${t.version}`}>
                 <div className="masi-translation-head">
-                  <strong>v{t.version}</strong> · {languageName(t.language)} · <span className={where.badge}>{where.text}</span>
+                  <strong>v{t.version}</strong> · {languageName(t.language)} ·{' '}
+                  <span className={where.badge}>{where.text}</span>
                 </div>
                 {problems.length > 0 && (
                   <>
@@ -182,14 +198,25 @@ export default function CvTranslations({ active, versions, busy, onVersionsChang
                         <li key={p}>{p}</li>
                       ))}
                     </ul>
-                    <p className="muted">To approve it, fix these in the editor, save it as a new translation, then approve that one.</p>
+                    <p className="muted">
+                      To approve it, fix these in the editor, save it as a new translation, then
+                      approve that one.
+                    </p>
                   </>
                 )}
                 <div className="badge-group">
-                  <button className="status-badge edit" onClick={() => onShow(t.version)} disabled={busy || working}>
+                  <button
+                    className="status-badge edit"
+                    onClick={() => onShow(t.version)}
+                    disabled={busy || working}
+                  >
                     Show
                   </button>
-                  <button className="status-badge action" onClick={() => onPreview(t.version)} disabled={busy || working}>
+                  <button
+                    className="status-badge action"
+                    onClick={() => onPreview(t.version)}
+                    disabled={busy || working}
+                  >
                     Preview PDF
                   </button>
                   {!t.reviewedAt && (
