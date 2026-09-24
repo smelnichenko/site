@@ -1216,7 +1216,8 @@ a.muted,
 .masi-filters input,
 .masi-filters select,
 .masi-log-form select,
-.masi-package-language select {
+.masi-package-language select,
+.masi .card-header > select {
   min-height: 36px;
   padding: 4px 8px;
   border: 1px solid #ccc;
@@ -1869,6 +1870,13 @@ a.muted,
     margin-right: 0.15rem;
     color: #6c757d;
   }
+  /* a count and the day's number fill their cell's width, never more: at 2.75rem a count reached 9 px, and the
+     number 5 px, into the next day's cell, where a tap opened the wrong day. They keep their finger-sized height. */
+  .masi-day-counts a,
+  .masi-month .masi-day-number {
+    min-width: 0;
+    width: 100%;
+  }
   .masi-month .masi-chip {
     /* a title cut to three characters says nothing; a bar says "something is booked" and opens the event.
        The button keeps a finger-sized height; only the middle of it is painted, in a colour that can be seen
@@ -1921,8 +1929,11 @@ a.muted,
   max-width: 100%;
 }
 
-/* a parity problem starts with a JSON pointer, one long word: it wraps inside its box, never widens the page */
-.masi-cv-translations .error {
+/* a parity problem starts with a JSON pointer, one long word; a claim or a lint warning quotes a bullet, which may
+   carry a URL: each wraps inside its box, never widens the page */
+.masi-cv-translations .error,
+.masi-package .error,
+.masi-lint {
   overflow-wrap: anywhere;
 }
 
