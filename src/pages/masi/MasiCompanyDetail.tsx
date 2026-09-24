@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import {
   fetchMasiCompany,
+  fetchMasiCompanyContacts,
   fetchMasiCompanyPersons,
   fetchMasiJobs,
   MasiCompany,
+  MasiContact,
   MasiJob,
   MasiPerson,
   patchMasiCompany,
+  patchMasiContact,
   patchMasiPerson,
 } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
@@ -25,11 +28,14 @@ import { agencyText } from './register';
 export default function MasiCompanyDetail() {
   const { id } = useParams();
   const companyId = Number(id);
+  const mergedFrom = (useLocation().state as { mergedFrom?: string } | null)?.mergedFrom;
   const [company, setCompany] = useState<MasiCompany | null>(null);
   const [jobs, setJobs] = useState<MasiJob[]>([]);
   const [jobTotal, setJobTotal] = useState(0);
   const [busyPerson, setBusyPerson] = useState<number | null>(null);
   const [people, setPeople] = useState<MasiPerson[]>([]);
+  const [addresses, setAddresses] = useState<MasiContact[]>([]);
+  const [busyAddress, setBusyAddress] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [careersUrl, setCareersUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -38,10 +44,11 @@ export default function MasiCompanyDetail() {
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
-      const [c, js, ps] = await Promise.all([
+      const [c, js, ps, cs] = await Promise.all([
         fetchMasiCompany(companyId, signal),
         fetchMasiJobs({ company: companyId, status: 'ALL', size: 100 }, signal),
         fetchMasiCompanyPersons(companyId, signal),
+        fetchMasiCompanyContacts(companyId, signal),
       ]);
       setCompany(c);
       setNote(c.userNote ?? '');
@@ -49,6 +56,10 @@ export default function MasiCompanyDetail() {
       setJobs(js.content);
       setJobTotal(js.totalElements);
       setPeople(ps);
+      // the rows nobody was made a person of — a desk, the register's company address — are listed apart
+      setAddresses(cs.content.filter((x) => x.personId === null));
+      setError(null);
+      setMessage(null); // a message about the company this page showed before is not about this one
     },
     [companyId],
   );
@@ -75,6 +86,24 @@ export default function MasiCompanyDetail() {
       setMessage(errorMessage(e, 'Saving failed'));
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** A placement or its taking back changes the code, the facts and the board: everything the page shows is read again. */
+  function registerChanged(c: MasiCompany) {
+    setCompany(c);
+    void reload().catch((e: unknown) => setError(errorMessage(e, 'Failed to reload the company')));
+  }
+
+  async function toggleAddress(c: MasiContact) {
+    setBusyAddress(c.id);
+    try {
+      const next = await patchMasiContact(c.id, { doNotContact: !c.doNotContact });
+      setAddresses((cur) => cur.map((x) => (x.id === next.id ? next : x)));
+    } catch (e: unknown) {
+      setMessage(errorMessage(e, 'Saving the address failed'));
+    } finally {
+      setBusyAddress(null);
     }
   }
 
@@ -113,6 +142,11 @@ export default function MasiCompanyDetail() {
   return (
     <div className="masi">
       <MasiNav />
+      {mergedFrom && (
+        <div className="masi-intro" role="status">
+          “{mergedFrom}” is this company now: its jobs, people and notes moved here.
+        </div>
+      )}
       <div className="card">
         <div className="card-header">
           <span className="card-title">{company.name}</span>
@@ -135,10 +169,11 @@ export default function MasiCompanyDetail() {
           )}
           {company.atsVendor ? ` · ATS ${company.atsVendor}` : ''}
         </div>
-        <div className="badge-group">
+        <div className="badge-group masi-agency">
           <span className="muted">{agencyText(company)}</span>
           <LoadingButton
-            className="status-badge"
+            type="button"
+            className="status-badge action"
             onClick={() =>
               void save(
                 { agency: !company.agency },
@@ -150,7 +185,8 @@ export default function MasiCompanyDetail() {
           />
           {company.agencyMark !== null && (
             <LoadingButton
-              className="status-badge"
+              type="button"
+              className="status-badge action"
               onClick={() => void save({ agencyFromRegister: true }, 'The register decides again')}
               loading={busy}
               label="Let the register decide"
@@ -200,7 +236,7 @@ export default function MasiCompanyDetail() {
           />
         </div>
       </div>
-      <RegisterCard company={company} onChange={setCompany} />
+      <RegisterCard company={company} onChange={registerChanged} />
       <div className="card">
         <div className="card-header">
           <span className="card-title">Jobs</span>
@@ -243,10 +279,12 @@ export default function MasiCompanyDetail() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">People</span>
-          <span className="muted">{people.length}</span>
-          <Link to={`/masi/persons?company=${companyId}`} className="muted">
-            in the people list
-          </Link>
+          <span className="card-header-aside">
+            <span className="muted">{people.length}</span>
+            <Link to={`/masi/persons?company=${companyId}`} className="muted">
+              in the people list
+            </Link>
+          </span>
         </div>
         {people.length === 0 && <div className="empty-state">Nobody tied to this company yet.</div>}
         {people.length > 0 && (
@@ -272,7 +310,9 @@ export default function MasiCompanyDetail() {
                     <td>{here ? rolesText(here.roles) : ''}</td>
                     <td>
                       {p.email ?? ''}
-                      {tie && whereLabel(tie.where) && <div className="muted">{whereLabel(tie.where)}</div>}
+                      {tie && whereLabel(tie.where) && (
+                        <div className="muted">{whereLabel(tie.where)}</div>
+                      )}
                     </td>
                     <td>
                       <LoadingButton
@@ -289,6 +329,46 @@ export default function MasiCompanyDetail() {
           </MasiTable>
         )}
       </div>
+      {addresses.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <span className="card-title">Company addresses</span>
+            <span className="muted">{addresses.length}</span>
+          </div>
+          <div className="muted">
+            A desk or the company's own address: nobody's person, still somewhere to write to.
+          </div>
+          <MasiTable label="Company addresses" testId="company-addresses">
+            <thead>
+              <tr>
+                <th>Address</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Contact?</th>
+              </tr>
+            </thead>
+            <tbody>
+              {addresses.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.email ?? ''}</td>
+                  <td>{c.name ?? ''}</td>
+                  <td>{c.phone ?? ''}</td>
+                  <td>
+                    <LoadingButton
+                      type="button"
+                      className={c.doNotContact ? 'status-badge error' : 'status-badge success'}
+                      onClick={() => void toggleAddress(c)}
+                      loading={busyAddress === c.id}
+                      label={c.doNotContact ? 'do not contact' : 'ok to contact'}
+                      aria-label={`${c.doNotContact ? 'Allow contact at' : 'Do not contact'} ${c.email ?? c.name ?? 'this address'}`}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </MasiTable>
+        </div>
+      )}
     </div>
   );
 }

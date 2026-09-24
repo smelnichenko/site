@@ -934,3 +934,79 @@ describe('api - masi', () => {
     expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/packages/11/artifacts/cv_pdf');
   });
 });
+
+/**
+ * The people and register functions, run for real: every page test mocks this module, so a wrong URL, method or body
+ * here — or a 204 read as JSON — would reach the operator with every page test green.
+ */
+describe('api - masi people and register', () => {
+  const calls = () => mockFetch.mock.calls as Array<[string, RequestInit | undefined]>;
+  const bodyOf = (call: number): unknown => JSON.parse(calls()[call][1]?.body as string) as unknown;
+
+  it("reads a company's placement: the body, nothing for a 204, and the server's word for a failure", async () => {
+    const placement = { registryCode: '14532901', placedAt: '2026-09-24T01:00:00Z' };
+    mockFetch.mockResolvedValueOnce(mockResponse(placement));
+    await expect(api.fetchMasiRegisterPlacement(82)).resolves.toEqual(placement);
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/companies/82/register-match');
+
+    // a 204 has no body: reading it as JSON would throw, and every imported company would show an error
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+      headers: { get: () => null },
+    });
+    await expect(api.fetchMasiRegisterPlacement(82)).resolves.toBeNull();
+
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({ error: 'company 82 not found' }, { status: 404 }),
+    );
+    await expect(api.fetchMasiRegisterPlacement(82)).rejects.toThrow('company 82 not found');
+
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.reject(new SyntaxError('not json')),
+      headers: { get: () => null },
+    });
+    await expect(api.fetchMasiRegisterPlacement(82)).rejects.toThrow(
+      'Failed to load the placement',
+    );
+  });
+
+  it('sends each people and register request where, how and with what the server expects', async () => {
+    mockFetch.mockResolvedValue(mockResponse({}));
+    await api.fetchMasiRegisterCandidates(82);
+    await api.fetchMasiRegisterCandidates(82, undefined, '14532901');
+    await api.placeMasiCompany(82, '14532901');
+    await api.takeBackMasiPlacement(82);
+    await api.fetchMasiPersons({ q: 'kask', company: 3, agency: true, page: 1, size: 50 });
+    await api.fetchMasiPerson(20);
+    await api.fetchMasiCompanyPersons(3);
+    await api.patchMasiPerson(20, { doNotContact: true });
+    await api.fetchMasiCompanyContacts(3);
+    await api.patchMasiContact(91, { doNotContact: true });
+    await api.patchMasiCompany(3, { agencyFromRegister: true });
+    await api.logMasiActivity({ kind: 'CALL', personId: 20, companyId: 3, summary: 'called' });
+
+    expect(calls().map(([url, init]) => [url, init?.method ?? 'GET'])).toEqual([
+      ['/api/masi/companies/82/register-candidates', 'GET'],
+      ['/api/masi/companies/82/register-candidates?code=14532901', 'GET'],
+      ['/api/masi/companies/82/register-match', 'POST'],
+      ['/api/masi/companies/82/register-match', 'DELETE'],
+      ['/api/masi/persons?q=kask&company=3&agency=true&page=1&size=50', 'GET'],
+      ['/api/masi/persons/20', 'GET'],
+      ['/api/masi/persons/of-company/3', 'GET'],
+      ['/api/masi/persons/20', 'PATCH'],
+      ['/api/masi/companies/3/contacts?size=200', 'GET'],
+      ['/api/masi/contacts/91', 'PATCH'],
+      ['/api/masi/companies/3', 'PATCH'],
+      ['/api/masi/activity', 'POST'],
+    ]);
+    expect(bodyOf(2)).toEqual({ registryCode: '14532901' });
+    expect(bodyOf(7)).toEqual({ doNotContact: true });
+    expect(bodyOf(9)).toEqual({ doNotContact: true });
+    expect(bodyOf(10)).toEqual({ agencyFromRegister: true });
+    expect(bodyOf(11)).toEqual({ kind: 'CALL', personId: 20, companyId: 3, summary: 'called' });
+  });
+});

@@ -252,9 +252,11 @@ export default function MasiActivity() {
                     <>
                       {' with '}
                       {a.personId ? (
-                        <Link to={`/masi/persons/${a.personId}`}>{a.contactName ?? `person ${a.personId}`}</Link>
+                        <Link to={`/masi/persons/${a.personId}`}>
+                          {a.contactName ?? `person ${a.personId}`}
+                        </Link>
                       ) : (
-                        a.contactName ?? `contact ${a.contactId}`
+                        (a.contactName ?? `contact ${a.contactId}`)
                       )}
                     </>
                   )}

@@ -24,10 +24,30 @@ const kadri: MasiPerson = {
   firstSeenAt: '2026-09-18T08:00:00Z',
   lastSeenAt: '2026-09-23T09:00:00Z',
   ties: [
-    { companyId: 3, companyName: 'Nortal AS', agency: false, role: 'POSTED_FOR', evidence: 'LISTING',
-      evidenceRef: 'listing 1', since: '2026-09-18T08:00:00Z', until: null, where: 'SOMEWHERE_ELSE' },
-    { companyId: 9, companyName: 'Stafferty OÜ', agency: true, role: 'REPRESENTS', evidence: 'REGISTER',
-      evidenceRef: null, since: '2020-01-02T00:00:00Z', until: '2026-09-20T00:00:00Z', where: 'THE_COMPANYS' },
+    {
+      companyId: 3,
+      companyName: 'Nortal AS',
+      agency: false,
+      role: 'POSTED_FOR',
+      evidence: 'LISTING',
+      evidenceRef: 'listing 1',
+      since: '2026-09-18T08:00:00Z',
+      until: null,
+      where: 'SOMEWHERE_ELSE',
+      contactId: 5,
+    },
+    {
+      companyId: 9,
+      companyName: 'Stafferty OÜ',
+      agency: true,
+      role: 'REPRESENTS',
+      evidence: 'REGISTER',
+      evidenceRef: null,
+      since: '2020-01-02T00:00:00Z',
+      until: '2026-09-20T00:00:00Z',
+      where: 'THE_COMPANYS',
+      contactId: 5,
+    },
   ],
 };
 const called: MasiActivity = {
@@ -57,7 +77,12 @@ beforeEach(() => {
 describe('MasiPersonDetail', () => {
   it('shows who they are, every tie with who says so, and what happened with them', async () => {
     vi.mocked(api.fetchMasiPerson).mockResolvedValue(kadri);
-    vi.mocked(api.fetchMasiActivity).mockResolvedValue({ content: [called], page: 0, size: 20, totalElements: 1 });
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [called],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+    });
     renderAt('/masi/persons/20', '/masi/persons/:id', <MasiPersonDetail />);
     expect(await screen.findByText('Kadri Kask', { selector: '.card-title' })).toBeInTheDocument();
     expect(api.fetchMasiActivity).toHaveBeenCalledWith({ person: 20, size: 20 }, expect.anything());
@@ -76,18 +101,29 @@ describe('MasiPersonDetail', () => {
     expect(within(nortal).getAllByText('—')).toHaveLength(1); // and this one holds
 
     // the log goes through the company: the row is with the person's contact there
-    expect(within(nortal).getByRole('link', { name: 'Log with them about Nortal AS' })).toHaveAttribute(
-      'href',
-      '/masi/activity?person=20&company=3',
-    );
+    expect(
+      within(nortal).getByRole('link', { name: 'Log with them about Nortal AS' }),
+    ).toHaveAttribute('href', '/masi/activity?person=20&company=3');
     expect(screen.getByText('Called about the Java role')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'all of it' })).toHaveAttribute('href', '/masi/activity?person=20');
+    expect(screen.getByRole('link', { name: 'all of it' })).toHaveAttribute(
+      'href',
+      '/masi/activity?person=20',
+    );
   });
 
   it('saves only what was changed, and shows the refusal the server gives', async () => {
     vi.mocked(api.fetchMasiPerson).mockResolvedValue(kadri);
-    vi.mocked(api.fetchMasiActivity).mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0 });
-    vi.mocked(api.patchMasiPerson).mockResolvedValueOnce({ ...kadri, title: 'Head of Talent', userNote: 'prefers mail' });
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    vi.mocked(api.patchMasiPerson).mockResolvedValueOnce({
+      ...kadri,
+      title: 'Head of Talent',
+      userNote: 'prefers mail',
+    });
     renderAt('/masi/persons/20', '/masi/persons/:id', <MasiPersonDetail />);
     await screen.findByText('Nothing logged with this person.');
 
@@ -100,11 +136,16 @@ describe('MasiPersonDetail', () => {
     await userEvent.type(screen.getByLabelText('Your note'), 'prefers mail');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
-      expect(api.patchMasiPerson).toHaveBeenCalledWith(20, { title: 'Head of Talent', userNote: 'prefers mail' }),
+      expect(api.patchMasiPerson).toHaveBeenCalledWith(20, {
+        title: 'Head of Talent',
+        userNote: 'prefers mail',
+      }),
     );
     expect(await screen.findByText('Saved')).toBeInTheDocument();
 
-    vi.mocked(api.patchMasiPerson).mockRejectedValueOnce(new Error('a no-reply address reaches nobody'));
+    vi.mocked(api.patchMasiPerson).mockRejectedValueOnce(
+      new Error('a no-reply address reaches nobody'),
+    );
     await userEvent.clear(screen.getByLabelText('Address'));
     await userEvent.type(screen.getByLabelText('Address'), 'noreply@cv.ee');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -113,19 +154,97 @@ describe('MasiPersonDetail', () => {
 
   it('marks them not to be contacted, and back', async () => {
     vi.mocked(api.fetchMasiPerson).mockResolvedValue(kadri);
-    vi.mocked(api.fetchMasiActivity).mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0 });
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
     vi.mocked(api.patchMasiPerson).mockResolvedValueOnce({ ...kadri, doNotContact: true });
     renderAt('/masi/persons/20', '/masi/persons/:id', <MasiPersonDetail />);
     await userEvent.click(await screen.findByRole('button', { name: 'Do not contact' }));
-    await waitFor(() => expect(api.patchMasiPerson).toHaveBeenCalledWith(20, { doNotContact: true }));
+    await waitFor(() =>
+      expect(api.patchMasiPerson).toHaveBeenCalledWith(20, { doNotContact: true }),
+    );
     expect(await screen.findByRole('button', { name: 'Allow contact' })).toBeInTheDocument();
     expect(screen.getByText('do not contact', { selector: '.status-badge' })).toBeInTheDocument();
   });
 
   it('says so when the person cannot be loaded', async () => {
     vi.mocked(api.fetchMasiPerson).mockRejectedValue(new Error('person 20 not found'));
-    vi.mocked(api.fetchMasiActivity).mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0 });
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
     renderAt('/masi/persons/20', '/masi/persons/:id', <MasiPersonDetail />);
     expect(await screen.findByRole('alert')).toHaveTextContent('person 20 not found');
+  });
+
+  it('offers a log once per company, and only where they are a contact — a tie by word alone has nowhere to write', async () => {
+    const tie = kadri.ties[0];
+    vi.mocked(api.fetchMasiPerson).mockResolvedValue({
+      ...kadri,
+      ties: [
+        tie,
+        { ...tie, evidenceRef: 'listing 2' },
+        {
+          ...tie,
+          companyId: 44,
+          companyName: 'Met At A Meetup OÜ',
+          role: 'TALKED_TO',
+          evidence: 'OPERATOR',
+          contactId: null,
+        },
+      ],
+    });
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    renderAt('/masi/persons/20', '/masi/persons/:id', <MasiPersonDetail />);
+    expect(
+      await screen.findAllByRole('link', { name: 'Log with them about Nortal AS' }),
+    ).toHaveLength(1);
+    expect(
+      screen.queryByRole('link', { name: 'Log with them about Met At A Meetup OÜ' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('marks them not to be contacted without also sending the edits typed and not saved', async () => {
+    vi.mocked(api.fetchMasiPerson).mockResolvedValue(kadri);
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    vi.mocked(api.patchMasiPerson).mockResolvedValue({ ...kadri, doNotContact: true });
+    renderAt('/masi/persons/20', '/masi/persons/:id', <MasiPersonDetail />);
+    await userEvent.type(await screen.findByLabelText('Your note'), 'half-typed');
+    await userEvent.click(screen.getByRole('button', { name: 'Do not contact' }));
+    await waitFor(() =>
+      expect(api.patchMasiPerson).toHaveBeenCalledWith(20, { doNotContact: true }),
+    );
+    expect(api.patchMasiPerson).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows what the server kept, not what was typed — an address is stored as the server normalised it', async () => {
+    vi.mocked(api.fetchMasiPerson).mockResolvedValue(kadri);
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    vi.mocked(api.patchMasiPerson).mockResolvedValue({ ...kadri, email: 'kadri@x.ee' });
+    renderAt('/masi/persons/20', '/masi/persons/:id', <MasiPersonDetail />);
+    await userEvent.clear(await screen.findByLabelText('Address'));
+    await userEvent.type(screen.getByLabelText('Address'), 'KADRI@X.EE');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByLabelText('Address')).toHaveValue('kadri@x.ee'));
   });
 });

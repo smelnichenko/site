@@ -11,37 +11,7 @@ import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import MasiTable from '../../components/MasiTable';
 import { errorMessage, formatDate, formatDateTime } from './format';
-import { evidenceLabel, roleLabel, whereLabel } from './people';
-
-/** The fields the operator corrects, as typed; empty is "leave as it is", which is what the API's null means. */
-interface Draft {
-  name: string;
-  title: string;
-  email: string;
-  phone: string;
-  note: string;
-}
-
-function draftOf(p: MasiPerson): Draft {
-  return {
-    name: p.name ?? '',
-    title: p.title ?? '',
-    email: p.email ?? '',
-    phone: p.phone ?? '',
-    note: p.userNote ?? '',
-  };
-}
-
-/** Only what changed: sending an unchanged address would ask the server to re-check an identity nobody touched. */
-function changes(p: MasiPerson, d: Draft) {
-  const out: Parameters<typeof patchMasiPerson>[1] = {};
-  if (d.name.trim() && d.name.trim() !== (p.name ?? '')) out.name = d.name.trim();
-  if (d.title.trim() !== (p.title ?? '') && d.title.trim()) out.title = d.title.trim();
-  if (d.email.trim() && d.email.trim() !== (p.email ?? '')) out.email = d.email.trim();
-  if (d.phone.trim() && d.phone.trim() !== (p.phone ?? '')) out.phone = d.phone.trim();
-  if (d.note !== (p.userNote ?? '')) out.userNote = d.note;
-  return out;
-}
+import { changes, Draft, draftOf, evidenceLabel, roleLabel, whereLabel } from './people';
 
 /** One person: who they are, every company they are tied to with what says so, and what happened with them. */
 export default function MasiPersonDetail() {
@@ -71,6 +41,8 @@ export default function MasiPersonDetail() {
         setPerson(p);
         setDraft(draftOf(p));
         setActivity(log.content);
+        setError(null);
+        setMessage(null); // a message about the person this page showed before is not about this one
       } catch (e: unknown) {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load the person'));
       }
@@ -171,6 +143,7 @@ export default function MasiPersonDetail() {
               Save
             </button>
             <LoadingButton
+              type="button"
               className={person.doNotContact ? 'status-badge success' : 'status-badge error'}
               onClick={() =>
                 void save(
@@ -206,11 +179,17 @@ export default function MasiPersonDetail() {
             <tbody>
               {person.ties.map((t, i) => {
                 const companyName = t.companyName ?? `company ${t.companyId}`;
+                // one log per company, and only where they are a contact: a tie made by word alone has nowhere to write
+                const logHere =
+                  t.contactId !== null &&
+                  person.ties.findIndex(
+                    (o) => o.companyId === t.companyId && o.contactId !== null,
+                  ) === i;
                 return (
                   <tr key={`${t.companyId}-${t.role}-${t.evidenceRef ?? i}`}>
                     <td>
                       <Link to={`/masi/companies/${t.companyId}`}>{companyName}</Link>
-                      {t.agency && <span className="status-badge action">agency</span>}
+                      {t.agency && <span className="masi-tag">agency</span>}
                     </td>
                     <td>{roleLabel(t.role)}</td>
                     <td>{evidenceLabel(t.evidence)}</td>
@@ -218,12 +197,15 @@ export default function MasiPersonDetail() {
                     <td>{formatDate(t.until)}</td>
                     <td>{whereLabel(t.where)}</td>
                     <td>
-                      <Link
-                        to={`/masi/activity?person=${personId}&company=${t.companyId}`}
-                        aria-label={`Log with them about ${companyName}`}
-                      >
-                        log
-                      </Link>
+                      {logHere && (
+                        <Link
+                          className="masi-log-link"
+                          to={`/masi/activity?person=${personId}&company=${t.companyId}`}
+                          aria-label={`Log with them about ${companyName}`}
+                        >
+                          log
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 );

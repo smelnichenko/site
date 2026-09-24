@@ -19,15 +19,50 @@ const anna: MasiPerson = {
   firstSeenAt: '2026-09-18T08:00:00Z',
   lastSeenAt: '2026-09-23T09:00:00Z',
   ties: [
-    { companyId: 7, companyName: 'EY Estonia', agency: false, role: 'POSTED_FOR', evidence: 'LISTING',
-      evidenceRef: 'listing 1', since: null, until: null, where: 'COMPANY_UNKNOWN' },
-    { companyId: 7, companyName: 'EY Estonia', agency: false, role: 'POSTED_FOR', evidence: 'LISTING',
-      evidenceRef: 'listing 2', since: null, until: null, where: 'COMPANY_UNKNOWN' },
-    { companyId: 9, companyName: 'Grafton Estonia OÜ', agency: true, role: 'WORKS_AT', evidence: 'OPERATOR',
-      evidenceRef: null, since: null, until: null, where: 'COMPANY_UNKNOWN' },
+    {
+      companyId: 7,
+      companyName: 'EY Estonia',
+      agency: false,
+      role: 'POSTED_FOR',
+      evidence: 'LISTING',
+      evidenceRef: 'listing 1',
+      since: null,
+      until: null,
+      where: 'COMPANY_UNKNOWN',
+      contactId: 5,
+    },
+    {
+      companyId: 7,
+      companyName: 'EY Estonia',
+      agency: false,
+      role: 'POSTED_FOR',
+      evidence: 'LISTING',
+      evidenceRef: 'listing 2',
+      since: null,
+      until: null,
+      where: 'COMPANY_UNKNOWN',
+      contactId: 5,
+    },
+    {
+      companyId: 9,
+      companyName: 'Grafton Estonia OÜ',
+      agency: true,
+      role: 'WORKS_AT',
+      evidence: 'OPERATOR',
+      evidenceRef: null,
+      since: null,
+      until: null,
+      where: 'COMPANY_UNKNOWN',
+      contactId: 5,
+    },
   ],
 };
-const page = (content: MasiPerson[], total = content.length) => ({ content, page: 0, size: 50, totalElements: total });
+const page = (content: MasiPerson[], total = content.length) => ({
+  content,
+  page: 0,
+  size: 50,
+  totalElements: total,
+});
 
 beforeEach(() => {
   vi.mocked(api.fetchMasiPersons).mockReset(); // a body, not an expression: a returned mock would run as the test's cleanup
@@ -43,7 +78,10 @@ describe('MasiPersons', () => {
     const row = screen.getByRole('row', { name: /Taima-Riin Uutma/ });
     expect(within(row).getAllByRole('link', { name: 'EY Estonia' })).toHaveLength(1);
     expect(within(row).getByText('posted for ×2')).toBeInTheDocument();
-    expect(within(row).getByRole('link', { name: 'Grafton Estonia OÜ' })).toHaveAttribute('href', '/masi/companies/9');
+    expect(within(row).getByRole('link', { name: 'Grafton Estonia OÜ' })).toHaveAttribute(
+      'href',
+      '/masi/companies/9',
+    );
     expect(within(row).getAllByText('agency')).toHaveLength(1); // Grafton's, not EY's
     expect(screen.getByRole('link', { name: 'People' })).toHaveClass('active');
   });
@@ -73,10 +111,14 @@ describe('MasiPersons', () => {
     );
 
     await userEvent.click(screen.getByRole('checkbox', { name: 'at agencies only' }));
-    await waitFor(() => expect(vi.mocked(api.fetchMasiPersons).mock.lastCall?.[0]).toMatchObject({ agency: true }));
+    await waitFor(() =>
+      expect(vi.mocked(api.fetchMasiPersons).mock.lastCall?.[0]).toMatchObject({ agency: true }),
+    );
 
     await userEvent.click(screen.getByRole('button', { name: 'All companies' }));
-    await waitFor(() => expect(vi.mocked(api.fetchMasiPersons).mock.lastCall?.[0].company).toBeUndefined());
+    await waitFor(() =>
+      expect(vi.mocked(api.fetchMasiPersons).mock.lastCall?.[0].company).toBeUndefined(),
+    );
     expect(screen.queryByRole('button', { name: 'All companies' })).not.toBeInTheDocument();
   });
 
@@ -85,7 +127,9 @@ describe('MasiPersons', () => {
     vi.mocked(api.patchMasiPerson).mockResolvedValue({ ...anna, doNotContact: true });
     renderAt('/masi/persons', '/masi/persons', <MasiPersons />);
     await userEvent.click(await screen.findByRole('button', { name: 'ok to contact' }));
-    await waitFor(() => expect(api.patchMasiPerson).toHaveBeenCalledWith(20, { doNotContact: true }));
+    await waitFor(() =>
+      expect(api.patchMasiPerson).toHaveBeenCalledWith(20, { doNotContact: true }),
+    );
     expect(await screen.findByRole('button', { name: 'do not contact' })).toBeInTheDocument();
   });
 
@@ -107,5 +151,14 @@ describe('MasiPersons', () => {
     expect(await screen.findByText('page 1 of 3')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => expect(vi.mocked(api.fetchMasiPersons).mock.lastCall?.[0].page).toBe(1));
+  });
+
+  it('shows a refused flag rather than pretending it was set', async () => {
+    vi.mocked(api.fetchMasiPersons).mockResolvedValue(page([anna]));
+    vi.mocked(api.patchMasiPerson).mockRejectedValue(new Error('saving refused'));
+    renderAt('/masi/persons', '/masi/persons', <MasiPersons />);
+    await userEvent.click(await screen.findByRole('button', { name: 'ok to contact' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('saving refused');
+    expect(screen.getByRole('button', { name: 'ok to contact' })).toBeInTheDocument();
   });
 });

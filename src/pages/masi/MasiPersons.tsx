@@ -94,11 +94,16 @@ export default function MasiPersons() {
           }}
         >
           <label htmlFor="person-q">Name or address</label>
-          <input id="person-q" type="search" value={typed} onChange={(e) => setTyped(e.target.value)} />
+          <input
+            id="person-q"
+            type="search"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+          />
           <button type="submit" className="btn-small">
             Search
           </button>
-          <label>
+          <label className="toggle-label">
             <input
               type="checkbox"
               checked={agencyOnly}
@@ -142,7 +147,7 @@ export default function MasiPersons() {
                     {byCompany(p.ties).map((c) => (
                       <div key={c.companyId}>
                         <Link to={`/masi/companies/${c.companyId}`}>{c.companyName}</Link>
-                        {c.agency && <span className="status-badge action">agency</span>}{' '}
+                        {c.agency && <span className="masi-tag">agency</span>}{' '}
                         <span className="muted">{rolesText(c.roles)}</span>
                       </div>
                     ))}

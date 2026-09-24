@@ -1,4 +1,9 @@
-import type { MasiCompany, MasiRegisterCandidate, MasiRegisterPlacement } from '../../services/api';
+import type {
+  MasiCompany,
+  MasiRegisterCandidate,
+  MasiRegisterCandidates,
+  MasiRegisterPlacement,
+} from '../../services/api';
 
 /** Whether the company places people at others, and whose word that is: the operator's mark, else the register's. */
 export function agencyText(c: MasiCompany): string {
@@ -9,7 +14,9 @@ export function agencyText(c: MasiCompany): string {
     const code = c.emtakCode ? ` (EMTAK ${c.emtakCode})` : '';
     return `An agency — the register says so${code}`;
   }
-  return c.registryCode ? 'Not an agency — by the register' : 'Not an agency — not placed on the register yet';
+  return c.registryCode
+    ? 'Not an agency — by the register'
+    : 'Not an agency — not placed on the register yet';
 }
 
 /** What choosing a registered company will do, said before it is done. */
@@ -32,5 +39,18 @@ export function restores(p: MasiRegisterPlacement): string {
     p.priorEmtakCode ? `EMTAK ${p.priorEmtakCode}` : null,
     p.priorSizeBand ? `size ${p.priorSizeBand}` : null,
   ].filter(Boolean);
-  return what.length ? `Taking it back restores ${what.join(', ')}.` : 'Taking it back leaves the company as it was before.';
+  return what.length
+    ? `Taking it back restores ${what.join(', ')}.`
+    : 'Taking it back leaves the company as it was before.';
+}
+
+/** Why the list of candidates is empty: the register not read yet, too many names beginning with it, or none. */
+export function whyNone(found: MasiRegisterCandidates): string {
+  if (!found.indexed) {
+    return 'The register has not been read yet: masi reads it every Sunday. Nothing can be looked up until then.';
+  }
+  if (found.truncated) {
+    return 'More registered companies begin with this name than can be listed: type its registry code.';
+  }
+  return 'The register has no company by this name.';
 }

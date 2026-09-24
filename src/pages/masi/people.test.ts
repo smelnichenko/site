@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import type { MasiPersonTie } from '../../services/api';
-import { byCompany, evidenceLabel, roleLabel, rolesText, whereLabel } from './people';
+import type { MasiPerson, MasiPersonTie } from '../../services/api';
+import {
+  byCompany,
+  changes,
+  draftOf,
+  evidenceLabel,
+  roleLabel,
+  rolesText,
+  whereLabel,
+} from './people';
 
 function tie(over: Partial<MasiPersonTie>): MasiPersonTie {
   return {
@@ -13,6 +21,7 @@ function tie(over: Partial<MasiPersonTie>): MasiPersonTie {
     since: '2026-09-01T00:00:00Z',
     until: null,
     where: 'COMPANY_UNKNOWN',
+    contactId: 7,
     ...over,
   };
 }
@@ -34,7 +43,10 @@ describe('people', () => {
   it('calls a role ended only when every tie that says it has ended', () => {
     const [c] = byCompany([tie({ until: '2026-09-20T00:00:00Z' }), tie({ until: null })]);
     expect(c.roles[0]).toEqual({ role: 'POSTED_FOR', count: 2, ended: false });
-    const [gone] = byCompany([tie({ until: '2026-09-20T00:00:00Z' }), tie({ until: '2026-09-21T00:00:00Z' })]);
+    const [gone] = byCompany([
+      tie({ until: '2026-09-20T00:00:00Z' }),
+      tie({ until: '2026-09-21T00:00:00Z' }),
+    ]);
     expect(gone.roles[0].ended).toBe(true);
   });
 
@@ -43,13 +55,9 @@ describe('people', () => {
   });
 
   it('puts every role, evidence and address verdict into words, and shows an unknown one as it came', () => {
-    expect(['POSTED_FOR', 'REPRESENTS', 'WORKS_AT', 'RECRUITS_FOR', 'TALKED_TO'].map(roleLabel)).toEqual([
-      'posted for',
-      'represents',
-      'works at',
-      'recruits for',
-      'talked to',
-    ]);
+    expect(
+      ['POSTED_FOR', 'REPRESENTS', 'WORKS_AT', 'RECRUITS_FOR', 'TALKED_TO'].map(roleLabel),
+    ).toEqual(['posted for', 'represents', 'works at', 'recruits for', 'talked to']);
     expect(roleLabel('SOMETHING_NEW')).toBe('something_new');
     expect(['LISTING', 'REGISTER', 'PARTNER', 'OPERATOR'].map(evidenceLabel)).toEqual([
       'a listing',
@@ -60,5 +68,35 @@ describe('people', () => {
     expect(whereLabel('SOMEWHERE_ELSE')).toBe('writes from elsewhere');
     expect(whereLabel('THE_COMPANYS')).toBe("the company's own address");
     expect(whereLabel('COMPANY_UNKNOWN')).toBe('');
+  });
+
+  it('sends only what changed: a title or a phone emptied clears it, a name or an address emptied is left alone', () => {
+    const kadri: MasiPerson = {
+      id: 1,
+      name: 'Kadri Kask',
+      email: 'kadri@example.com',
+      phone: '+372 555',
+      title: 'Recruiter',
+      doNotContact: false,
+      userNote: null,
+      firstSeenAt: '2026-09-18T08:00:00Z',
+      lastSeenAt: '2026-09-18T08:00:00Z',
+      ties: [],
+    };
+    const as = draftOf(kadri);
+    expect(changes(kadri, as)).toEqual({});
+    expect(changes(kadri, { ...as, title: '  ', phone: '' })).toEqual({ title: '', phone: '' });
+    expect(changes(kadri, { ...as, name: '', email: ' ' })).toEqual({});
+    expect(changes(kadri, { ...as, name: ' Kadri Kaasik ', email: 'k@example.com' })).toEqual({
+      name: 'Kadri Kaasik',
+      email: 'k@example.com',
+    });
+    expect(changes(kadri, { ...as, note: 'x' })).toEqual({ userNote: 'x' });
+    expect(changes({ ...kadri, userNote: 'old' }, { ...as, note: '' })).toEqual({ userNote: '' });
+    expect(changes(kadri, { ...as, phone: ' +372 6666 ', title: ' Head ' })).toEqual({
+      phone: '+372 6666',
+      title: 'Head',
+    });
+    expect(changes(kadri, { ...as, title: 'Recruiter ' })).toEqual({}); // the same, typed with a space
   });
 });

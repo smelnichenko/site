@@ -1,4 +1,4 @@
-import type { MasiPersonTie } from '../../services/api';
+import type { MasiPerson, MasiPersonTie, patchMasiPerson } from '../../services/api';
 
 const ROLES: Record<string, string> = {
   POSTED_FOR: 'posted for',
@@ -82,4 +82,38 @@ export function rolesText(roles: CompanyTies['roles']): string {
       return `${roleLabel(r.role)}${times}${ended}`;
     })
     .join(', ');
+}
+
+/** The fields the operator corrects, as typed. */
+export interface Draft {
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+  note: string;
+}
+
+export function draftOf(p: MasiPerson): Draft {
+  return {
+    name: p.name ?? '',
+    title: p.title ?? '',
+    email: p.email ?? '',
+    phone: p.phone ?? '',
+    note: p.userNote ?? '',
+  };
+}
+
+/**
+ * Only what changed: sending an unchanged address would ask the server to re-check an identity nobody touched. A title
+ * or a phone emptied is sent empty, which clears it; a name or an address emptied is not sent — they are who the person
+ * is, and are corrected, not removed.
+ */
+export function changes(p: MasiPerson, d: Draft) {
+  const out: Parameters<typeof patchMasiPerson>[1] = {};
+  if (d.name.trim() && d.name.trim() !== (p.name ?? '')) out.name = d.name.trim();
+  if (d.title.trim() !== (p.title ?? '')) out.title = d.title.trim();
+  if (d.email.trim() && d.email.trim() !== (p.email ?? '')) out.email = d.email.trim();
+  if (d.phone.trim() !== (p.phone ?? '')) out.phone = d.phone.trim();
+  if (d.note !== (p.userNote ?? '')) out.userNote = d.note;
+  return out;
 }
