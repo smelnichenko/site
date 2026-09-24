@@ -159,6 +159,8 @@ describe('RegisterCard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Take back' }));
     await waitFor(() => expect(api.takeBackMasiPlacement).toHaveBeenCalledWith(82));
     expect(onChange).toHaveBeenCalledWith(bolt);
+    // gone at once, not offered again while the page reloads the candidates
+    expect(screen.queryByRole('button', { name: 'Take back' })).not.toBeInTheDocument();
   });
 
   it('says nothing for a code the register import gave, which has nothing to take back', async () => {

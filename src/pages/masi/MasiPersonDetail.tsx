@@ -48,7 +48,13 @@ export default function MasiPersonDetail() {
   const { id } = useParams();
   const personId = Number(id);
   const [person, setPerson] = useState<MasiPerson | null>(null);
-  const [draft, setDraft] = useState<Draft>({ name: '', title: '', email: '', phone: '', note: '' });
+  const [draft, setDraft] = useState<Draft>({
+    name: '',
+    title: '',
+    email: '',
+    phone: '',
+    note: '',
+  });
   const [activity, setActivity] = useState<MasiActivity[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -194,24 +200,34 @@ export default function MasiPersonDetail() {
                 <th>Since</th>
                 <th>Until</th>
                 <th>Address</th>
+                <th />
               </tr>
             </thead>
             <tbody>
-              {person.ties.map((t, i) => (
-                <tr key={`${t.companyId}-${t.role}-${t.evidenceRef ?? i}`}>
-                  <td>
-                    <Link to={`/masi/companies/${t.companyId}`}>
-                      {t.companyName ?? `company ${t.companyId}`}
-                    </Link>
-                    {t.agency && <span className="status-badge action">agency</span>}
-                  </td>
-                  <td>{roleLabel(t.role)}</td>
-                  <td>{evidenceLabel(t.evidence)}</td>
-                  <td>{formatDate(t.since)}</td>
-                  <td>{formatDate(t.until)}</td>
-                  <td>{whereLabel(t.where)}</td>
-                </tr>
-              ))}
+              {person.ties.map((t, i) => {
+                const companyName = t.companyName ?? `company ${t.companyId}`;
+                return (
+                  <tr key={`${t.companyId}-${t.role}-${t.evidenceRef ?? i}`}>
+                    <td>
+                      <Link to={`/masi/companies/${t.companyId}`}>{companyName}</Link>
+                      {t.agency && <span className="status-badge action">agency</span>}
+                    </td>
+                    <td>{roleLabel(t.role)}</td>
+                    <td>{evidenceLabel(t.evidence)}</td>
+                    <td>{formatDate(t.since)}</td>
+                    <td>{formatDate(t.until)}</td>
+                    <td>{whereLabel(t.where)}</td>
+                    <td>
+                      <Link
+                        to={`/masi/activity?person=${personId}&company=${t.companyId}`}
+                        aria-label={`Log with them about ${companyName}`}
+                      >
+                        log
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </MasiTable>
         )}
@@ -223,7 +239,9 @@ export default function MasiPersonDetail() {
             all of it
           </Link>
         </div>
-        {activity.length === 0 && <div className="empty-state">Nothing logged with this person.</div>}
+        {activity.length === 0 && (
+          <div className="empty-state">Nothing logged with this person.</div>
+        )}
         {activity.length > 0 && (
           <MasiTable label="Activity with the person">
             <thead>

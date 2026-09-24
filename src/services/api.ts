@@ -1652,6 +1652,8 @@ export function logMasiActivity(entry: {
   jobId?: number;
   companyId?: number;
   contactId?: number;
+  /** With a company: the person's contact there is the one the row is with. */
+  personId?: number;
   summary: string;
   detail?: string;
 }): Promise<MasiActivity> {

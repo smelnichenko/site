@@ -75,6 +75,11 @@ describe('MasiPersonDetail', () => {
     expect(within(board).getByText(formatDate('2026-09-20T00:00:00Z'))).toBeInTheDocument(); // the tie ended
     expect(within(nortal).getAllByText('—')).toHaveLength(1); // and this one holds
 
+    // the log goes through the company: the row is with the person's contact there
+    expect(within(nortal).getByRole('link', { name: 'Log with them about Nortal AS' })).toHaveAttribute(
+      'href',
+      '/masi/activity?person=20&company=3',
+    );
     expect(screen.getByText('Called about the Java role')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'all of it' })).toHaveAttribute('href', '/masi/activity?person=20');
   });

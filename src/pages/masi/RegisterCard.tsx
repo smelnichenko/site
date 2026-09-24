@@ -76,7 +76,9 @@ export default function RegisterCard({ company, onChange }: Readonly<Props>) {
     setBusy(true);
     setMessage(null);
     try {
-      onChange(await takeBackMasiPlacement(company.id));
+      const back = await takeBackMasiPlacement(company.id);
+      setPlacement(null); // gone now: not offered again while the candidates load, or if they fail to
+      onChange(back);
     } catch (e: unknown) {
       setMessage(errorMessage(e, 'Taking it back failed'));
     } finally {
