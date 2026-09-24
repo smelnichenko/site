@@ -143,9 +143,9 @@ export default function MasiCompanyDetail() {
     <div className="masi">
       <MasiNav />
       {mergedFrom && (
-        <div className="masi-intro" role="status">
+        <output className="masi-intro">
           “{mergedFrom}” is this company now: its jobs, people and notes moved here.
-        </div>
+        </output>
       )}
       <div className="card">
         <div className="card-header">

@@ -1114,6 +1114,18 @@ a.muted,
   margin: 8px 0 12px;
 }
 
+/* the confirmation is a fieldset for what it groups, not for a fieldset's frame */
+.masi fieldset.masi-confirm {
+  border: none;
+  padding: 0;
+  min-width: 0;
+}
+
+/* the note of where a merged company went is text in the flow, not an inline <output> */
+.masi output.masi-intro {
+  display: block;
+}
+
 /* the candidate the operator chose, while its placement waits to be confirmed */
 .masi tr.masi-chosen td {
   background: #eef4fb;

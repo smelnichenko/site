@@ -78,7 +78,7 @@ export default function RegisterCard({ company, onChange }: Readonly<Props>) {
       const placed = await placeMasiCompany(company.id, code);
       if (placed.id !== company.id) {
         // merged into the company masi already held: this one is gone, its page with it
-        void navigate(`/masi/companies/${placed.id}`, { state: { mergedFrom: company.name } });
+        await navigate(`/masi/companies/${placed.id}`, { state: { mergedFrom: company.name } });
         return;
       }
       onChange(placed);
@@ -238,7 +238,7 @@ export default function RegisterCard({ company, onChange }: Readonly<Props>) {
         </>
       )}
       {pending && (
-        <div role="group" aria-label="Confirm the placement" className="masi-confirm">
+        <fieldset aria-label="Confirm the placement" className="masi-confirm">
           <div>
             {pending.name} (reg. {pending.registryCode}): {consequence(company, pending)}.
           </div>
@@ -260,7 +260,7 @@ export default function RegisterCard({ company, onChange }: Readonly<Props>) {
               Cancel
             </button>
           </div>
-        </div>
+        </fieldset>
       )}
     </div>
   );
