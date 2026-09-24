@@ -1251,6 +1251,11 @@ export interface MasiJob {
   /** The keys of the sources with an open listing of the job — where it is present now, each once, sorted. */
   sources: string[];
   mergedIntoId: number | null;
+  /**
+   * A merged job's last stop through any chain of merges — where its listings, notes, bookings and log rows are; null
+   * when not merged. Sent with the detail only: mergedIntoId is one hop, which may itself be merged.
+   */
+  becameId: number | null;
   packageId: number | null;
   packageStatus: string | null;
   /** How far the caller's active CV master covers what the posting asks for, 0-100; null = not scored (yet, or not scorable). */
