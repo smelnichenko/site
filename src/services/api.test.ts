@@ -974,6 +974,21 @@ describe('api - masi people and register', () => {
     );
   });
 
+  it("asks for one job's bookings where the server serves them, and says what failed", async () => {
+    const controller = new AbortController();
+    mockFetch.mockResolvedValueOnce(mockResponse([]));
+    await expect(api.fetchMasiJobBookings(7, controller.signal)).resolves.toEqual([]);
+    expect(calls()[0][0]).toBe('/api/masi/calendar/job/7');
+    expect(calls()[0][1]?.signal).toBe(controller.signal);
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.reject(new SyntaxError('not json')),
+      headers: { get: () => null },
+    });
+    await expect(api.fetchMasiJobBookings(7)).rejects.toThrow('Failed to load the bookings');
+  });
+
   it('sends each people and register request where, how and with what the server expects', async () => {
     mockFetch.mockResolvedValue(mockResponse({}));
     await api.fetchMasiRegisterCandidates(82);

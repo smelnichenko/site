@@ -179,7 +179,9 @@ describe('MasiCompanyDetail', () => {
     );
     // a code from the register import itself has no placement to take back, so no register card
     // the card was there and asked: it says nothing because there is nothing to take back, not because it is missing
-    expect(api.fetchMasiRegisterPlacement).toHaveBeenCalledWith(3, expect.anything());
+    await waitFor(() =>
+      expect(api.fetchMasiRegisterPlacement).toHaveBeenCalledWith(3, expect.anything()),
+    );
     expect(screen.queryByText('Register')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'ok to contact' }));
     await waitFor(() =>

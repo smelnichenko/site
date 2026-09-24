@@ -4,9 +4,11 @@ import {
   fetchCvMaster,
   fetchMasiJob,
   fetchMasiPackages,
+  fetchMasiJobBookings,
   fetchMasiJobHistory,
   fetchMasiSimilarJobs,
   MasiJob,
+  MasiCalendarEvent,
   MasiJobHistoryEntry,
   MasiPackage,
   MasiSimilarJob,
@@ -20,6 +22,7 @@ import PackagePanel from './PackagePanel';
 import { errorMessage, formatDateTime } from './format';
 import SourceMarks from './SourceMarks';
 import JobHistory from './JobHistory';
+import JobBookings from './JobBookings';
 
 /** 18 × 10 s, then 57 × 60 s: an hour of polling at most. */
 const MAX_POLLS = 75;
@@ -41,6 +44,13 @@ export default function MasiJobDetail() {
   const [activeCv, setActiveCv] = useState<number | null>(null);
   const [similar, setSimilar] = useState<MasiSimilarJob[]>([]);
   const [history, setHistory] = useState<MasiJobHistoryEntry[]>([]);
+  const [bookings, setBookings] = useState<{
+    events: MasiCalendarEvent[] | null;
+    error: string | null;
+  }>({
+    events: null,
+    error: null,
+  });
   const [polls, setPolls] = useState(0);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -51,15 +61,21 @@ export default function MasiJobDetail() {
     async (signal?: AbortSignal) => {
       // the hint is loaded WITH the job: it sits above the note and the buttons, and arriving late it pushed them
       // two to ten lines down under the finger. It is a hint — when it cannot be loaded the page is none the worse
-      const [j, ps, cv, alike, past] = await Promise.all([
+      const [j, ps, cv, alike, past, booked] = await Promise.all([
         fetchMasiJob(jobId, signal),
         fetchMasiPackages({ job: jobId }, signal),
         fetchCvMaster(signal),
         fetchMasiSimilarJobs(jobId, signal).catch(() => [] as MasiSimilarJob[]),
         fetchMasiJobHistory(jobId, signal).catch(() => [] as MasiJobHistoryEntry[]),
+        // the bookings too, and for the same reason; a failure is said in their card, the page is none the worse
+        fetchMasiJobBookings(jobId, signal).then(
+          (events) => ({ events, error: null }),
+          (e: unknown) => ({ events: null, error: errorMessage(e, 'Failed to load the bookings') }),
+        ),
       ]);
       setSimilar(alike);
       setHistory(past);
+      setBookings(booked);
       setJob(j);
       setNote(j.userNote ?? '');
       setPackages(ps);
@@ -214,6 +230,12 @@ export default function MasiJobDetail() {
           ))}
         </ul>
         <JobHistory entries={history} />
+        <JobBookings
+          jobId={job.id}
+          events={bookings.events}
+          error={bookings.error}
+          mergedIntoId={job.status === 'MERGED' ? job.mergedIntoId : null}
+        />
         <p className="muted masi-hint">
           <Link to={`/masi/activity?job=${job.id}`}>
             Log a call, a message or a note for this job
