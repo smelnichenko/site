@@ -12,6 +12,8 @@ import {
 } from '../../services/api';
 import LoadingButton from '../../components/LoadingButton';
 import MasiNav from '../../components/MasiNav';
+import CvTranslations from './CvTranslations';
+import { languageName } from './language';
 import { openBlob } from './format';
 
 const EMPTY_MASTER = `schema_version: "1"
@@ -127,11 +129,15 @@ function MasiCv() {
     }
   }
 
+  // an edited translation is saved as a translation of the same master, and is checked the same way
+  const shownVersion = versions.find((v) => v.version === shown) ?? null;
+  const editingTranslationOf = shownVersion?.translatedFrom ?? null;
+
   async function onSave() {
     setBusy(true);
     setMessage(null);
     try {
-      const r = await createCvVersion(yaml, note);
+      const r = await createCvVersion(yaml, note, editingTranslationOf ?? undefined);
       if (r.version === null) {
         setErrors(r.errors);
         return;
@@ -270,10 +276,19 @@ function MasiCv() {
             className="status-badge add"
             onClick={() => void onSave()}
             loading={busy}
-            label="Save as new version"
+            label={editingTranslationOf === null ? 'Save as new version' : `Save as a new translation of v${editingTranslationOf}`}
           />
         </div>
       </div>
+
+      <CvTranslations
+        active={active}
+        versions={versions}
+        busy={busy}
+        onChanged={() => reload()}
+        onShow={(v) => void onShow(v)}
+        onPreview={(v) => void onPreview(v)}
+      />
 
       <div className="card">
         <div className="card-header">
@@ -287,6 +302,7 @@ function MasiCv() {
               <tr>
                 <th>Version</th>
                 <th>Note</th>
+                <th>Language</th>
                 <th>Created</th>
                 <th>Status</th>
                 <th></th>
@@ -297,8 +313,12 @@ function MasiCv() {
                 <tr key={v.version}>
                   <td>v{v.version}</td>
                   <td>{v.note ?? ''}</td>
+                  <td>{languageName(v.language)}</td>
                   <td>{formatDate(v.createdAt)}</td>
-                  <td>{v.active ? `active since ${formatDate(v.activatedAt)}` : ''}</td>
+                  <td>
+                    {v.active ? `active since ${formatDate(v.activatedAt)}` : ''}
+                    {v.translatedFrom === null ? '' : `translation of v${v.translatedFrom}`}
+                  </td>
                   <td className="badge-group">
                     <button
                       className="status-badge edit"
@@ -314,7 +334,7 @@ function MasiCv() {
                     >
                       Preview PDF
                     </button>
-                    {!v.active && (
+                    {!v.active && v.translatedFrom === null && (
                       <button
                         className="status-badge add"
                         onClick={() => void onActivate(v.version)}

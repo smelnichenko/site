@@ -49,6 +49,11 @@ beforeEach(() => {
       activatedAt: null,
       createdAt: '2026-09-18T00:00:00Z',
       schemaVersion: '1',
+      language: 'en',
+      translatedFrom: null,
+      reviewedAt: null,
+      current: null,
+      parity: null,
     },
     yaml: 'x',
     completeness: null,
@@ -277,7 +282,7 @@ describe('MasiJobDetail', () => {
       '/masi/companies/3',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Prepare package' }));
-    await waitFor(() => expect(api.requestMasiPackage).toHaveBeenCalledWith(7));
+    await waitFor(() => expect(api.requestMasiPackage).toHaveBeenCalledWith(7, 'auto'));
     expect(screen.getByText('Package queued; it prepares in the background')).toBeInTheDocument();
     expect(screen.getByTestId('package-panel')).toHaveTextContent('new');
     expect(screen.queryByRole('button', { name: 'Prepare package' })).not.toBeInTheDocument();
@@ -422,8 +427,32 @@ describe('MasiJobDetail', () => {
     );
     expect(screen.queryByRole('button', { name: 'Open CV PDF' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
-    await waitFor(() => expect(api.regenerateMasiPackage).toHaveBeenCalledWith(11));
+    await waitFor(() => expect(api.regenerateMasiPackage).toHaveBeenCalledWith(11, 'auto'));
     expect(screen.getByTestId('package-panel')).toHaveTextContent('new');
+  });
+
+  it('says what a package is written in and from which version, and regenerates it in the language chosen', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([{ ...prepared, writtenIn: 'et', tunedFromVersion: 3, language: null }]);
+    vi.mocked(api.regenerateMasiPackage).mockResolvedValue({ ...prepared, status: 'NEW', language: 'en', writtenIn: null, tunedFromVersion: null });
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    await waitFor(() =>
+      expect(screen.getByTestId('package-language')).toHaveTextContent('written in Estonian from v3 · follows the posting'),
+    );
+    await userEvent.selectOptions(screen.getByLabelText('Package language'), 'en');
+    await userEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
+    await waitFor(() => expect(api.regenerateMasiPackage).toHaveBeenCalledWith(11, 'en'));
+    expect(screen.getByTestId('package-language')).toHaveTextContent('not written yet · English asked');
+  });
+
+  it('prepares a package in the language chosen', async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    vi.mocked(api.requestMasiPackage).mockResolvedValue({ ...prepared, status: 'NEW', language: 'et', writtenIn: null, tunedFromVersion: null });
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    await userEvent.selectOptions(await screen.findByLabelText('Package language'), 'et');
+    await userEvent.click(screen.getByRole('button', { name: 'Prepare package' }));
+    await waitFor(() => expect(api.requestMasiPackage).toHaveBeenCalledWith(7, 'et'));
   });
 
   it("shows the job's bookings on its page, loaded with the job — nothing arrives later to push the note down", async () => {

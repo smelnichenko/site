@@ -2,10 +2,13 @@ import { useState } from 'react';
 import {
   fetchMasiArtifact,
   MasiPackage,
+  MasiPackageLanguage,
   regenerateMasiPackage,
   reviewMasiPackage,
 } from '../../services/api';
 import LoadingButton from '../../components/LoadingButton';
+import PackageLanguage from './PackageLanguage';
+import { languageLine } from './language';
 import { badgeClass, errorMessage, formatDateTime, formatUsd, openBlob } from './format';
 
 const RESPONSES = ['NONE', 'REPLIED', 'INTERVIEW', 'OFFER', 'REJECTED'];
@@ -28,6 +31,7 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [language, setLanguage] = useState<MasiPackageLanguage>((pkg.language as MasiPackageLanguage | null) ?? 'auto');
 
   async function act(fn: () => Promise<MasiPackage>, done: string) {
     setBusy(true);
@@ -87,6 +91,9 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
         {pkg.attempts} attempt(s) · cost {formatUsd(pkg.costUsd)} · updated{' '}
         {formatDateTime(pkg.updatedAt)}
         {pkg.appliedAt ? ` · applied ${formatDateTime(pkg.appliedAt)}` : ''}
+      </div>
+      <div className="muted" data-testid="package-language">
+        {languageLine(pkg.writtenIn, pkg.tunedFromVersion, pkg.language)}
       </div>
       {pkg.error && (
         <div className="error" role="alert">
@@ -247,12 +254,15 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
           />
         )}
         {canRegenerate && (
-          <LoadingButton
-            className="status-badge edit"
-            onClick={() => void act(() => regenerateMasiPackage(pkg.id), 'Regenerating…')}
-            loading={busy}
-            label="Regenerate"
-          />
+          <>
+            <PackageLanguage id={`package-language-${pkg.id}`} value={language} onChange={setLanguage} disabled={busy} />
+            <LoadingButton
+              className="status-badge edit"
+              onClick={() => void act(() => regenerateMasiPackage(pkg.id, language), 'Regenerating…')}
+              loading={busy}
+              label="Regenerate"
+            />
+          </>
         )}
       </div>
     </div>

@@ -11,6 +11,7 @@ import {
   MasiCalendarEvent,
   MasiJobHistoryEntry,
   MasiPackage,
+  MasiPackageLanguage,
   MasiSimilarJob,
   requestMasiPackage,
   saveMasiJobNote,
@@ -19,6 +20,7 @@ import MasiNav from '../../components/MasiNav';
 import MatchSummary from './MatchSummary';
 import LoadingButton from '../../components/LoadingButton';
 import PackagePanel from './PackagePanel';
+import PackageLanguage from './PackageLanguage';
 import { errorMessage, formatDateTime } from './format';
 import SourceMarks from './SourceMarks';
 import JobHistory from './JobHistory';
@@ -56,6 +58,7 @@ export default function MasiJobDetail() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [prepareLanguage, setPrepareLanguage] = useState<MasiPackageLanguage>('auto');
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -122,7 +125,7 @@ export default function MasiJobDetail() {
     setBusy(true);
     setMessage(null);
     try {
-      const p = await requestMasiPackage(jobId);
+      const p = await requestMasiPackage(jobId, prepareLanguage);
       setPackages((cur) => [p, ...cur.filter((x) => x.id !== p.id)]);
       setPolls(0);
       setMessage('Package queued; it prepares in the background');
@@ -292,12 +295,15 @@ export default function MasiJobDetail() {
             {job.status === 'OPEN' &&
               activeCv !== null &&
               !packages.some((p) => p.cvVersion === activeCv) && (
-                <LoadingButton
-                  className="status-badge add"
-                  onClick={() => void onPrepare()}
-                  loading={busy}
-                  label="Prepare package"
-                />
+                <>
+                  <PackageLanguage id="prepare-language" value={prepareLanguage} onChange={setPrepareLanguage} disabled={busy} />
+                  <LoadingButton
+                    className="status-badge add"
+                    onClick={() => void onPrepare()}
+                    loading={busy}
+                    label="Prepare package"
+                  />
+                </>
               )}
           </div>
         )}

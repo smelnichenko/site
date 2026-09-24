@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MasiCv from './MasiCv';
 import { renderAt } from './testUtils';
@@ -12,6 +12,9 @@ vi.mock('../../services/api', () => ({
   createCvVersion: vi.fn(),
   activateCvVersion: vi.fn(),
   fetchCvPreview: vi.fn(),
+  fetchCvTranslationStatus: vi.fn(),
+  startCvTranslation: vi.fn(),
+  reviewCvTranslation: vi.fn(),
 }));
 
 const api = await import('../../services/api');
@@ -23,6 +26,11 @@ const v1 = {
   activatedAt: '2026-09-18T10:00:00Z',
   createdAt: '2026-09-18T09:00:00Z',
   schemaVersion: '1',
+  language: 'en',
+  translatedFrom: null,
+  reviewedAt: null,
+  current: null,
+  parity: null,
 };
 
 beforeEach(() => {
@@ -32,6 +40,10 @@ beforeEach(() => {
   vi.mocked(api.validateCv).mockReset();
   vi.mocked(api.createCvVersion).mockReset();
   vi.mocked(api.activateCvVersion).mockReset();
+  vi.mocked(api.fetchCvTranslationStatus).mockReset();
+  vi.mocked(api.fetchCvTranslationStatus).mockResolvedValue(null);
+  vi.mocked(api.startCvTranslation).mockReset();
+  vi.mocked(api.reviewCvTranslation).mockReset();
 });
 
 describe('MasiCv', () => {
@@ -119,7 +131,7 @@ describe('MasiCv', () => {
     await userEvent.type(screen.getByLabelText('Note for this version'), 'second');
     await userEvent.click(screen.getByText('Save as new version'));
     expect(await screen.findByText('Version 2 saved (not active yet)')).toBeInTheDocument();
-    expect(api.createCvVersion).toHaveBeenCalledWith('a: 1\n', 'second');
+    expect(api.createCvVersion).toHaveBeenCalledWith('a: 1\n', 'second', undefined);
     expect(await screen.findByText('Activate')).toBeInTheDocument(); // v2 is not active
     await userEvent.click(screen.getByText('Activate'));
     await waitFor(() => expect(api.activateCvVersion).toHaveBeenCalledWith(2));
@@ -143,5 +155,95 @@ describe('MasiCv', () => {
       expect(screen.getByRole('alert')).toHaveTextContent("required property 'positioning'"),
     );
     expect(api.fetchCvVersions).toHaveBeenCalledTimes(1);
+  });
+  describe('translations', () => {
+    const master = { active: v1, yaml: 'language: en\n', completeness: { score: 100, gaps: [] } };
+    const translation = (version: number, extra: Partial<typeof v1>) => ({
+      ...v1,
+      version,
+      active: false,
+      activatedAt: null,
+      language: 'et',
+      translatedFrom: 1,
+      current: false,
+      parity: [],
+      ...extra,
+    });
+
+    it('lists the translations of the active master with where each stands, and approves only one without problems', async () => {
+      const blocked = translation(2, { parity: ['/summary: "juhtisin" claims more than the source\'s wording'] });
+      const pending = translation(3, {});
+      const current = translation(4, { reviewedAt: '2026-09-24T10:00:00Z', current: true });
+      vi.mocked(api.fetchCvMaster).mockResolvedValue(master);
+      vi.mocked(api.fetchCvVersions).mockResolvedValue([current, pending, blocked, v1]);
+      vi.mocked(api.reviewCvTranslation).mockResolvedValue({ ...pending, reviewedAt: '2026-09-24T11:00:00Z' });
+      renderAt('/masi/cv', '/masi/cv', <MasiCv />);
+      const card = await screen.findByTestId('cv-translations');
+      expect(card).toHaveTextContent('the master is in English');
+      expect(screen.getByTestId('translation-2')).toHaveTextContent('1 problem');
+      expect(screen.getByTestId('translation-2')).toHaveTextContent('claims more than the source');
+      expect(within(screen.getByTestId('translation-2')).getByRole('button', { name: 'Approve' })).toBeDisabled();
+      expect(screen.getByTestId('translation-3')).toHaveTextContent('awaiting approval');
+      expect(screen.getByTestId('translation-4')).toHaveTextContent('current');
+      expect(within(screen.getByTestId('translation-4')).queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+      expect(screen.getAllByText('translation of v1')).toHaveLength(3);
+      await userEvent.click(within(screen.getByTestId('translation-3')).getByRole('button', { name: 'Approve' }));
+      await waitFor(() => expect(api.reviewCvTranslation).toHaveBeenCalledWith(3));
+      expect(await screen.findByText('v3 approved')).toBeInTheDocument();
+      expect(api.fetchCvVersions).toHaveBeenCalledTimes(2);   // reloaded after the approval
+    });
+
+    it('translates the master into the other language and follows the model until it is done', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        vi.mocked(api.fetchCvMaster).mockResolvedValue(master);
+        vi.mocked(api.fetchCvVersions).mockResolvedValueOnce([v1]).mockResolvedValue([translation(2, {}), v1]);
+        const running = { state: 'RUNNING' as const, sourceVersion: 1, language: 'et', version: null, error: null, startedAt: '2026-09-24T10:00:00Z', finishedAt: null };
+        vi.mocked(api.startCvTranslation).mockResolvedValue(running);
+        vi.mocked(api.fetchCvTranslationStatus)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValue({ ...running, state: 'DONE', version: 2, finishedAt: '2026-09-24T10:00:40Z' });
+        renderAt('/masi/cv', '/masi/cv', <MasiCv />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Translate into Estonian' }));
+        expect(api.startCvTranslation).toHaveBeenCalledWith(1, 'et');
+        expect(await screen.findByText('Translating into Estonian…')).toBeInTheDocument();
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect(await screen.findByText('v2 made in Estonian: read it, then approve it below.')).toBeInTheDocument();
+        expect(await screen.findByTestId('translation-2')).toHaveTextContent('awaiting approval');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('says why a translation failed', async () => {
+      vi.mocked(api.fetchCvMaster).mockResolvedValue(master);
+      vi.mocked(api.fetchCvVersions).mockResolvedValue([v1]);
+      vi.mocked(api.fetchCvTranslationStatus).mockResolvedValue({
+        state: 'FAILED', sourceVersion: 1, language: 'et', version: null, error: 'the model left out 2 fields',
+        startedAt: '2026-09-24T10:00:00Z', finishedAt: '2026-09-24T10:00:40Z',
+      });
+      renderAt('/masi/cv', '/masi/cv', <MasiCv />);
+      expect(await screen.findByRole('alert')).toHaveTextContent('The translation failed: the model left out 2 fields');
+    });
+
+    it('offers no translation of a Russian master', async () => {
+      vi.mocked(api.fetchCvMaster).mockResolvedValue({ ...master, active: { ...v1, language: 'ru' } });
+      vi.mocked(api.fetchCvVersions).mockResolvedValue([{ ...v1, language: 'ru' }]);
+      renderAt('/masi/cv', '/masi/cv', <MasiCv />);
+      expect(await screen.findByText(/A Russian master is not translated/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Translate into/ })).not.toBeInTheDocument();
+    });
+
+    it('saves an edited translation as a translation of the same master', async () => {
+      const t = translation(2, {});
+      vi.mocked(api.fetchCvMaster).mockResolvedValue(master);
+      vi.mocked(api.fetchCvVersions).mockResolvedValue([t, v1]);
+      vi.mocked(api.fetchCvVersion).mockResolvedValue({ active: null, yaml: 'language: et\n', completeness: null });
+      vi.mocked(api.createCvVersion).mockResolvedValue({ version: translation(3, {}), errors: [] });
+      renderAt('/masi/cv', '/masi/cv', <MasiCv />);
+      await userEvent.click(within(await screen.findByTestId('translation-2')).getByRole('button', { name: 'Show' }));
+      await userEvent.click(await screen.findByRole('button', { name: 'Save as a new translation of v1' }));
+      await waitFor(() => expect(api.createCvVersion).toHaveBeenCalledWith('language: et\n', '', 1));
+    });
   });
 });
