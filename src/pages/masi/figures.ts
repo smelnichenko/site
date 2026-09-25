@@ -1,7 +1,5 @@
 /** A company's quarterly figures shaped for the charts: one row per quarter on a continuous axis. */
-import { MasiQuarterFigures } from '../../services/api';
-
-export type Figure = 'turnover' | 'employees' | 'stateTaxes' | 'labourTaxes';
+import { MasiQuarterFigures, MasiYearFigures } from '../../services/api';
 
 export interface QuarterRow {
   label: string;
@@ -9,17 +7,53 @@ export interface QuarterRow {
   employees: number | null;
   stateTaxes: number | null;
   labourTaxes: number | null;
+  /** The annual report's average headcount (full-time equivalents), held across the quarters of its year. */
+  annualEmployees: number | null;
+}
+
+/** A financial year's figures, for the chart and the table by year. */
+export interface YearRow {
+  label: string;
+  revenue: number | null;
+  operatingProfit: number | null;
+  profit: number | null;
+  avgEmployees: number | null;
 }
 
 const index = (q: { year: number; quarter: number }) => q.year * 4 + q.quarter - 1;
 
+/** The quarter a date (`YYYY-MM-DD`) falls in, on the quarters' axis. */
+function quarterIndex(date: string): number {
+  const [year, month] = date.split('-').map(Number);
+  return year * 4 + Math.floor((month - 1) / 3);
+}
+
 /**
  * Every quarter from the first to the last the board published, in order. A quarter it has no row for stays on the
  * axis as a gap — skipping it would draw two quarters a year apart side by side — and a figure it left empty is null,
- * never zero: a bank reports no turnover.
+ * never zero: a bank reports no turnover. An annual report's average headcount is held across the quarters of its
+ * financial year where they are on the axis — from the quarter it began in, or the four quarters before its end when
+ * masi does not say — and years before the board's quarters stretch no quarterly chart: they are in the chart and the
+ * table by year.
  */
-export function quarterRows(quarters: MasiQuarterFigures[]): QuarterRow[] {
+export function quarterRows(
+  quarters: MasiQuarterFigures[],
+  years: MasiYearFigures[] = [],
+): QuarterRow[] {
   const byIndex = new Map(quarters.map((q) => [index(q), q]));
+  const annual = new Map<number, number>();
+  // in the order the years end: a year never takes a quarter an earlier one holds — a short year (a company changing
+  // its financial year) must not be drawn over the year before it
+  const ordered = [...years].sort((a, b) => (a.periodEnd ?? '').localeCompare(b.periodEnd ?? ''));
+  for (const y of ordered) {
+    if (!y.periodEnd || y.avgEmployees === undefined) continue;
+    const end = quarterIndex(y.periodEnd);
+    // from the quarter the year began in when masi says, else the four quarters a year has
+    const start = y.periodStart ? quarterIndex(y.periodStart) : end - 3;
+    for (let i = start; i <= end; i++) {
+      if (!annual.has(i)) annual.set(i, y.avgEmployees);
+    }
+  }
   const indices = [...byIndex.keys()];
   const first = Math.min(...indices);
   const last = Math.max(...indices);
@@ -32,6 +66,7 @@ export function quarterRows(quarters: MasiQuarterFigures[]): QuarterRow[] {
       employees: q?.employees ?? null,
       stateTaxes: q?.stateTaxes ?? null,
       labourTaxes: q?.labourTaxes ?? null,
+      annualEmployees: annual.get(i) ?? null,
     });
   }
   return rows;
@@ -52,13 +87,45 @@ export function employeeAxis(max: number): number[] {
   return Array.from({ length: end / step + 1 }, (_, i) => i * step);
 }
 
-/** The last quarter that carries the figure, and its value; null when no quarter does. */
-export function latest(
-  rows: QuarterRow[],
-  figure: Figure,
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * A financial year as the chart names it, by when it ends: `2024` for a year to December, `Jul 2024` for one to July —
+ * the register's own label for a year that is not the calendar's may be either calendar year's, and is not used.
+ */
+export function yearLabel(y: MasiYearFigures): string {
+  if (!y.periodEnd) return String(y.year);
+  const [year, month] = y.periodEnd.split('-').map(Number);
+  return month === 12 ? String(year) : `${MONTHS[month - 1]} ${year}`;
+}
+
+/** The annual reports' money by financial year, in the order the years end. */
+export function yearRows(years: MasiYearFigures[]): YearRow[] {
+  return [...years]
+    .sort((a, b) => (a.periodEnd ?? String(a.year)).localeCompare(b.periodEnd ?? String(b.year)))
+    .map((y) => ({
+      label: yearLabel(y),
+      revenue: y.revenue ?? null,
+      operatingProfit: y.operatingProfit ?? null,
+      profit: y.profit ?? null,
+      avgEmployees: y.avgEmployees ?? null,
+    }));
+}
+
+/** The employees axis for the rows: the quarterly count and the annual average both fit under it. */
+export function employeeScale(rows: QuarterRow[]): number[] {
+  return employeeAxis(
+    Math.max(0, ...rows.map((r) => Math.max(r.employees ?? 0, r.annualEmployees ?? 0))),
+  );
+}
+
+/** The last row that carries the figure, and its value; null when no row does. */
+export function latest<R extends { label: string }>(
+  rows: R[],
+  figure: (row: R) => number | null,
 ): { label: string; value: number } | null {
   for (let i = rows.length - 1; i >= 0; i--) {
-    const value = rows[i][figure];
+    const value = figure(rows[i]);
     if (value !== null) return { label: rows[i].label, value };
   }
   return null;

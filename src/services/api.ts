@@ -1959,9 +1959,33 @@ export interface MasiQuarterFigures {
   published: string;
 }
 
-/** A company's figures, oldest first; none for a company without a registry code, or one the board's files never had. */
+/**
+ * One financial year from the company's annual report to the e-Business Register: its own figures, never its group's,
+ * in euros; `avgEmployees` in full-time equivalents. `year` is the register's label for the report (a financial year
+ * that is not the calendar's may carry either calendar year's): a chart places it at `periodEnd`.
+ */
+export interface MasiYearFigures {
+  year: number;
+  /** When the financial year began; absent from a masi that does not send it yet. */
+  periodStart?: string;
+  periodEnd?: string;
+  revenue?: number;
+  operatingProfit?: number;
+  profit?: number;
+  labourExpense?: number;
+  avgEmployees?: number;
+  assets?: number;
+  equity?: number;
+  submitted: string;
+}
+
+/**
+ * A company's figures, oldest first; none for a company without a registry code, or one the sources never had.
+ * `years` is absent from a masi that predates the annual reports.
+ */
 export interface MasiCompanyFigures {
   quarters: MasiQuarterFigures[];
+  years?: MasiYearFigures[];
 }
 
 export function fetchMasiCompanyFigures(

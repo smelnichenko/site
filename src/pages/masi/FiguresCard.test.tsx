@@ -22,7 +22,7 @@ vi.mock('recharts', () => {
     YAxis: () => null,
     CartesianGrid: () => null,
     Tooltip: () => null,
-    Legend: () => null,
+    Legend: () => <span>legend</span>,
     ReferenceLine: () => null,
   };
 });
@@ -65,6 +65,12 @@ const nortal = [
     published: '2026-04-10',
   }),
 ];
+
+const year = (
+  y: number,
+  periodEnd: string,
+  rest: Partial<api.MasiYearFigures> = {},
+): api.MasiYearFigures => ({ year: y, periodEnd, submitted: '2025-06-17', ...rest });
 
 const other = (id: number) =>
   ({ id, name: `Company ${id}`, registryCode: `1${id}000000` }) as unknown as MasiCompany;
@@ -117,9 +123,9 @@ describe('FiguresCard', () => {
     render(<FiguresCard company={company('10391131')} />);
 
     expect(await screen.findByText('Figures')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Tax and Customs Board, by quarter · file of 10 Jul 2026/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/by quarter · file of/)).toHaveTextContent(
+      'Tax and Customs Board, by quarter · file of 10 Jul 2026',
+    );
     // each chart named by its caption, its drawing hidden from a screen reader, which reads the table instead
     const chart = (name: string) => {
       const figure = screen.getByRole('figure', { name });
@@ -183,7 +189,9 @@ describe('FiguresCard', () => {
   it('names the newest file its quarters came from, and the latest of each figure', async () => {
     vi.mocked(api.fetchMasiCompanyFigures).mockResolvedValue({ quarters: nortal });
     render(<FiguresCard company={company('10391131')} />);
-    expect(await screen.findByText(/file of 10 Jul 2026/)).toBeInTheDocument();
+    expect(await screen.findByText(/by quarter · file of/)).toHaveTextContent(
+      'file of 10 Jul 2026',
+    );
     const [employees, turnover, taxes] = screen.getAllByRole('definition');
     expect(employees).toHaveTextContent('356 (2026 Q2)');
     expect(turnover).toHaveTextContent('14.9M € (2026 Q2)');
@@ -230,5 +238,106 @@ describe('FiguresCard', () => {
     rerender(<FiguresCard company={other(8)} />);
     await vi.waitFor(() => expect(api.fetchMasiCompanyFigures).toHaveBeenCalledTimes(2));
     expect(first?.aborted).toBe(true);
+  });
+
+  it('charts the annual reports by financial year beside the quarters, and their headcount on the employees chart', async () => {
+    vi.mocked(api.fetchMasiCompanyFigures).mockResolvedValue({
+      quarters: nortal,
+      years: [
+        // the year the board's quarters here (2025 Q4 – 2026 Q2) reach into: its headcount is held across 2025
+        year(2025, '2025-12-31', {
+          revenue: 64_414_000,
+          operatingProfit: 1_383_000,
+          profit: 7_062_000,
+          avgEmployees: 361,
+        }),
+        year(2024, '2024-12-31', {
+          revenue: 62_729_000,
+          operatingProfit: 5_649_000,
+          profit: 36_532_000,
+          avgEmployees: 345,
+        }),
+        year(2023, '2023-12-31', {
+          revenue: 66_191_000,
+          operatingProfit: 5_352_000,
+          profit: 11_509_000,
+          avgEmployees: 386,
+        }),
+      ],
+    });
+    render(<FiguresCard company={company('10391131')} />);
+    await screen.findByText('Figures');
+    // each source its own line to wrap on, the two in the order they are charted
+    expect(screen.getByText(/by quarter · file of/)).toHaveTextContent(
+      'Tax and Customs Board, by quarter · file of 10 Jul 2026',
+    );
+    expect(screen.getByText('e-Business Register annual reports')).toBeInTheDocument();
+    const byYear = screen.getByRole('figure', { name: 'Revenue and profit by financial year (€)' });
+    expect(byYear).toHaveTextContent('series Revenue');
+    expect(byYear).toHaveTextContent('series Operating profit');
+    expect(byYear).toHaveTextContent('series Profit');
+    expect(screen.getByRole('figure', { name: 'Employees' })).toHaveTextContent(
+      'series Annual average (FTE)',
+    );
+    const [, , , revenue, profit] = screen.getAllByRole('definition');
+    expect(revenue).toHaveTextContent('64.4M € (2025)');
+    expect(profit).toHaveTextContent('7.1M € (2025)');
+    const table = screen.getByRole('table', { name: 'Figures by financial year' });
+    const rows = within(table).getAllByRole('row').slice(1);
+    expect(rows.map((r) => within(r).getByRole('rowheader').textContent)).toEqual([
+      '2023',
+      '2024',
+      '2025',
+    ]);
+    expect(
+      within(rows[1])
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual(['62,729,000 €', '5,649,000 €', '36,532,000 €', '345']);
+  });
+
+  it('shows the annual reports alone when the board has no quarters for the company', async () => {
+    vi.mocked(api.fetchMasiCompanyFigures).mockResolvedValue({
+      quarters: [],
+      years: [year(2024, '2024-07-31', { revenue: 10_489_884 })],
+    });
+    render(<FiguresCard company={company('10003666')} />);
+    expect(
+      await screen.findByRole('figure', { name: 'Revenue and profit by financial year (€)' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('figure', { name: 'Turnover (€)' })).not.toBeInTheDocument();
+    expect(screen.getByText('e-Business Register annual reports')).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: 'Figures by quarter' })).not.toBeInTheDocument();
+    // no quarterly headline without the board's quarters; the headcount from the annual reports
+    expect(screen.getAllByRole('term').map((t) => t.textContent)).toEqual([
+      'Employees (FTE)',
+      'Revenue',
+      'Profit',
+    ]);
+    expect(
+      within(screen.getByRole('table', { name: 'Figures by financial year' })).getByRole(
+        'rowheader',
+      ),
+    ).toHaveTextContent('Jul 2024');
+    // a figure the report does not carry is a dash in the table, never a zero — the headcount among them
+    expect(
+      within(screen.getByRole('table', { name: 'Figures by financial year' }))
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual(['10,489,884 €', '—', '—', '—']);
+  });
+
+  it('shows no years, no year chart and no annual line from a masi that predates the annual reports', async () => {
+    vi.mocked(api.fetchMasiCompanyFigures).mockResolvedValue({ quarters: nortal });
+    render(<FiguresCard company={company('10391131')} />);
+    await screen.findByText('Figures');
+    expect(screen.queryByRole('figure', { name: /by financial year/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('figure', { name: 'Employees' })).not.toHaveTextContent(
+      'Annual average',
+    );
+    expect(screen.getAllByRole('definition')).toHaveLength(3);
+    // one source, one line: no legend to tell the lines apart, no register named
+    expect(screen.queryByText('e-Business Register annual reports')).not.toBeInTheDocument();
+    expect(screen.getByRole('figure', { name: 'Employees' })).not.toHaveTextContent('legend');
   });
 });
