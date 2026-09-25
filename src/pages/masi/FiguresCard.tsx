@@ -33,9 +33,10 @@ const COLOURS = {
   turnover: '#2e7d32',
   stateTaxes: '#6a4c9c',
   labourTaxes: '#c77700',
-  /** the annual reports' headcount: the employees' blue, lighter and dashed, a second reading of the same thing */
-  annual: '#5b8ac2',
-  operatingProfit: '#8a7a12',
+  /** the annual reports' headcount: a hue of its own, dashed, held across each year — not a paler employees blue */
+  annual: '#b35900',
+  /** a tint of the profit blue: to a colour-blind reader the ochre it replaced was the revenue green */
+  operatingProfit: '#5b8ac2',
   profit: '#1f4e79',
 };
 
@@ -124,6 +125,7 @@ export default function FiguresCard({ company }: Readonly<Props>) {
   if (rows.length === 0 && years.length === 0) return null;
   const quarterly = (figures?.quarters.length ?? 0) > 0;
   const annualHeads = rows.some((r) => r.annualEmployees !== null);
+  const tooltip = { itemStyle: TEXT, contentStyle: { fontSize: 12 } };
 
   // ISO dates sort as text: the newest file is the last
   const dates = (figures?.quarters ?? [])
@@ -141,12 +143,14 @@ export default function FiguresCard({ company }: Readonly<Props>) {
       <div className="card-header">
         <span className="card-title">Figures</span>
         <span className="card-header-aside muted">
-          {quarterly && `Tax and Customs Board, by quarter · file of ${formatDate(published)}`}
-          {quarterly && years.length > 0 && ' · '}
-          {years.length > 0 && 'e-Business Register annual reports'}
+          {/* one span a source: a narrow card breaks between them, not inside a date */}
+          {quarterly && (
+            <span>Tax and Customs Board, by quarter · file of {formatDate(published)}</span>
+          )}
+          {years.length > 0 && <span>e-Business Register annual reports</span>}
         </span>
       </div>
-      <Latest rows={rows} years={years} />
+      <Latest rows={quarterly ? rows : []} years={years} />
       {quarterly && (
         <div className="masi-figures">
           {/* each chart is named by its caption and drawn for the eye only: its figures are the table below */}
@@ -167,7 +171,7 @@ export default function FiguresCard({ company }: Readonly<Props>) {
                     domain={[0, employees[employees.length - 1]]}
                   />
                   {/* in the lines' order: the quarterly count first, the annual average after it */}
-                  <Tooltip itemStyle={TEXT} itemSorter={headOrder} />
+                  <Tooltip {...tooltip} itemSorter={headOrder} />
                   {annualHeads && (
                     <Legend
                       wrapperStyle={{ fontSize: 12 }}
@@ -183,19 +187,22 @@ export default function FiguresCard({ company }: Readonly<Props>) {
                     strokeWidth={2}
                     dot={{ r: 2 }}
                     connectNulls={false}
+                    legendType="plainline"
                     isAnimationActive={false}
                   />
-                  {/* one point a year, at the quarter the financial year ends in: the dashes join the years */}
+                  {/* a year's average held across its four quarters: a dashed step in a hue of its own, which the
+                      legend shows dashed — it runs close to the count, and a paler blue vanished into it */}
                   {annualHeads && (
                     <Line
-                      type="linear"
+                      type="stepAfter"
                       dataKey="annualEmployees"
                       name="Annual average (FTE)"
                       stroke={COLOURS.annual}
                       strokeWidth={2}
-                      strokeDasharray="5 4"
-                      dot={{ r: 3 }}
-                      connectNulls
+                      strokeDasharray="6 4"
+                      dot={false}
+                      connectNulls={false}
+                      legendType="plainline"
                       isAnimationActive={false}
                     />
                   )}
@@ -212,7 +219,7 @@ export default function FiguresCard({ company }: Readonly<Props>) {
                   <XAxis {...xAxis} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={formatTick} width={44} />
                   <ReferenceLine y={0} stroke="#999" />
-                  <Tooltip formatter={euros} itemStyle={TEXT} />
+                  <Tooltip {...tooltip} formatter={euros} />
                   <Bar
                     dataKey="turnover"
                     name="Turnover"
@@ -234,7 +241,7 @@ export default function FiguresCard({ company }: Readonly<Props>) {
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={formatTick} width={44} />
                   <ReferenceLine y={0} stroke="#999" />
                   {/* in the bars' order, and in text colour: the orange is a bar's colour, too light for words */}
-                  <Tooltip formatter={euros} itemStyle={TEXT} itemSorter={barOrder} />
+                  <Tooltip {...tooltip} formatter={euros} itemSorter={barOrder} />
                   <Legend
                     wrapperStyle={{ fontSize: 12 }}
                     itemSorter={null}
@@ -266,27 +273,36 @@ export default function FiguresCard({ company }: Readonly<Props>) {
               {/* a few years across the card's width: bars no wider than a quarter's would be read as such */}
               <BarChart data={years} accessibilityLayer={false} maxBarSize={48}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} />
+                {/* many years on a phone: every label that fits, the first and the last always */}
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11 }}
+                  interval="preserveStartEnd"
+                  minTickGap={8}
+                />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={formatTick} width={44} />
                 <ReferenceLine y={0} stroke="#999" />
-                <Tooltip formatter={euros} itemStyle={TEXT} itemSorter={yearOrder} />
+                <Tooltip {...tooltip} formatter={euros} itemSorter={yearOrder} />
                 <Legend wrapperStyle={{ fontSize: 12 }} itemSorter={null} formatter={legendText} />
                 <Bar
                   dataKey="revenue"
                   name="Revenue"
                   fill={COLOURS.turnover}
+                  minPointSize={2}
                   isAnimationActive={false}
                 />
                 <Bar
                   dataKey="operatingProfit"
                   name="Operating profit"
                   fill={COLOURS.operatingProfit}
+                  minPointSize={2}
                   isAnimationActive={false}
                 />
                 <Bar
                   dataKey="profit"
                   name="Profit"
                   fill={COLOURS.profit}
+                  minPointSize={2}
                   isAnimationActive={false}
                 />
               </BarChart>
@@ -302,7 +318,8 @@ export default function FiguresCard({ company }: Readonly<Props>) {
 
 /**
  * The latest of each figure with its quarter or year — they need not be the same period: a bank never has a turnover,
- * and the annual reports come a year behind the quarters. A source without the company shows nothing of its own.
+ * and the annual reports come a year behind the quarters. A source without the company shows nothing of its own; the
+ * headcount comes from the annual reports when the board has no quarters.
  */
 function Latest({ rows, years }: Readonly<{ rows: QuarterRow[]; years: YearRow[] }>) {
   const employees = latest(rows, (r) => r.employees);
@@ -310,22 +327,35 @@ function Latest({ rows, years }: Readonly<{ rows: QuarterRow[]; years: YearRow[]
   const taxes = latest(rows, (r) => r.stateTaxes);
   const revenue = latest(years, (y) => y.revenue);
   const profit = latest(years, (y) => y.profit);
+  const fte = latest(years, (y) => y.avgEmployees);
   return (
     <dl className="masi-figures-latest">
-      <div>
-        <dt>Employees</dt>
-        <dd>{employees ? `${employees.value} (${employees.label})` : 'not published'}</dd>
-      </div>
-      <div>
-        <dt>Turnover</dt>
-        <dd>{turnover ? `${formatEuros(turnover.value)} (${turnover.label})` : 'not published'}</dd>
-      </div>
-      <div>
-        <dt>State taxes</dt>
-        <dd>{taxes ? `${formatEuros(taxes.value)} (${taxes.label})` : 'not published'}</dd>
-      </div>
+      {rows.length > 0 && (
+        <>
+          <div>
+            <dt>Employees</dt>
+            <dd>{employees ? `${employees.value} (${employees.label})` : 'not published'}</dd>
+          </div>
+          <div>
+            <dt>Turnover</dt>
+            <dd>
+              {turnover ? `${formatEuros(turnover.value)} (${turnover.label})` : 'not published'}
+            </dd>
+          </div>
+          <div>
+            <dt>State taxes</dt>
+            <dd>{taxes ? `${formatEuros(taxes.value)} (${taxes.label})` : 'not published'}</dd>
+          </div>
+        </>
+      )}
       {years.length > 0 && (
         <>
+          {rows.length === 0 && (
+            <div>
+              <dt>Employees (FTE)</dt>
+              <dd>{fte ? `${fte.value} (${fte.label})` : 'not reported'}</dd>
+            </div>
+          )}
           <div>
             <dt>Revenue</dt>
             <dd>{revenue ? `${formatEuros(revenue.value)} (${revenue.label})` : 'not reported'}</dd>

@@ -7,7 +7,7 @@ export interface QuarterRow {
   employees: number | null;
   stateTaxes: number | null;
   labourTaxes: number | null;
-  /** The annual report's average headcount (full-time equivalents), at the quarter its financial year ends in. */
+  /** The annual report's average headcount (full-time equivalents), held across the four quarters of its year. */
   annualEmployees: number | null;
 }
 
@@ -30,9 +30,11 @@ function endIndex(y: MasiYearFigures): number | null {
 }
 
 /**
- * Every quarter from the first to the last either source has, in order — the board's quarters, and the quarter each
- * annual report's year ends in. A quarter with no row stays on the axis as a gap — skipping it would draw two quarters
- * a year apart side by side — and a figure left empty is null, never zero: a bank reports no turnover.
+ * Every quarter from the first to the last the board published, in order. A quarter it has no row for stays on the
+ * axis as a gap — skipping it would draw two quarters a year apart side by side — and a figure it left empty is null,
+ * never zero: a bank reports no turnover. An annual report's average headcount is held across the four quarters of
+ * its financial year where they are on the axis: years before the board's quarters stretch no quarterly chart, and are
+ * in the chart and the table by year.
  */
 export function quarterRows(
   quarters: MasiQuarterFigures[],
@@ -41,10 +43,11 @@ export function quarterRows(
   const byIndex = new Map(quarters.map((q) => [index(q), q]));
   const annual = new Map<number, number>();
   for (const y of years) {
-    const i = endIndex(y);
-    if (i !== null && y.avgEmployees !== undefined) annual.set(i, y.avgEmployees);
+    const end = endIndex(y);
+    if (end === null || y.avgEmployees === undefined) continue;
+    for (let i = end - 3; i <= end; i++) annual.set(i, y.avgEmployees);
   }
-  const indices = [...byIndex.keys(), ...annual.keys()];
+  const indices = [...byIndex.keys()];
   const first = Math.min(...indices);
   const last = Math.max(...indices);
   const rows: QuarterRow[] = [];

@@ -271,7 +271,7 @@ const ANTERAS: typeof NORTAL = [
  * period end, revenue, operating profit, profit, average employees (full-time equivalents). NORTAL's are under its
  * reports' second id.
  */
-type Year = [number, string, number, number, number, number];
+type Year = [number, string, number, number, number, number | null];
 const NORTAL_YEARS: Year[] = [
   [2023, '2023-12-31', 66_191_000, 5_352_000, 11_509_000, 386],
   [2024, '2024-12-31', 62_729_000, 5_649_000, 36_532_000, 345],
@@ -283,6 +283,20 @@ const ANTERAS_YEARS: Year[] = [
   [2025, '2025-12-31', 137_794, 45_273, 45_273, 3],
 ];
 
+/**
+ * 10003666's annual reports, as published — a company the board's quarterly files do not give the page (years only):
+ * seven financial years, the first to August and the rest to July, a loss in 2023, no headcount in 2020.
+ */
+const GROUP_YEARS: Year[] = [
+  [2019, '2019-08-31', 7_685_613, 96_064, 6_919, 51],
+  [2020, '2020-07-31', 7_818_511, 520_123, 432_203, null],
+  [2021, '2021-07-31', 9_379_293, 509_791, 471_057, 50],
+  [2022, '2022-07-31', 9_698_125, 376_421, 353_571, 51],
+  [2023, '2023-07-31', 10_157_840, 403_991, -36_770, 56],
+  [2024, '2024-07-31', 10_489_884, 403_973, 368_763, 57],
+  [2025, '2025-07-31', 10_475_906, 314_967, 336_904, 55],
+];
+
 type Row = (typeof NORTAL)[number];
 const asFigures = (quarters: Row[], years: Year[]): MasiCompanyFigures => ({
   years: years.map(([year, periodEnd, revenue, operatingProfit, profit, avgEmployees]) => ({
@@ -291,7 +305,7 @@ const asFigures = (quarters: Row[], years: Year[]): MasiCompanyFigures => ({
     revenue,
     operatingProfit,
     profit,
-    avgEmployees,
+    ...(avgEmployees === null ? {} : { avgEmployees }),
     submitted: `${year + 1}-06-17`,
   })),
   quarters: quarters.map(([year, quarter, turnover, employees, stateTaxes, labourTaxes]) => ({
@@ -308,6 +322,7 @@ const asFigures = (quarters: Row[], years: Year[]): MasiCompanyFigures => ({
 const figures: Record<string, MasiCompanyFigures> = {
   '3': asFigures(NORTAL, NORTAL_YEARS),
   '4': asFigures(ANTERAS, ANTERAS_YEARS),
+  '5': asFigures([], GROUP_YEARS),
 };
 const small: MasiCompany = {
   ...company,
@@ -316,6 +331,13 @@ const small: MasiCompany = {
   registryCode: '12499281',
   sizeBand: '1-9',
 };
+const group: MasiCompany = {
+  ...company,
+  id: 5,
+  name: 'OÜ with financial years to July',
+  registryCode: '10003666',
+};
+const byId: Record<string, MasiCompany> = { '4': small, '5': group };
 
 const none = { content: [], page: 0, size: 200, totalElements: 0 };
 
@@ -345,7 +367,7 @@ export function answer(url: URL): Answer | undefined {
     [/^\/jobs\/\d+\/history$/, () => ({ status: 200, body: [] })],
     [/^\/jobs\/\d+\/similar$/, () => ({ status: 200, body: [] })],
     [/^\/packages$/, () => ({ status: 200, body: packages })],
-    [/^\/companies\/\d+$/, () => ({ status: 200, body: path.endsWith('/4') ? small : company })],
+    [/^\/companies\/\d+$/, () => ({ status: 200, body: byId[path.split('/')[2]] ?? company })],
     [/^\/companies\/\d+\/register-match$/, () => ({ status: 204 })],
     [/^\/companies\/\d+\/contacts$/, () => ({ status: 200, body: none })],
     [

@@ -117,14 +117,21 @@ const fy = (year: number, periodEnd: string, rest: Record<string, number> = {}) 
 });
 
 describe('the annual reports', () => {
-  it("place a year's headcount at the quarter its financial year ends in, on the quarters' own axis", () => {
+  it("hold a year's headcount across the four quarters of its financial year, on the board's own axis", () => {
+    const board = [q(2024, 1, { employees: 40 }), q(2024, 4, { employees: 41 })];
+    const rows = quarterRows(board, [fy(2024, '2024-07-31', { avgEmployees: 38.5 })]);
+    // the year Aug 2023 – Jul 2024: 2023 Q3 to 2024 Q3; the axis stays the board's, 2024 Q1 to Q4
+    expect(rows.map((r) => r.label)).toEqual(['2024 Q1', '2024 Q2', '2024 Q3', '2024 Q4']);
+    expect(rows.map((r) => r.annualEmployees)).toEqual([38.5, 38.5, 38.5, null]);
+  });
+
+  it("never stretch the board's axis: years before its quarters are the chart by year's", () => {
     const rows = quarterRows(
-      [q(2025, 1, { employees: 40 })],
-      [fy(2024, '2024-07-31', { avgEmployees: 38.5 })],
+      [q(2025, 1, { turnover: 1 }), q(2025, 2, { turnover: 2 })],
+      [fy(2019, '2019-12-31', { avgEmployees: 3 }), fy(2020, '2020-12-31', { avgEmployees: 4 })],
     );
-    expect(rows.map((r) => r.label)).toEqual(['2024 Q3', '2024 Q4', '2025 Q1']);
-    expect(rows.map((r) => r.annualEmployees)).toEqual([38.5, null, null]);
-    expect(rows.map((r) => r.employees)).toEqual([null, null, 40]);
+    expect(rows.map((r) => r.label)).toEqual(['2025 Q1', '2025 Q2']);
+    expect(rows.every((r) => r.annualEmployees === null)).toBe(true);
   });
 
   it('name a year by when it ends, not by the register label', () => {

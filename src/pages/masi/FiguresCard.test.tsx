@@ -242,6 +242,13 @@ describe('FiguresCard', () => {
     vi.mocked(api.fetchMasiCompanyFigures).mockResolvedValue({
       quarters: nortal,
       years: [
+        // the year the board's quarters here (2025 Q4 – 2026 Q2) reach into: its headcount is held across 2025
+        year(2025, '2025-12-31', {
+          revenue: 64_414_000,
+          operatingProfit: 1_383_000,
+          profit: 7_062_000,
+          avgEmployees: 361,
+        }),
         year(2024, '2024-12-31', {
           revenue: 62_729_000,
           operatingProfit: 5_649_000,
@@ -258,9 +265,11 @@ describe('FiguresCard', () => {
     });
     render(<FiguresCard company={company('10391131')} />);
     await screen.findByText('Figures');
+    // each source its own line to wrap on, the two in the order they are charted
     expect(
-      screen.getByText(/by quarter · file of 10 Jul 2026 · e-Business Register annual reports/),
+      screen.getByText('Tax and Customs Board, by quarter · file of 10 Jul 2026'),
     ).toBeInTheDocument();
+    expect(screen.getByText('e-Business Register annual reports')).toBeInTheDocument();
     const byYear = screen.getByRole('figure', { name: 'Revenue and profit by financial year (€)' });
     expect(byYear).toHaveTextContent('series Revenue');
     expect(byYear).toHaveTextContent('series Operating profit');
@@ -269,11 +278,15 @@ describe('FiguresCard', () => {
       'series Annual average (FTE)',
     );
     const [, , , revenue, profit] = screen.getAllByRole('definition');
-    expect(revenue).toHaveTextContent('62.7M € (2024)');
-    expect(profit).toHaveTextContent('36.5M € (2024)');
+    expect(revenue).toHaveTextContent('64.4M € (2025)');
+    expect(profit).toHaveTextContent('7.1M € (2025)');
     const table = screen.getByRole('table', { name: 'Figures by financial year' });
     const rows = within(table).getAllByRole('row').slice(1);
-    expect(rows.map((r) => within(r).getByRole('rowheader').textContent)).toEqual(['2023', '2024']);
+    expect(rows.map((r) => within(r).getByRole('rowheader').textContent)).toEqual([
+      '2023',
+      '2024',
+      '2025',
+    ]);
     expect(
       within(rows[1])
         .getAllByRole('cell')
@@ -293,6 +306,12 @@ describe('FiguresCard', () => {
     expect(screen.queryByRole('figure', { name: 'Turnover (€)' })).not.toBeInTheDocument();
     expect(screen.getByText('e-Business Register annual reports')).toBeInTheDocument();
     expect(screen.queryByRole('table', { name: 'Figures by quarter' })).not.toBeInTheDocument();
+    // no quarterly headline without the board's quarters; the headcount from the annual reports
+    expect(screen.getAllByRole('term').map((t) => t.textContent)).toEqual([
+      'Employees (FTE)',
+      'Revenue',
+      'Profit',
+    ]);
     expect(
       within(screen.getByRole('table', { name: 'Figures by financial year' })).getByRole(
         'rowheader',

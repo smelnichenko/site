@@ -138,7 +138,14 @@ for (const width of [390, 600, 768, 960, 1366]) {
       inText(['State taxes', 'Labour taxes']),
       inText(['Revenue', 'Operating profit', 'Profit']),
     ]);
-    expect(m.annualPoints, "one point for each annual report's year").toBe(3);
+    expect(
+      m.annual,
+      "the annual reports' headcount a dashed line in a hue of its own, dashed in the legend too",
+    ).toEqual({
+      stroke: 'rgb(179, 89, 0)',
+      dashed: '6 4',
+      iconDashed: '6 4',
+    });
     expect(m.captions, 'every chart captioned alike').toEqual(Array(4).fill('600'));
     expect(m.years.xTicks, 'the chart by year names each financial year').toBe('2023|2024|2025');
     expect(m.years.yTicks, 'and plots their money').toBe('0|20M|40M|60M|80M');
@@ -205,6 +212,10 @@ for (const width of [390, 600, 768, 960, 1366]) {
       'Operating profit : 5,352,000 €',
       'Profit : 11,509,000 €',
     ]);
+    await expect(
+      page.locator('.masi-figures-years .recharts-default-tooltip'),
+      'a tooltip small enough not to cover the years on a phone',
+    ).toHaveCSS('font-size', '12px');
     expect(warnings, 'recharts draws without a warning').toEqual([]);
   });
 }
@@ -224,7 +235,32 @@ test('a small company: its own scale, a gap where a count is missing, a bar belo
   expect(m.lineSegments, 'the line breaks at the missing count').toBe(2);
   expect(m.zeroOnAxis, 'the zero line on the 0 tick').toEqual([true, true]);
   expect(m.belowZero, "the negative quarter's bar hangs below the zero line").toBe(1);
+  // its 2023 profit of 1 048 € beside a revenue of 137 630 €: a bar of a pixel reads as none
+  expect(m.years.shortestBar, 'no year bar too short to see').toBeGreaterThanOrEqual(2);
 });
+
+/**
+ * A company the board's quarterly files do not give (10003666, years only, as published): its years alone, named by
+ * when they end — every label that fits, none over another, the first and the last always — a loss hanging below the
+ * zero line, its headcount among the latest figures from the annual reports, and only that source named.
+ */
+for (const width of [390, 1366]) {
+  test(`a company with annual reports only, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/companies/5', '.masi-figures-card');
+    const m = await page.evaluate(measureFigures);
+    expect(m.quarterlyCharts, 'no quarterly charts').toBe(0);
+    expect(m.sourceSpans).toEqual(['e-Business Register annual reports']);
+    expect(m.latest).toEqual(['55 (Jul 2025)', '10.5M € (Jul 2025)', '336.9K € (Jul 2025)']);
+    expect(m.yearTickOverlap, 'no year label over another').toBe(false);
+    expect(
+      m.years.xTicks.startsWith('Aug 2019') && m.years.xTicks.endsWith('Jul 2025'),
+      m.years.xTicks,
+    ).toBe(true);
+    expect(m.years.zeroOnAxis, 'the zero line on the 0 tick').toBe(true);
+    expect(m.yearBelowZero, "the loss year's profit hangs below the zero line").toBe(1);
+  });
+}
 
 /** What the figures card draws, as numbers the tests compare. */
 function measureFigures() {
@@ -279,14 +315,39 @@ function measureFigures() {
         colour: getComputedStyle(e.querySelector('span') ?? e).color,
       })),
     ),
-    annualPoints:
-      charts[0]?.querySelectorAll('.recharts-line-dots')[1]?.querySelectorAll('circle').length ?? 0,
+    annual: (() => {
+      const curve = charts[0]?.querySelectorAll('.recharts-line-curve')[1];
+      const icon = charts[0]
+        ?.querySelectorAll('.recharts-legend-item')[1]
+        ?.querySelector('path, line');
+      return {
+        stroke: curve ? getComputedStyle(curve).stroke : '',
+        dashed: curve?.getAttribute('stroke-dasharray') ?? '',
+        iconDashed: icon?.getAttribute('stroke-dasharray') ?? '',
+      };
+    })(),
+    yearTickOverlap: (() => {
+      const boxes = [
+        ...(yearChart?.querySelectorAll('.recharts-xAxis-tick-labels text') ?? []),
+      ].map((t) => t.getBoundingClientRect());
+      return boxes.some((b, i) => i > 0 && b.left < boxes[i - 1].right);
+    })(),
+    yearBelowZero: bars(yearChart ?? undefined).filter(
+      (p) => p.getBoundingClientRect().top >= zero(yearChart).line - 1,
+    ).length,
+    sourceSpans: [...document.querySelectorAll('.masi-figures-card .card-header-aside span')].map(
+      (e) => e.textContent,
+    ),
+    quarterlyCharts: charts.length,
     years: {
       xTicks: texts(yearChart ?? undefined, '.recharts-xAxis-tick-labels text'),
       yTicks: texts(yearChart ?? undefined, '.recharts-yAxis-tick-labels text'),
       zeroOnAxis: zeroOf(yearChart),
       thinnestBar: Math.min(
         ...bars(yearChart ?? undefined).map((p) => p.getBoundingClientRect().width),
+      ),
+      shortestBar: Math.min(
+        ...bars(yearChart ?? undefined).map((p) => p.getBoundingClientRect().height),
       ),
     },
     latest: [...document.querySelectorAll('.masi-figures-latest dd')].map((d) => d.textContent),

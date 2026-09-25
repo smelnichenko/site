@@ -1180,6 +1180,16 @@ a.muted,
   gap: 4px 16px;
 }
 
+/* its two sources wrap as whole units, one under the other when the line is full */
+.masi-figures-card .card-header-aside {
+  flex-wrap: wrap;
+  gap: 0 1ch;
+}
+
+.masi-figures-card .card-header-aside span + span::before {
+  content: '· ';
+}
+
 .masi-figures {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
