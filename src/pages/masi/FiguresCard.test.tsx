@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, isInaccessible, render, screen, within } from '@testing-library/react';
 import FiguresCard from './FiguresCard';
 import * as api from '../../services/api';
 import type { MasiCompany } from '../../services/api';
@@ -120,13 +120,19 @@ describe('FiguresCard', () => {
     expect(
       screen.getByText(/Tax and Customs Board, by quarter · file of 10 Jul 2026/),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('img', { name: 'Employees by quarter, 2025 Q4 to 2026 Q2' }),
-    ).toHaveTextContent('series Employees');
-    expect(
-      screen.getByRole('img', { name: 'Turnover by quarter, 2025 Q4 to 2026 Q2' }),
-    ).toHaveTextContent('series Turnover');
-    const taxes = screen.getByRole('img', { name: 'Taxes paid by quarter, 2025 Q4 to 2026 Q2' });
+    // each chart named by its caption, its drawing hidden from a screen reader, which reads the table instead
+    const chart = (name: string) => {
+      const figure = screen.getByRole('figure', { name });
+      expect(
+        within(figure)
+          .getAllByText(/^series /)
+          .every(isInaccessible),
+      ).toBe(true);
+      return figure;
+    };
+    expect(chart('Employees')).toHaveTextContent('series Employees');
+    expect(chart('Turnover (€)')).toHaveTextContent('series Turnover');
+    const taxes = chart('Taxes paid (€)');
     expect(taxes).toHaveTextContent('series State taxes');
     expect(taxes).toHaveTextContent('series Labour taxes');
     expect(screen.getByText('356 (2026 Q2)')).toBeInTheDocument();

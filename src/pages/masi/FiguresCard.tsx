@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -65,6 +65,7 @@ export default function FiguresCard({ company }: Readonly<Props>) {
   // what was loaded, and for which company: a company the page moved on from shows nothing of its own while the next
   // one loads, and no reset is written inside the effect
   const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const ids = useId();
   const coded = company.registryCode !== null;
 
   useEffect(() => {
@@ -105,12 +106,11 @@ export default function FiguresCard({ company }: Readonly<Props>) {
   }
   if (rows.length === 0) return null;
 
-  // ISO dates: the latest is the greatest string
-  const published = (figures?.quarters ?? []).reduce(
-    (a, q) => (q.published > a ? q.published : a),
-    '',
-  );
-  const span = `${rows[0].label} to ${rows[rows.length - 1].label}`;
+  // ISO dates sort as text: the newest file is the last
+  const dates = (figures?.quarters ?? [])
+    .map((q) => q.published)
+    .sort((a, b) => a.localeCompare(b));
+  const published = dates[dates.length - 1];
   const xAxis = {
     dataKey: 'label',
     ticks: yearTicks(rows),
@@ -127,13 +127,10 @@ export default function FiguresCard({ company }: Readonly<Props>) {
       </div>
       <Latest rows={rows} />
       <div className="masi-figures">
-        <figure>
-          <figcaption>Employees</figcaption>
-          <div
-            className="masi-figures-chart"
-            role="img"
-            aria-label={`Employees by quarter, ${span}`}
-          >
+        {/* each chart is named by its caption and drawn for the eye only: its figures are the table below */}
+        <figure aria-labelledby={`${ids}-employees`}>
+          <figcaption id={`${ids}-employees`}>Employees</figcaption>
+          <div className="masi-figures-chart" aria-hidden="true">
             <ResponsiveContainer width="100%" height="100%" initialDimension={FIRST_SIZE}>
               {/* no keyboard layer: the chart is a picture here, its figures are the table a screen reader reads */}
               <LineChart data={rows} accessibilityLayer={false}>
@@ -162,13 +159,9 @@ export default function FiguresCard({ company }: Readonly<Props>) {
             </ResponsiveContainer>
           </div>
         </figure>
-        <figure>
-          <figcaption>Turnover (€)</figcaption>
-          <div
-            className="masi-figures-chart"
-            role="img"
-            aria-label={`Turnover by quarter, ${span}`}
-          >
+        <figure aria-labelledby={`${ids}-turnover`}>
+          <figcaption id={`${ids}-turnover`}>Turnover (€)</figcaption>
+          <div className="masi-figures-chart" aria-hidden="true">
             <ResponsiveContainer width="100%" height="100%" initialDimension={FIRST_SIZE}>
               <BarChart data={rows} accessibilityLayer={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
@@ -186,13 +179,9 @@ export default function FiguresCard({ company }: Readonly<Props>) {
             </ResponsiveContainer>
           </div>
         </figure>
-        <figure>
-          <figcaption>Taxes paid (€)</figcaption>
-          <div
-            className="masi-figures-chart"
-            role="img"
-            aria-label={`Taxes paid by quarter, ${span}`}
-          >
+        <figure aria-labelledby={`${ids}-taxes`}>
+          <figcaption id={`${ids}-taxes`}>Taxes paid (€)</figcaption>
+          <div className="masi-figures-chart" aria-hidden="true">
             <ResponsiveContainer width="100%" height="100%" initialDimension={FIRST_SIZE}>
               {/* side by side, not stacked: the board's two sums overlap (income and social tax are in both) */}
               <BarChart data={rows} accessibilityLayer={false}>
