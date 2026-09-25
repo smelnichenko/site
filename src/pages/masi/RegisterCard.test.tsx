@@ -165,6 +165,25 @@ describe('RegisterCard', () => {
     expect(onChange).not.toHaveBeenCalled(); // this company is gone; nothing to update in place
   });
 
+  it("says how each candidate was found: the same name, a name that begins with it, its people's domain, a typed code", async () => {
+    vi.mocked(api.fetchMasiRegisterCandidates).mockResolvedValue(
+      found([
+        candidate({ registryCode: '1', name: 'Same OÜ', how: 'EXACT' }),
+        candidate({ registryCode: '2', name: 'Longer OÜ', how: 'PREFIX' }),
+        candidate({ registryCode: '3', name: 'Domain OÜ', how: 'DOMAIN' }),
+        candidate({ registryCode: '4', name: 'Typed OÜ', how: 'CODE' }),
+      ]),
+    );
+    showCard(bolt);
+    const row = (name: string) => screen.findByRole('row', { name: new RegExp(name) });
+    expect(await row('Same OÜ')).toHaveTextContent('same name');
+    expect(await row('Longer OÜ')).toHaveTextContent('starts with it');
+    expect(await row('Domain OÜ')).toHaveTextContent('its people write from its domain');
+    expect(await row('Domain OÜ')).not.toHaveTextContent('starts with it');
+    expect(await row('Typed OÜ')).toHaveTextContent('the code you typed');
+    expect(await row('Typed OÜ')).not.toHaveTextContent('starts with it');
+  });
+
   it('looks a typed code up and asks before placing it — a code masi holds would merge two companies', async () => {
     const typed = candidate({
       how: 'CODE',

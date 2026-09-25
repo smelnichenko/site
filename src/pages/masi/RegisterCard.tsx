@@ -15,6 +15,14 @@ import MasiTable from '../../components/MasiTable';
 import { errorMessage, formatDate } from './format';
 import { consequence, restores, whyNone } from './register';
 
+/** How the register found a candidate, as the operator reads it. */
+const FOUND_BY: Record<MasiRegisterCandidate['how'], string> = {
+  EXACT: 'same name',
+  PREFIX: 'starts with it',
+  DOMAIN: 'its people write from its domain',
+  CODE: 'the code you typed',
+};
+
 interface Props {
   company: MasiCompany;
   /** The company changed on the register: its code, its facts, the board it brought — the page reloads what it shows. */
@@ -196,7 +204,7 @@ export default function RegisterCard({ company, onChange }: Readonly<Props>) {
                     <td>{c.emtakCode ?? ''}</td>
                     <td>{c.hqCity ?? ''}</td>
                     <td>
-                      {c.how === 'EXACT' ? 'same name' : 'starts with it'}
+                      {FOUND_BY[c.how]}
                       {c.sure && <div className="muted">masi is sure of this one</div>}
                       {!c.employerForm && <div className="muted">never an employer</div>}
                       {c.heldById !== null && <div className="muted">masi holds it</div>}
