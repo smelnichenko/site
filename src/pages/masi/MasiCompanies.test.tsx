@@ -17,6 +17,7 @@ const nortal = {
   emtakCode: '62011',
   sizeBand: '250+',
   hqCity: 'Tallinn',
+  address: null,
   tags: null,
   status: 'ACTIVE',
   origin: 'DISCOVERED',

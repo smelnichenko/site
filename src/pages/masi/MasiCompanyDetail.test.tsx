@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import MasiCompanyDetail from './MasiCompanyDetail';
+import { mapsUrl } from './format';
 import { agencyText } from './register';
 import { job, renderAt } from './testUtils';
 import type { MasiContact, MasiPerson } from '../../services/api';
@@ -32,6 +33,7 @@ const company = {
   emtakCode: null,
   sizeBand: '250+',
   hqCity: 'Tallinn',
+  address: null as string | null,
   tags: null,
   status: 'ACTIVE',
   origin: 'DISCOVERED',
@@ -210,6 +212,30 @@ describe('MasiCompanyDetail', () => {
     );
     expect(screen.getByText('Blacklisted: no packages for this company')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Lift blacklist' })).toBeInTheDocument();
+  });
+
+  it('shows the registered address with a link that opens it on Google Maps, and none without one', async () => {
+    const address = 'Harju maakond, Tallinn, Kesklinna linnaosa, Narva mnt 5, 10117';
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, address });
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    const { unmount } = renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    expect(await screen.findByText(address)).toBeInTheDocument();
+    const map = screen.getByRole('link', { name: 'map' });
+    expect(map).toHaveAttribute('href', mapsUrl(address));
+    expect(map).toHaveAttribute('target', '_blank');
+    expect(map).toHaveAttribute('rel', 'noopener noreferrer');
+    unmount();
+
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, address: null });
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    expect(await screen.findByText('Nortal AS')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'map' })).not.toBeInTheDocument();
   });
 
   it("marks an agency, and hands the question back to the register once it is the operator's word", async () => {

@@ -15,7 +15,7 @@ import {
 } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
-import { badgeClass, errorMessage, formatDate } from './format';
+import { badgeClass, errorMessage, formatDate, mapsUrl } from './format';
 import MasiTable from '../../components/MasiTable';
 import RegisterCard from './RegisterCard';
 import { byCompany, rolesText, whereLabel } from './people';
@@ -161,6 +161,14 @@ export default function MasiCompanyDetail() {
           {formatDate(company.lastSeenAt)}
           {company.registerSeenAt ? ` · register ${formatDate(company.registerSeenAt)}` : ''}
         </div>
+        {company.address && (
+          <div className="muted">
+            <span>{company.address}</span> ·{' '}
+            <a href={mapsUrl(company.address)} target="_blank" rel="noopener noreferrer">
+              map
+            </a>
+          </div>
+        )}
         <div className="muted">
           {company.website && (
             <a href={company.website} target="_blank" rel="noopener noreferrer">

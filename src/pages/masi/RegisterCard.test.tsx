@@ -29,6 +29,7 @@ const bolt: MasiCompany = {
   emtakCode: null,
   sizeBand: null,
   hqCity: null,
+  address: null,
   tags: null,
   status: 'ACTIVE',
   origin: 'FROM_LISTING',
