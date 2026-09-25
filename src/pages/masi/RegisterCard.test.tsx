@@ -175,13 +175,26 @@ describe('RegisterCard', () => {
       ]),
     );
     showCard(bolt);
-    const row = (name: string) => screen.findByRole('row', { name: new RegExp(name) });
-    expect(await row('Same OÜ')).toHaveTextContent('same name');
-    expect(await row('Longer OÜ')).toHaveTextContent('starts with it');
-    expect(await row('Domain OÜ')).toHaveTextContent('its people write from its domain');
-    expect(await row('Domain OÜ')).not.toHaveTextContent('starts with it');
-    expect(await row('Typed OÜ')).toHaveTextContent('the code you typed');
-    expect(await row('Typed OÜ')).not.toHaveTextContent('starts with it');
+    // the row whose name cell comes first, and the "how" cell by its whole text: a label with more appended is not it
+    const row = (name: string) =>
+      screen.findByRole('row', { name: (rowName) => rowName.startsWith(`${name} `) });
+    const how = async (name: string, label: string) =>
+      expect(within(await row(name)).getByRole('cell', { name: label })).toBeInTheDocument();
+    await how('Same OÜ', 'same name');
+    await how('Longer OÜ', 'starts with it');
+    await how('Domain OÜ', 'its people write from its domain');
+    await how('Typed OÜ', 'the code you typed');
+  });
+
+  it('shows a way of finding a candidate it has no words for as it came, never an empty cell', async () => {
+    vi.mocked(api.fetchMasiRegisterCandidates).mockResolvedValue(
+      found([
+        candidate({ name: 'Later OÜ', how: 'SOMETHING_NEW' as MasiRegisterCandidate['how'] }),
+      ]),
+    );
+    showCard(bolt);
+    const later = await screen.findByRole('row', { name: (n) => n.startsWith('Later OÜ ') });
+    expect(within(later).getByRole('cell', { name: 'SOMETHING_NEW' })).toBeInTheDocument();
   });
 
   it('looks a typed code up and asks before placing it — a code masi holds would merge two companies', async () => {

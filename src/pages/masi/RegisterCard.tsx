@@ -204,7 +204,7 @@ export default function RegisterCard({ company, onChange }: Readonly<Props>) {
                     <td>{c.emtakCode ?? ''}</td>
                     <td>{c.hqCity ?? ''}</td>
                     <td>
-                      {FOUND_BY[c.how]}
+                      {FOUND_BY[c.how] ?? c.how}
                       {c.sure && <div className="muted">masi is sure of this one</div>}
                       {!c.employerForm && <div className="muted">never an employer</div>}
                       {c.heldById !== null && <div className="muted">masi holds it</div>}
