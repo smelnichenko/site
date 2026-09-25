@@ -266,8 +266,34 @@ const ANTERAS: typeof NORTAL = [
   [2026, 2, 22000, 3, 8013, 3599],
 ];
 
+/**
+ * The same two companies' annual reports as the register publishes them (key indicators, their own figures): year,
+ * period end, revenue, operating profit, profit, average employees (full-time equivalents). NORTAL's are under its
+ * reports' second id.
+ */
+type Year = [number, string, number, number, number, number];
+const NORTAL_YEARS: Year[] = [
+  [2023, '2023-12-31', 66_191_000, 5_352_000, 11_509_000, 386],
+  [2024, '2024-12-31', 62_729_000, 5_649_000, 36_532_000, 345],
+  [2025, '2025-12-31', 64_414_000, 1_383_000, 7_062_000, 361],
+];
+const ANTERAS_YEARS: Year[] = [
+  [2023, '2023-12-31', 137_630, 1_048, 1_048, 3],
+  [2024, '2024-12-31', 218_036, 135_356, 135_356, 3],
+  [2025, '2025-12-31', 137_794, 45_273, 45_273, 3],
+];
+
 type Row = (typeof NORTAL)[number];
-const asFigures = (quarters: Row[]): MasiCompanyFigures => ({
+const asFigures = (quarters: Row[], years: Year[]): MasiCompanyFigures => ({
+  years: years.map(([year, periodEnd, revenue, operatingProfit, profit, avgEmployees]) => ({
+    year,
+    periodEnd,
+    revenue,
+    operatingProfit,
+    profit,
+    avgEmployees,
+    submitted: `${year + 1}-06-17`,
+  })),
   quarters: quarters.map(([year, quarter, turnover, employees, stateTaxes, labourTaxes]) => ({
     year,
     quarter,
@@ -280,8 +306,8 @@ const asFigures = (quarters: Row[]): MasiCompanyFigures => ({
 });
 
 const figures: Record<string, MasiCompanyFigures> = {
-  '3': asFigures(NORTAL),
-  '4': asFigures(ANTERAS),
+  '3': asFigures(NORTAL, NORTAL_YEARS),
+  '4': asFigures(ANTERAS, ANTERAS_YEARS),
 };
 const small: MasiCompany = {
   ...company,

@@ -1,7 +1,5 @@
 /** A company's quarterly figures shaped for the charts: one row per quarter on a continuous axis. */
-import { MasiQuarterFigures } from '../../services/api';
-
-export type Figure = 'turnover' | 'employees' | 'stateTaxes' | 'labourTaxes';
+import { MasiQuarterFigures, MasiYearFigures } from '../../services/api';
 
 export interface QuarterRow {
   label: string;
@@ -9,18 +7,44 @@ export interface QuarterRow {
   employees: number | null;
   stateTaxes: number | null;
   labourTaxes: number | null;
+  /** The annual report's average headcount (full-time equivalents), at the quarter its financial year ends in. */
+  annualEmployees: number | null;
+}
+
+/** A financial year's figures, for the chart and the table by year. */
+export interface YearRow {
+  label: string;
+  revenue: number | null;
+  operatingProfit: number | null;
+  profit: number | null;
+  avgEmployees: number | null;
 }
 
 const index = (q: { year: number; quarter: number }) => q.year * 4 + q.quarter - 1;
 
+/** The quarter a financial year ends in, on the quarters' axis. */
+function endIndex(y: MasiYearFigures): number | null {
+  if (!y.periodEnd) return null;
+  const [year, month] = y.periodEnd.split('-').map(Number);
+  return year * 4 + Math.floor((month - 1) / 3);
+}
+
 /**
- * Every quarter from the first to the last the board published, in order. A quarter it has no row for stays on the
- * axis as a gap — skipping it would draw two quarters a year apart side by side — and a figure it left empty is null,
- * never zero: a bank reports no turnover.
+ * Every quarter from the first to the last either source has, in order — the board's quarters, and the quarter each
+ * annual report's year ends in. A quarter with no row stays on the axis as a gap — skipping it would draw two quarters
+ * a year apart side by side — and a figure left empty is null, never zero: a bank reports no turnover.
  */
-export function quarterRows(quarters: MasiQuarterFigures[]): QuarterRow[] {
+export function quarterRows(
+  quarters: MasiQuarterFigures[],
+  years: MasiYearFigures[] = [],
+): QuarterRow[] {
   const byIndex = new Map(quarters.map((q) => [index(q), q]));
-  const indices = [...byIndex.keys()];
+  const annual = new Map<number, number>();
+  for (const y of years) {
+    const i = endIndex(y);
+    if (i !== null && y.avgEmployees !== undefined) annual.set(i, y.avgEmployees);
+  }
+  const indices = [...byIndex.keys(), ...annual.keys()];
   const first = Math.min(...indices);
   const last = Math.max(...indices);
   const rows: QuarterRow[] = [];
@@ -32,6 +56,7 @@ export function quarterRows(quarters: MasiQuarterFigures[]): QuarterRow[] {
       employees: q?.employees ?? null,
       stateTaxes: q?.stateTaxes ?? null,
       labourTaxes: q?.labourTaxes ?? null,
+      annualEmployees: annual.get(i) ?? null,
     });
   }
   return rows;
@@ -52,13 +77,38 @@ export function employeeAxis(max: number): number[] {
   return Array.from({ length: end / step + 1 }, (_, i) => i * step);
 }
 
-/** The last quarter that carries the figure, and its value; null when no quarter does. */
-export function latest(
-  rows: QuarterRow[],
-  figure: Figure,
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * A financial year as the chart names it, by when it ends: `2024` for a year to December, `Jul 2024` for one to July —
+ * the register's own label for a year that is not the calendar's may be either calendar year's, and is not used.
+ */
+export function yearLabel(y: MasiYearFigures): string {
+  if (!y.periodEnd) return String(y.year);
+  const [year, month] = y.periodEnd.split('-').map(Number);
+  return month === 12 ? String(year) : `${MONTHS[month - 1]} ${year}`;
+}
+
+/** The annual reports' money by financial year, in the order the years end. */
+export function yearRows(years: MasiYearFigures[]): YearRow[] {
+  return [...years]
+    .sort((a, b) => (a.periodEnd ?? String(a.year)).localeCompare(b.periodEnd ?? String(b.year)))
+    .map((y) => ({
+      label: yearLabel(y),
+      revenue: y.revenue ?? null,
+      operatingProfit: y.operatingProfit ?? null,
+      profit: y.profit ?? null,
+      avgEmployees: y.avgEmployees ?? null,
+    }));
+}
+
+/** The last row that carries the figure, and its value; null when no row does. */
+export function latest<R extends { label: string }>(
+  rows: R[],
+  figure: (row: R) => number | null,
 ): { label: string; value: number } | null {
   for (let i = rows.length - 1; i >= 0; i--) {
-    const value = rows[i][figure];
+    const value = figure(rows[i]);
     if (value !== null) return { label: rows[i].label, value };
   }
   return null;

@@ -7,6 +7,8 @@ import {
   latest,
   quarterRows,
   quarterTick,
+  yearLabel,
+  yearRows,
   yearTicks,
 } from './figures';
 
@@ -31,6 +33,7 @@ describe('quarterRows', () => {
       employees: null,
       stateTaxes: null,
       labourTaxes: null,
+      annualEmployees: null,
     });
     expect(rows.map((r) => r.employees)).toEqual([3, null, 4, 5]);
   });
@@ -55,9 +58,9 @@ describe('latest', () => {
       q(2025, 4, { turnover: 400, employees: 4 }),
       q(2026, 1, { employees: 5 }),
     ]);
-    expect(latest(rows, 'employees')).toEqual({ label: '2026 Q1', value: 5 });
-    expect(latest(rows, 'turnover')).toEqual({ label: '2025 Q4', value: 400 });
-    expect(latest(rows, 'stateTaxes')).toBeNull();
+    expect(latest(rows, (r) => r.employees)).toEqual({ label: '2026 Q1', value: 5 });
+    expect(latest(rows, (r) => r.turnover)).toEqual({ label: '2025 Q4', value: 400 });
+    expect(latest(rows, (r) => r.stateTaxes)).toBeNull();
   });
 });
 
@@ -103,5 +106,41 @@ describe('employeeAxis', () => {
 
   it('puts a company without employees on the baseline, not halfway up', () => {
     expect(employeeAxis(0)).toEqual([0, 1]);
+  });
+});
+
+const fy = (year: number, periodEnd: string, rest: Record<string, number> = {}) => ({
+  year,
+  periodEnd,
+  submitted: '2025-06-20',
+  ...rest,
+});
+
+describe('the annual reports', () => {
+  it("place a year's headcount at the quarter its financial year ends in, on the quarters' own axis", () => {
+    const rows = quarterRows(
+      [q(2025, 1, { employees: 40 })],
+      [fy(2024, '2024-07-31', { avgEmployees: 38.5 })],
+    );
+    expect(rows.map((r) => r.label)).toEqual(['2024 Q3', '2024 Q4', '2025 Q1']);
+    expect(rows.map((r) => r.annualEmployees)).toEqual([38.5, null, null]);
+    expect(rows.map((r) => r.employees)).toEqual([null, null, 40]);
+  });
+
+  it('name a year by when it ends, not by the register label', () => {
+    expect(yearLabel(fy(2024, '2024-12-31'))).toBe('2024');
+    expect(yearLabel(fy(2023, '2024-07-31'))).toBe('Jul 2024');
+  });
+
+  it('are in the order their years end, a figure not reported a gap', () => {
+    const rows = yearRows([
+      fy(2025, '2025-12-31', { revenue: 3, profit: -1 }),
+      fy(2024, '2024-07-31', { revenue: 2, avgEmployees: 4 }),
+    ]);
+    expect(rows).toEqual([
+      { label: 'Jul 2024', revenue: 2, operatingProfit: null, profit: null, avgEmployees: 4 },
+      { label: '2025', revenue: 3, operatingProfit: null, profit: -1, avgEmployees: null },
+    ]);
+    expect(latest(rows, (r) => r.profit)).toEqual({ label: '2025', value: -1 });
   });
 });

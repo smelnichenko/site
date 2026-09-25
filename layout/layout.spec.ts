@@ -114,11 +114,13 @@ async function open(
 
 /**
  * The company's figures, read as a reader would: no focus stop inside a chart (its figures are the screen reader's
- * table), words in text colour (the orange is a bar's colour, 3.5:1 on white), the legend and the tooltip in the bars'
- * order and the tooltip to the euro, the same year ticks under every chart so a spike in one is read against the same
- * label in the next, each chart plotting its own figure, every row of charts reaching the grid's right edge (600 and
- * 768 px have two columns; 960 px is three in a grid just wider than 872 px, where two would end), bars no thinner than 3 px, and on a phone every point over the bar below it, the source
- * line under the title and each latest figure on one line. NORTAL AS: 403 at the most, on a 0–500 axis.
+ * table), words in text colour (the orange is a bar's colour, 3.5:1 on white), the legends and the tooltips in the
+ * bars' order and the tooltips to the euro, the same year ticks under every quarterly chart so a spike in one is read
+ * against the same label in the next, each chart plotting its own figure, every row of charts reaching the grid's right
+ * edge (600 and 768 px have two columns; 960 px is three in a grid just wider than 872 px, where two would end), bars no
+ * thinner than 3 px, the annual reports' headcount a dashed line of three points on the employees chart and their
+ * money a chart by year below the grid, and on a phone every point over the bar below it, the source line under the
+ * title and each latest figure on one line. NORTAL AS: 403 at the most, on a 0–500 axis.
  */
 for (const width of [390, 600, 768, 960, 1366]) {
   test(`company figures read the same on every chart, at ${width} px`, async ({ page }) => {
@@ -130,9 +132,24 @@ for (const width of [390, 600, 768, 960, 1366]) {
     await open(page, '/masi/companies/3', '.masi-figures-card');
     const m = await page.evaluate(measureFigures);
     expect(m.focusable, 'no nameless focus stop inside a chart').toBe(0);
-    expect(m.legend, 'the legend in the bars order, in text colour').toEqual([
-      { text: 'State taxes', colour: 'rgb(51, 51, 51)' },
-      { text: 'Labour taxes', colour: 'rgb(51, 51, 51)' },
+    const inText = (texts: string[]) => texts.map((text) => ({ text, colour: 'rgb(51, 51, 51)' }));
+    expect(m.legends, 'the legends in the lines and bars order, in text colour').toEqual([
+      inText(['Employees', 'Annual average (FTE)']),
+      inText(['State taxes', 'Labour taxes']),
+      inText(['Revenue', 'Operating profit', 'Profit']),
+    ]);
+    expect(m.annualPoints, "one point for each annual report's year").toBe(3);
+    expect(m.captions, 'every chart captioned alike').toEqual(Array(4).fill('600'));
+    expect(m.years.xTicks, 'the chart by year names each financial year').toBe('2023|2024|2025');
+    expect(m.years.yTicks, 'and plots their money').toBe('0|20M|40M|60M|80M');
+    expect(m.years.zeroOnAxis, 'its zero line on the 0 tick').toBe(true);
+    expect(m.years.thinnestBar, 'no year bar thinner than 3 px').toBeGreaterThanOrEqual(3);
+    expect(m.latest, 'the latest of each figure, the years as well').toEqual([
+      '356 (2026 Q2)',
+      '14.9M € (2026 Q2)',
+      '3.7M € (2026 Q2)',
+      '64.4M € (2025)',
+      '7.1M € (2025)',
     ]);
     expect(m.xTicks, 'every chart names the same quarters: each year').toEqual(
       Array(3).fill('2022|2023|2024|2025|2026'),
@@ -174,6 +191,20 @@ for (const width of [390, 600, 768, 960, 1366]) {
       'State taxes : 3,264,450 €',
       'Labour taxes : 2,095,885 €',
     ]);
+    // and the years' tooltip over the first year: the bars' order, to the euro
+    const yearBar = page.locator('.masi-figures-years .recharts-bar-rectangle path').first();
+    await yearBar.scrollIntoViewIfNeeded();
+    const yearBox = await yearBar.boundingBox();
+    if (!yearBox) throw new Error('the first year bar is not drawn');
+    await page.mouse.move(yearBox.x + yearBox.width / 2, yearBox.y + yearBox.height / 2);
+    await expect(
+      page.locator('.masi-figures-years .recharts-tooltip-item'),
+      "the years' tooltip in the bars order, to the euro",
+    ).toHaveText([
+      'Revenue : 66,191,000 €',
+      'Operating profit : 5,352,000 €',
+      'Profit : 11,509,000 €',
+    ]);
     expect(warnings, 'recharts draws without a warning').toEqual([]);
   });
 }
@@ -198,6 +229,7 @@ test('a small company: its own scale, a gap where a count is missing, a bar belo
 /** What the figures card draws, as numbers the tests compare. */
 function measureFigures() {
   const charts = [...document.querySelectorAll('.masi-figures .recharts-wrapper')];
+  const yearChart = document.querySelector('.masi-figures-years .recharts-wrapper');
   const centre = (el: Element) => {
     const r = el.getBoundingClientRect();
     return r.x + r.width / 2;
@@ -212,7 +244,9 @@ function measureFigures() {
     f.getBoundingClientRect(),
   );
   const tops = [...new Set(figures.map((f) => Math.round(f.top)))];
-  const dots = [...(charts[0]?.querySelectorAll('.recharts-line-dots circle') ?? [])].map(centre);
+  const dots = [
+    ...(charts[0]?.querySelectorAll('.recharts-line-dots')[0]?.querySelectorAll('circle') ?? []),
+  ].map(centre);
   const turnover = bars(charts[1]).map(centre);
   const series = [...(charts[2]?.querySelectorAll('.recharts-bar') ?? [])].map((g) =>
     [...g.querySelectorAll('.recharts-bar-rectangle path')].map(
@@ -222,21 +256,43 @@ function measureFigures() {
   const title = document.querySelector('.masi-figures-card .card-title')?.getBoundingClientRect();
   const aside = document.querySelector('.masi-figures-card .card-header-aside');
   // the 0 tick's y in a chart, and its zero line's
-  const zeros = charts.slice(1).map((c) => {
-    const tick = [...c.querySelectorAll('.recharts-yAxis-tick-labels text')].find(
+  const zero = (c: Element | null | undefined) => {
+    const tick = [...(c?.querySelectorAll('.recharts-yAxis-tick-labels text') ?? [])].find(
       (t) => t.textContent === '0',
     );
-    const line = c.querySelector('.recharts-reference-line line');
+    const line = c?.querySelector('.recharts-reference-line line');
     const t = tick?.getBoundingClientRect();
     const l = line?.getBoundingClientRect();
     return { tick: t ? t.y + t.height / 2 : NaN, line: l ? l.y : NaN };
-  });
+  };
+  const zeros = charts.slice(1).map(zero);
+  const zeroOf = (c: Element | null) => {
+    const z = zero(c);
+    return Math.abs(z.tick - z.line) < 2;
+  };
   return {
-    focusable: document.querySelectorAll('.masi-figures [tabindex]:not([tabindex="-1"])').length,
-    legend: [...document.querySelectorAll('.masi-figures .recharts-legend-item-text')].map((e) => ({
-      text: e.textContent,
-      colour: getComputedStyle(e.querySelector('span') ?? e).color,
-    })),
+    focusable: document.querySelectorAll('.masi-figures-card [tabindex]:not([tabindex="-1"])')
+      .length,
+    legends: [charts[0], charts[2], yearChart].map((c) =>
+      [...(c?.querySelectorAll('.recharts-legend-item-text') ?? [])].map((e) => ({
+        text: e.textContent,
+        colour: getComputedStyle(e.querySelector('span') ?? e).color,
+      })),
+    ),
+    annualPoints:
+      charts[0]?.querySelectorAll('.recharts-line-dots')[1]?.querySelectorAll('circle').length ?? 0,
+    years: {
+      xTicks: texts(yearChart ?? undefined, '.recharts-xAxis-tick-labels text'),
+      yTicks: texts(yearChart ?? undefined, '.recharts-yAxis-tick-labels text'),
+      zeroOnAxis: zeroOf(yearChart),
+      thinnestBar: Math.min(
+        ...bars(yearChart ?? undefined).map((p) => p.getBoundingClientRect().width),
+      ),
+    },
+    latest: [...document.querySelectorAll('.masi-figures-latest dd')].map((d) => d.textContent),
+    captions: [...document.querySelectorAll('.masi-figures-card figcaption')].map(
+      (c) => getComputedStyle(c).fontWeight,
+    ),
     xTicks: charts.map((c) => texts(c, '.recharts-xAxis-tick-labels text')),
     yTicks: charts.map((c) => texts(c, '.recharts-yAxis-tick-labels text')),
     stateOverLabour:
