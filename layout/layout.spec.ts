@@ -198,6 +198,22 @@ for (const width of [390, 600, 768, 960, 1366]) {
       'State taxes : 3,264,450 €',
       'Labour taxes : 2,095,885 €',
     ]);
+    // the employees' tooltip over 2025 Q4, where both lines have a value: the count first, the year's average after it
+    const dot = page
+      .locator('.masi-figures .recharts-wrapper')
+      .first()
+      .locator('.recharts-line-dots')
+      .first()
+      .locator('circle')
+      .nth(15);
+    await dot.scrollIntoViewIfNeeded();
+    const dotBox = await dot.boundingBox();
+    if (!dotBox) throw new Error('the 2025 Q4 point is not drawn');
+    await page.mouse.move(dotBox.x + dotBox.width / 2, dotBox.y + dotBox.height / 2);
+    await expect(
+      page.locator('.masi-figures .recharts-wrapper').first().locator('.recharts-tooltip-item'),
+      "the employees' tooltip in the lines' order",
+    ).toHaveText(['Employees : 357', 'Annual average (FTE) : 361']);
     // and the years' tooltip over the first year: the bars' order, to the euro
     const yearBar = page.locator('.masi-figures-years .recharts-bar-rectangle path').first();
     await yearBar.scrollIntoViewIfNeeded();

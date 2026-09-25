@@ -150,7 +150,7 @@ export default function FiguresCard({ company }: Readonly<Props>) {
           {years.length > 0 && <span>e-Business Register annual reports</span>}
         </span>
       </div>
-      <Latest rows={quarterly ? rows : []} years={years} />
+      <Latest rows={rows} years={years} />
       {quarterly && (
         <div className="masi-figures">
           {/* each chart is named by its caption and drawn for the eye only: its figures are the table below */}
