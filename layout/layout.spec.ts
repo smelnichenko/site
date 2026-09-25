@@ -176,6 +176,7 @@ for (const width of [390, 600, 768, 960, 1366]) {
     );
     expect(m.thinnestBar, 'no bar thinner than 3 px').toBeGreaterThanOrEqual(3);
     expect(m.zeroOnAxis, 'the zero line on the 0 tick').toEqual([true, true]);
+    expect(m.sources.stacked, 'one source under the other, however wide').toBe(true);
     expect(m.source.colour, 'the source line muted, as every card aside').toBe(
       'rgb(102, 102, 102)',
     );
@@ -317,15 +318,24 @@ for (const width of [390, 1366]) {
   });
 }
 
-test('company without a report for a year: the line breaks, years named by when they end', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1366, height: 900 });
-  await open(page, '/masi/companies/6', '.masi-figures-card');
-  const m = await page.evaluate(measureFigures);
-  expect(m.annualPath.moves, 'broken where 2024 has no report').toBe(2);
-  expect(m.years.xTicks).toBe('Jun 2020|Jun 2021|Jun 2022|Jun 2023|Jun 2024|2025');
-});
+for (const width of [390, 1366]) {
+  test(`company without a report for a year: the line breaks, years named by when they end, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/companies/6', '.masi-figures-card');
+    const m = await page.evaluate(measureFigures);
+    expect(m.annualPath.moves, 'broken where 2024 has no report').toBe(2);
+    if (width === 1366) {
+      expect(m.years.xTicks).toBe('Jun 2020|Jun 2021|Jun 2022|Jun 2023|Jun 2024|2025');
+    } else {
+      // six labels thinned on a phone: the first and the last always, none over another
+      const ticks = m.years.xTicks.split('|');
+      expect([ticks[0], ticks[ticks.length - 1]], m.years.xTicks).toEqual(['Jun 2020', '2025']);
+      expect(m.yearTickOverlap, 'no year label over another').toBe(false);
+    }
+  });
+}
 
 /**
  * The source line on a phone's range of widths: each source its own line, no separator to start a wrapped one, and the
