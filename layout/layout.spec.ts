@@ -37,7 +37,7 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn }> 
     ready: '.masi-figures-card',
     // the three charts drawn at a size, not three empty boxes: recharts draws nothing into a box it measured as 0
     drawn: {
-      '.masi-figures .recharts-surface': [3],
+      '.masi-figures .recharts-wrapper > svg': [3],
       '.masi-figures-latest dd': [3, '356 (2026 Q2)'],
     },
   },
@@ -104,6 +104,95 @@ async function open(
     () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
   );
   return { unanswered, errors };
+}
+
+/**
+ * The company's figures, read as a reader would: no focus stop inside a chart (its figures are the screen reader's
+ * table), words in text colour (the orange is a bar's colour, 3.5:1 on white), the legend in the bars' order, the same
+ * year ticks under every chart so a spike in one is read against the same label in the next, no chart alone in half a
+ * row (600 px is the width with two columns), and on a phone the line's points over the bars below them and the
+ * source line under the title. Axis and baseline: employees up to a little over the most (403 on a 0–600 axis looks
+ * flat), a zero line under the bars, where a negative quarter turns.
+ */
+for (const width of [390, 600, 768, 1366]) {
+  test(`company figures read the same on every chart, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const warnings: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'warning') warnings.push(m.text());
+    });
+    await open(page, '/masi/companies/3', '.masi-figures-card');
+    const m = await page.evaluate(() => {
+      const charts = [...document.querySelectorAll('.masi-figures .recharts-wrapper')];
+      const centre = (el: Element | null) => {
+        const r = el?.getBoundingClientRect();
+        return r ? r.x + r.width / 2 : NaN;
+      };
+      const grid = document.querySelector('.masi-figures')?.getBoundingClientRect().width ?? 0;
+      const figures = [...document.querySelectorAll('.masi-figures > figure')].map((f) =>
+        f.getBoundingClientRect(),
+      );
+      return {
+        focusable: document.querySelectorAll('.masi-figures [tabindex]:not([tabindex="-1"])')
+          .length,
+        legend: [...document.querySelectorAll('.masi-figures .recharts-legend-item-text')].map(
+          (e) => ({
+            text: e.textContent,
+            colour: getComputedStyle(e.querySelector('span') ?? e).color,
+          }),
+        ),
+        ticks: charts.map((c) =>
+          [...c.querySelectorAll('.recharts-xAxis-tick-labels text')]
+            .map((t) => t.textContent)
+            .join('|'),
+        ),
+        // a figure alone on its row (no other figure at its top) must have the row to itself
+        lonely: figures
+          .filter((f) => figures.filter((g) => Math.abs(g.top - f.top) < 1).length === 1)
+          .map((f) => Math.round(grid - f.width)),
+        employeesTop: [
+          ...(charts[0]?.querySelectorAll('.recharts-yAxis-tick-labels text') ?? []),
+        ].at(-1)?.textContent,
+        zeroLines: document.querySelectorAll('.masi-figures .recharts-reference-line').length,
+        source: (() => {
+          const title = document
+            .querySelector('.masi-figures-card .card-title')
+            ?.getBoundingClientRect();
+          const aside = document.querySelector('.masi-figures-card .card-header-aside');
+          return {
+            colour: aside ? getComputedStyle(aside).color : '',
+            under: !!title && !!aside && aside.getBoundingClientRect().top >= title.bottom - 1,
+          };
+        })(),
+        firstDot: centre(charts[0]?.querySelector('.recharts-line-dots circle') ?? null),
+        firstBar: centre(charts[1]?.querySelector('.recharts-bar-rectangle path') ?? null),
+      };
+    });
+    expect(m.focusable, 'no nameless focus stop inside a chart').toBe(0);
+    expect(m.legend, 'the legend in the bars order, in text colour').toEqual([
+      { text: 'State taxes', colour: 'rgb(51, 51, 51)' },
+      { text: 'Labour taxes', colour: 'rgb(51, 51, 51)' },
+    ]);
+    expect(m.ticks, 'every chart names the same quarters: each year').toEqual(
+      Array(3).fill('2022|2023|2024|2025|2026'),
+    );
+    expect(
+      m.lonely.every((spare) => spare === 0),
+      'no chart alone in half a row',
+    ).toBe(true);
+    expect(m.employeesTop, 'employees up to a little over the most, not the next round step').toBe(
+      '450',
+    );
+    expect(m.zeroLines, 'a zero line under each bar chart').toBe(2);
+    expect(m.source.colour, 'the source line muted, as every card aside').toBe(
+      'rgb(102, 102, 102)',
+    );
+    if (width === 390) {
+      expect(Math.abs(m.firstDot - m.firstBar), 'the line over the bars below it').toBeLessThan(3);
+      expect(m.source.under, 'the source line under the title, not squeezed beside it').toBe(true);
+    }
+    expect(warnings, 'recharts draws without a warning').toEqual([]);
+  });
 }
 
 for (const { name, path, ready, drawn } of PAGES) {

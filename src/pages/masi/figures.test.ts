@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { formatEuros, latest, quarterRows } from './figures';
+import {
+  formatEuros,
+  formatEurosExact,
+  formatTick,
+  latest,
+  quarterRows,
+  quarterTick,
+  yearTicks,
+} from './figures';
 
 const q = (year: number, quarter: number, rest: Record<string, number> = {}) => ({
   year,
@@ -58,5 +66,28 @@ describe('formatEuros', () => {
     expect(formatEuros(-23_032)).toBe('-23K €');
     expect(formatEuros(0)).toBe('0 €');
     expect(formatEuros(null)).toBe('—');
+  });
+});
+
+describe('the x axis', () => {
+  it("names each year's first quarter, as the year", () => {
+    const rows = quarterRows([q(2024, 3), q(2026, 2)]);
+    expect(yearTicks(rows)).toEqual(['2025 Q1', '2026 Q1']);
+    expect(quarterTick('2025 Q1')).toBe('2025');
+  });
+
+  it('names every quarter when the span holds no first quarter', () => {
+    const rows = quarterRows([q(2025, 2), q(2025, 4)]);
+    expect(yearTicks(rows)).toEqual(['2025 Q2', '2025 Q3', '2025 Q4']);
+    expect(quarterTick('2025 Q3')).toBe('2025 Q3');
+  });
+});
+
+describe('the figures themselves', () => {
+  it('are to the euro where a reader looks for them, and a tick keeps two places', () => {
+    expect(formatEurosExact(28_966_602)).toBe('28,966,602 €');
+    expect(formatEurosExact(-23_032)).toBe('-23,032 €');
+    expect(formatEurosExact(undefined)).toBe('—');
+    expect(formatTick(1_162_500)).toBe('1.16M');
   });
 });

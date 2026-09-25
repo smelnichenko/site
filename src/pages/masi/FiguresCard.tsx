@@ -6,6 +6,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,7 +14,16 @@ import {
 } from 'recharts';
 import { fetchMasiCompanyFigures, MasiCompany, MasiCompanyFigures } from '../../services/api';
 import { errorMessage, formatDate } from './format';
-import { formatEuros, formatTick, latest, QuarterRow, quarterRows } from './figures';
+import {
+  formatEuros,
+  formatEurosExact,
+  formatTick,
+  latest,
+  QuarterRow,
+  quarterRows,
+  quarterTick,
+  yearTicks,
+} from './figures';
 
 const COLOURS = {
   employees: '#0066cc',
@@ -22,7 +32,19 @@ const COLOURS = {
   labourTaxes: '#c77700',
 };
 
-const euros = (v: unknown) => formatEuros(typeof v === 'number' ? v : null);
+/** A tooltip's figure, to the euro. */
+const euros = (v: unknown) => formatEurosExact(typeof v === 'number' ? v : null);
+const TEXT = { color: '#333' };
+/** The taxes' tooltip lists them in the bars' order, left to right. */
+const TAXES = ['stateTaxes', 'labourTaxes'];
+const barOrder = (item: { dataKey?: unknown }) => TAXES.indexOf(String(item.dataKey));
+const legendText = (value: string) => <span style={TEXT}>{value}</span>;
+/** What a chart is drawn at before its box is measured: the box's own height, so the first frame is not 0 or -1. */
+const FIRST_SIZE = { width: 300, height: 220 };
+/** Half a bar chart's quarter, in px at the phone's width: the line's points line up with the bars under them. */
+const BAND_HALF = 8;
+/** The employees axis from zero to a little over the most, not to the next round step: 403 people on a 0–600 axis look flat. */
+const headroom = (max: number) => Math.ceil((max * 1.1) / 50) * 50;
 
 interface Props {
   company: MasiCompany;
@@ -69,16 +91,24 @@ export default function FiguresCard({ company }: Readonly<Props>) {
   if (rows.length === 0) return null;
 
   // ISO dates: the latest is the greatest string
+  // ISO dates: the latest is the greatest string
   const published = (figures?.quarters ?? []).reduce(
     (a, q) => (q.published > a ? q.published : a),
     '',
   );
   const span = `${rows[0].label} to ${rows[rows.length - 1].label}`;
+  const xAxis = {
+    dataKey: 'label',
+    ticks: yearTicks(rows),
+    tickFormatter: quarterTick,
+    interval: 0 as const,
+    tick: { fontSize: 11 },
+  };
   return (
     <div className="card masi-figures-card">
       <div className="card-header">
         <span className="card-title">Figures</span>
-        <span className="card-header-aside">
+        <span className="card-header-aside muted">
           Tax and Customs Board, by quarter · file of {formatDate(published)}
         </span>
       </div>
@@ -91,17 +121,20 @@ export default function FiguresCard({ company }: Readonly<Props>) {
             role="img"
             aria-label={`Employees by quarter, ${span}`}
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={rows}>
+            <ResponsiveContainer width="100%" height="100%" initialDimension={FIRST_SIZE}>
+              {/* no keyboard layer: the chart is a picture here, its figures are the table a screen reader reads */}
+              <LineChart data={rows} accessibilityLayer={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={12} />
+                {/* the points sit in the middle of each quarter, as the bars below them do */}
+                <XAxis {...xAxis} padding={{ left: BAND_HALF, right: BAND_HALF }} />
                 <YAxis
                   tick={{ fontSize: 11 }}
                   tickFormatter={formatTick}
                   width={44}
                   allowDecimals={false}
+                  domain={[0, headroom]}
                 />
-                <Tooltip />
+                <Tooltip itemStyle={TEXT} />
                 <Line
                   type="monotone"
                   dataKey="employees"
@@ -123,12 +156,13 @@ export default function FiguresCard({ company }: Readonly<Props>) {
             role="img"
             aria-label={`Turnover by quarter, ${span}`}
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={rows}>
+            <ResponsiveContainer width="100%" height="100%" initialDimension={FIRST_SIZE}>
+              <BarChart data={rows} accessibilityLayer={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={12} />
+                <XAxis {...xAxis} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={formatTick} width={44} />
-                <Tooltip formatter={euros} />
+                <ReferenceLine y={0} stroke="#999" />
+                <Tooltip formatter={euros} itemStyle={TEXT} />
                 <Bar
                   dataKey="turnover"
                   name="Turnover"
@@ -146,14 +180,16 @@ export default function FiguresCard({ company }: Readonly<Props>) {
             role="img"
             aria-label={`Taxes paid by quarter, ${span}`}
           >
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" initialDimension={FIRST_SIZE}>
               {/* side by side, not stacked: the board's two sums overlap (income and social tax are in both) */}
-              <BarChart data={rows}>
+              <BarChart data={rows} accessibilityLayer={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={12} />
+                <XAxis {...xAxis} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={formatTick} width={44} />
-                <Tooltip formatter={euros} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <ReferenceLine y={0} stroke="#999" />
+                {/* in the bars' order, and in text colour: the orange is a bar's colour, too light for words */}
+                <Tooltip formatter={euros} itemStyle={TEXT} itemSorter={barOrder} />
+                <Legend wrapperStyle={{ fontSize: 12 }} itemSorter={null} formatter={legendText} />
                 <Bar
                   dataKey="stateTaxes"
                   name="State taxes"
@@ -222,9 +258,9 @@ function QuarterTable({ rows }: Readonly<{ rows: QuarterRow[] }>) {
             <tr key={r.label}>
               <th scope="row">{r.label}</th>
               <td>{r.employees ?? '—'}</td>
-              <td>{formatEuros(r.turnover)}</td>
-              <td>{formatEuros(r.stateTaxes)}</td>
-              <td>{formatEuros(r.labourTaxes)}</td>
+              <td>{formatEurosExact(r.turnover)}</td>
+              <td>{formatEurosExact(r.stateTaxes)}</td>
+              <td>{formatEurosExact(r.labourTaxes)}</td>
             </tr>
           ))}
         </tbody>

@@ -23,6 +23,7 @@ vi.mock('recharts', () => {
     CartesianGrid: () => null,
     Tooltip: () => null,
     Legend: () => null,
+    ReferenceLine: () => null,
   };
 });
 
@@ -112,6 +113,12 @@ describe('FiguresCard', () => {
         .getAllByRole('cell')
         .map((c) => c.textContent),
     ).toEqual(['—', '—', '—', '—']);
+    // to the euro in the table: a screen reader has no tooltip to hover for the exact figure
+    expect(
+      within(rows[0])
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual(['357', '55,102,823 €', '3,884,926 €', '2,825,625 €']);
   });
 
   it('says a figure the board never published is not published, not zero — a bank has no turnover', async () => {

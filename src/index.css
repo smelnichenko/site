@@ -1182,13 +1182,20 @@ a.muted,
 
 .masi-figures {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
   gap: 16px;
+  container-type: inline-size;
 }
 
 .masi-figures figure {
-  margin: 0;
   min-width: 0; /* a grid item holding a chart must be allowed below the chart's own width, or the row overflows */
+}
+
+/* two columns (416–631 px: three need 3 × 200 + 2 × 16): the third chart takes the row, not half of it */
+@container (min-width: 416px) and (max-width: 631.98px) {
+  .masi-figures > figure:last-child {
+    grid-column: 1 / -1;
+  }
 }
 
 .masi-figures figcaption {
