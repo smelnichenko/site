@@ -1483,8 +1483,11 @@ export interface MasiRegisterCandidate {
   hqCity: string | null;
   sizeBand: string | null;
   website: string | null;
-  /** EXACT: the whole name; PREFIX: the registered name begins with it; CODE: the operator typed its code. */
-  how: 'EXACT' | 'PREFIX' | 'CODE';
+  /**
+   * EXACT: the whole name; PREFIX: the registered name begins with it; DOMAIN: the company's people write from the
+   * domain the register gives for it; CODE: the operator typed its code.
+   */
+  how: 'EXACT' | 'PREFIX' | 'DOMAIN' | 'CODE';
   sure: boolean;
   employerForm: boolean;
   heldById: number | null;

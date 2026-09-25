@@ -165,6 +165,38 @@ describe('RegisterCard', () => {
     expect(onChange).not.toHaveBeenCalled(); // this company is gone; nothing to update in place
   });
 
+  it("says how each candidate was found: the same name, a name that begins with it, its people's domain, a typed code", async () => {
+    vi.mocked(api.fetchMasiRegisterCandidates).mockResolvedValue(
+      found([
+        candidate({ registryCode: '1', name: 'Same OÜ', how: 'EXACT' }),
+        candidate({ registryCode: '2', name: 'Longer OÜ', how: 'PREFIX' }),
+        candidate({ registryCode: '3', name: 'Domain OÜ', how: 'DOMAIN' }),
+        candidate({ registryCode: '4', name: 'Typed OÜ', how: 'CODE' }),
+      ]),
+    );
+    showCard(bolt);
+    // the row whose name cell comes first, and the "how" cell by its whole text: a label with more appended is not it
+    const row = (name: string) =>
+      screen.findByRole('row', { name: (rowName) => rowName.startsWith(`${name} `) });
+    const how = async (name: string, label: string) =>
+      expect(within(await row(name)).getByRole('cell', { name: label })).toBeInTheDocument();
+    await how('Same OÜ', 'same name');
+    await how('Longer OÜ', 'starts with it');
+    await how('Domain OÜ', 'its people write from its domain');
+    await how('Typed OÜ', 'the code you typed');
+  });
+
+  it('shows a way of finding a candidate it has no words for as it came, never an empty cell', async () => {
+    vi.mocked(api.fetchMasiRegisterCandidates).mockResolvedValue(
+      found([
+        candidate({ name: 'Later OÜ', how: 'SOMETHING_NEW' as MasiRegisterCandidate['how'] }),
+      ]),
+    );
+    showCard(bolt);
+    const later = await screen.findByRole('row', { name: (n) => n.startsWith('Later OÜ ') });
+    expect(within(later).getByRole('cell', { name: 'SOMETHING_NEW' })).toBeInTheDocument();
+  });
+
   it('looks a typed code up and asks before placing it — a code masi holds would merge two companies', async () => {
     const typed = candidate({
       how: 'CODE',
