@@ -117,10 +117,10 @@ async function open(
  * table), words in text colour (the orange is a bar's colour, 3.5:1 on white), the legend and the tooltip in the bars'
  * order and the tooltip to the euro, the same year ticks under every chart so a spike in one is read against the same
  * label in the next, each chart plotting its own figure, every row of charts reaching the grid's right edge (600 and
- * 768 px have two columns), bars no thinner than 3 px, and on a phone every point over the bar below it, the source
+ * 768 px have two columns; 960 px is three in a grid just wider than 872 px, where two would end), bars no thinner than 3 px, and on a phone every point over the bar below it, the source
  * line under the title and each latest figure on one line. NORTAL AS: 403 at the most, on a 0–500 axis.
  */
-for (const width of [390, 600, 768, 1366]) {
+for (const width of [390, 600, 768, 960, 1366]) {
   test(`company figures read the same on every chart, at ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const warnings: string[] = [];
