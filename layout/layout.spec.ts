@@ -31,6 +31,16 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn }> 
     ready: '[data-testid="package-panel"]',
     drawn: { '.masi-lint': [1, UNBROKEN_PART], '.masi-package .error': [1, UNBROKEN_PART] },
   },
+  {
+    name: 'company with its figures',
+    path: '/masi/companies/3',
+    ready: '.masi-figures-card',
+    // the three charts drawn at a size, not three empty boxes: recharts draws nothing into a box it measured as 0
+    drawn: {
+      '.masi-figures .recharts-wrapper > svg': [3],
+      '.masi-figures-latest dd': [3, '356 (2026 Q2)'],
+    },
+  },
   { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
   { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
   {
@@ -84,13 +94,184 @@ async function open(
     await route.fulfill({ status: a.status, json: a.body ?? {} });
   });
   await page.goto(`/?path=${encodeURIComponent(path)}`);
-  await page.locator(ready).first().waitFor();
+  // a page that never draws names the call it made that no fixture answers, not only the selector it waited for
+  await page
+    .locator(ready)
+    .first()
+    .waitFor({ timeout: 10_000 })
+    .catch((e: unknown) => {
+      throw new Error(`${ready} was never drawn; unanswered: ${unanswered.join(', ') || 'none'}`, {
+        cause: e,
+      });
+    });
   // ready means every API call the page made has its answer, and the page has drawn it
   await expect.poll(() => pending).toBe(0);
   await page.evaluate(
     () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
   );
   return { unanswered, errors };
+}
+
+/**
+ * The company's figures, read as a reader would: no focus stop inside a chart (its figures are the screen reader's
+ * table), words in text colour (the orange is a bar's colour, 3.5:1 on white), the legend and the tooltip in the bars'
+ * order and the tooltip to the euro, the same year ticks under every chart so a spike in one is read against the same
+ * label in the next, each chart plotting its own figure, every row of charts reaching the grid's right edge (600 and
+ * 768 px have two columns; 960 px is three in a grid just wider than 872 px, where two would end), bars no thinner than 3 px, and on a phone every point over the bar below it, the source
+ * line under the title and each latest figure on one line. NORTAL AS: 403 at the most, on a 0–500 axis.
+ */
+for (const width of [390, 600, 768, 960, 1366]) {
+  test(`company figures read the same on every chart, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const warnings: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'warning') warnings.push(m.text());
+    });
+    await open(page, '/masi/companies/3', '.masi-figures-card');
+    const m = await page.evaluate(measureFigures);
+    expect(m.focusable, 'no nameless focus stop inside a chart').toBe(0);
+    expect(m.legend, 'the legend in the bars order, in text colour').toEqual([
+      { text: 'State taxes', colour: 'rgb(51, 51, 51)' },
+      { text: 'Labour taxes', colour: 'rgb(51, 51, 51)' },
+    ]);
+    expect(m.xTicks, 'every chart names the same quarters: each year').toEqual(
+      Array(3).fill('2022|2023|2024|2025|2026'),
+    );
+    expect(m.yTicks, 'each chart plots its own figure').toEqual([
+      '0|100|200|300|400|500',
+      '0|20M|40M|60M|80M',
+      '0|1.5M|3M|4.5M|6M',
+    ]);
+    expect(m.stateOverLabour, "NORTAL's state taxes bar is the taller in every quarter").toBe(true);
+    expect(m.rowGaps, 'every row of charts reaches the grid right edge').toEqual(
+      m.rowGaps.map(() => 0),
+    );
+    expect(m.thinnestBar, 'no bar thinner than 3 px').toBeGreaterThanOrEqual(3);
+    expect(m.zeroOnAxis, 'the zero line on the 0 tick').toEqual([true, true]);
+    expect(m.source.colour, 'the source line muted, as every card aside').toBe(
+      'rgb(102, 102, 102)',
+    );
+    if (width === 390) {
+      expect(m.dotOverBar, 'every point over the bar below it').toBeLessThan(3);
+      expect(m.source.under, 'the source line under the title, not squeezed beside it').toBe(true);
+      expect(m.tallestLatest, 'each latest figure on one line').toBeLessThan(30);
+    }
+    // the taxes tooltip over the first quarter: the bars' order, to the euro (the svg takes the pointer, so the mouse)
+    const bar = page
+      .locator('.masi-figures .recharts-wrapper')
+      .nth(2)
+      .locator('.recharts-bar-rectangle path')
+      .first();
+    await bar.scrollIntoViewIfNeeded();
+    const box = await bar.boundingBox();
+    if (!box) throw new Error('the first taxes bar is not drawn');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    const tooltip = page
+      .locator('.masi-figures .recharts-wrapper')
+      .nth(2)
+      .locator('.recharts-tooltip-item');
+    await expect(tooltip, 'the tooltip in the bars order, to the euro').toHaveText([
+      'State taxes : 3,264,450 €',
+      'Labour taxes : 2,095,885 €',
+    ]);
+    expect(warnings, 'recharts draws without a warning').toEqual([]);
+  });
+}
+
+/**
+ * A company of three people (ANTERAS BALTIC OÜ, as published): its line fills the chart (0–4, not 0–50), breaks where
+ * a quarter has no count (2025 Q2) instead of joining over it, and the negative quarter (2025 Q1) is a bar below the
+ * zero line, which sits on the 0 tick above the axis.
+ */
+test('a small company: its own scale, a gap where a count is missing, a bar below zero', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await open(page, '/masi/companies/4', '.masi-figures-card');
+  const m = await page.evaluate(measureFigures);
+  expect(m.yTicks[0], 'employees on their own scale').toBe('0|1|2|3|4');
+  expect(m.lineSegments, 'the line breaks at the missing count').toBe(2);
+  expect(m.zeroOnAxis, 'the zero line on the 0 tick').toEqual([true, true]);
+  expect(m.belowZero, "the negative quarter's bar hangs below the zero line").toBe(1);
+});
+
+/** What the figures card draws, as numbers the tests compare. */
+function measureFigures() {
+  const charts = [...document.querySelectorAll('.masi-figures .recharts-wrapper')];
+  const centre = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    return r.x + r.width / 2;
+  };
+  const texts = (c: Element | undefined, sel: string) =>
+    [...(c?.querySelectorAll(sel) ?? [])].map((t) => t.textContent).join('|');
+  const bars = (c: Element | undefined) => [
+    ...(c?.querySelectorAll('.recharts-bar-rectangle path') ?? []),
+  ];
+  const grid = document.querySelector('.masi-figures')?.getBoundingClientRect();
+  const figures = [...document.querySelectorAll('.masi-figures > figure')].map((f) =>
+    f.getBoundingClientRect(),
+  );
+  const tops = [...new Set(figures.map((f) => Math.round(f.top)))];
+  const dots = [...(charts[0]?.querySelectorAll('.recharts-line-dots circle') ?? [])].map(centre);
+  const turnover = bars(charts[1]).map(centre);
+  const series = [...(charts[2]?.querySelectorAll('.recharts-bar') ?? [])].map((g) =>
+    [...g.querySelectorAll('.recharts-bar-rectangle path')].map(
+      (p) => p.getBoundingClientRect().height,
+    ),
+  );
+  const title = document.querySelector('.masi-figures-card .card-title')?.getBoundingClientRect();
+  const aside = document.querySelector('.masi-figures-card .card-header-aside');
+  // the 0 tick's y in a chart, and its zero line's
+  const zeros = charts.slice(1).map((c) => {
+    const tick = [...c.querySelectorAll('.recharts-yAxis-tick-labels text')].find(
+      (t) => t.textContent === '0',
+    );
+    const line = c.querySelector('.recharts-reference-line line');
+    const t = tick?.getBoundingClientRect();
+    const l = line?.getBoundingClientRect();
+    return { tick: t ? t.y + t.height / 2 : NaN, line: l ? l.y : NaN };
+  });
+  return {
+    focusable: document.querySelectorAll('.masi-figures [tabindex]:not([tabindex="-1"])').length,
+    legend: [...document.querySelectorAll('.masi-figures .recharts-legend-item-text')].map((e) => ({
+      text: e.textContent,
+      colour: getComputedStyle(e.querySelector('span') ?? e).color,
+    })),
+    xTicks: charts.map((c) => texts(c, '.recharts-xAxis-tick-labels text')),
+    yTicks: charts.map((c) => texts(c, '.recharts-yAxis-tick-labels text')),
+    stateOverLabour:
+      series.length === 2 && series[0].length > 0 && series[0].every((h, i) => h > series[1][i]),
+    rowGaps: grid
+      ? tops.map((t) =>
+          Math.round(
+            grid.right -
+              Math.max(...figures.filter((f) => Math.round(f.top) === t).map((f) => f.right)),
+          ),
+        )
+      : [NaN],
+    thinnestBar: Math.min(
+      ...charts.slice(1).flatMap((c) => bars(c).map((p) => p.getBoundingClientRect().width)),
+    ),
+    dotOverBar:
+      dots.length > 0 && dots.length === turnover.length
+        ? Math.max(...dots.map((d, i) => Math.abs(d - turnover[i])))
+        : NaN,
+    zeroOnAxis: zeros.map((z) => Math.abs(z.tick - z.line) < 2),
+    belowZero: bars(charts[1]).filter((p) => p.getBoundingClientRect().top >= zeros[0].line - 1)
+      .length,
+    lineSegments: (
+      charts[0]?.querySelector('.recharts-line-curve')?.getAttribute('d')?.match(/M/g) ?? []
+    ).length,
+    tallestLatest: Math.max(
+      ...[...document.querySelectorAll('.masi-figures-latest dd')].map(
+        (d) => d.getBoundingClientRect().height,
+      ),
+    ),
+    source: {
+      colour: aside ? getComputedStyle(aside).color : '',
+      under: !!title && !!aside && aside.getBoundingClientRect().top >= title.bottom - 1,
+    },
+  };
 }
 
 for (const { name, path, ready, drawn } of PAGES) {

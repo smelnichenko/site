@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import '../src/index.css';
 import MasiCalendar from '../src/pages/masi/MasiCalendar';
+import MasiCompanyDetail from '../src/pages/masi/MasiCompanyDetail';
 import MasiCv from '../src/pages/masi/MasiCv';
 import MasiJobDetail from '../src/pages/masi/MasiJobDetail';
 import MasiJobs from '../src/pages/masi/MasiJobs';
@@ -22,6 +23,7 @@ if (root) {
         <main className="container">
           <Routes>
             <Route path="/masi/calendar" element={<MasiCalendar />} />
+            <Route path="/masi/companies/:id" element={<MasiCompanyDetail />} />
             <Route path="/masi/cv" element={<MasiCv />} />
             <Route path="/masi/jobs" element={<MasiJobs />} />
             <Route path="/masi/jobs/:id" element={<MasiJobDetail />} />
