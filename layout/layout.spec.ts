@@ -294,25 +294,32 @@ for (const width of [390, 1366]) {
  * ARTISTON, OÜ filed no report for 2024 — it moved to calendar years, its next report covering 18 months — so its line
  * breaks there, and its years are named by when they end (Jun 2020 …), not by the register's label (2019 …).
  */
-test('years that end in July: a step at each year end, straight across its quarters', async ({
+for (const width of [390, 1366]) {
+  test(`company years that end in July: a step at each year end, straight across its quarters, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/companies/5', '.masi-figures-card');
+    const m = await page.evaluate(measureFigures);
+    // seven labels on a phone: every label that fits, none over another, the first and the last always
+    expect(m.yearTickOverlap, 'no year label over another').toBe(false);
+    expect(m.years.xTicks.endsWith('Jul 2025'), m.years.xTicks).toBe(true);
+    const { dots, steps, first, last, moves, curves } = m.annualPath;
+    const at = (i: number) => dots[i];
+    expect(moves, 'one unbroken line').toBe(1);
+    expect(curves, 'straight steps, no curves').toBe(false);
+    expect(first, 'from the first quarter on the axis (2022 Q1)').toBeCloseTo(at(0), 0);
+    expect(last, "to the last year's end (2025 Q3)").toBeCloseTo(at(14), 0);
+    expect(steps.length, 'a step at each year end').toBe(3);
+    // the new level from the first quarter after each year's end: 2022 Q4, 2023 Q4, 2024 Q4
+    steps.forEach((x, i) => expect(x, `step ${i + 1}`).toBeCloseTo(at(3 + 4 * i), 0));
+    expect(m.years.xTicks.split('|')[0], 'the first year ends in August').toBe('Aug 2019');
+  });
+}
+
+test('company without a report for a year: the line breaks, years named by when they end', async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1366, height: 900 });
-  await open(page, '/masi/companies/5', '.masi-figures-card');
-  const m = await page.evaluate(measureFigures);
-  const { dots, steps, first, last, moves, curves } = m.annualPath;
-  const at = (i: number) => dots[i];
-  expect(moves, 'one unbroken line').toBe(1);
-  expect(curves, 'straight steps, no curves').toBe(false);
-  expect(first, 'from the first quarter on the axis (2022 Q1)').toBeCloseTo(at(0), 0);
-  expect(last, "to the last year's end (2025 Q3)").toBeCloseTo(at(14), 0);
-  expect(steps.length, 'a step at each year end').toBe(3);
-  // the new level from the first quarter after each year's end: 2022 Q4, 2023 Q4, 2024 Q4
-  steps.forEach((x, i) => expect(x, `step ${i + 1}`).toBeCloseTo(at(3 + 4 * i), 0));
-  expect(m.years.xTicks.split('|')[0], 'the first year ends in August').toBe('Aug 2019');
-});
-
-test('a year without a report breaks the line; years named by when they end', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 900 });
   await open(page, '/masi/companies/6', '.masi-figures-card');
   const m = await page.evaluate(measureFigures);
@@ -324,7 +331,7 @@ test('a year without a report breaks the line; years named by when they end', as
  * The source line on a phone's range of widths: each source its own line, no separator to start a wrapped one, and the
  * file's date never broken (at 412–460 px it broke inside "10 Jul 2026" before).
  */
-test('the sources: one under the other, the date whole, at 360–480 px', async ({ page }) => {
+test('company sources: one under the other, the date whole, at 360–480 px', async ({ page }) => {
   for (const width of [360, 390, 412, 430, 440, 460, 480]) {
     await page.setViewportSize({ width, height: 900 });
     await open(page, '/masi/companies/3', '.masi-figures-card');
