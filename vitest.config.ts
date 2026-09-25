@@ -5,6 +5,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['src/test/setup.ts'],
+    // a test that takes 0.3 s here took over 5 s (the default) on a CI node still loaded from a restart (site pipeline
+    // 162, 2026-09-25: the suite ran 402 s); room for a slow machine, never for a wrong answer
+    testTimeout: 15_000,
     exclude: ['tests/**', 'layout/**', 'node_modules/**'], // tests/ and layout/ are Playwright's
     coverage: {
       provider: 'v8',
