@@ -19,6 +19,7 @@ vi.mock('../../services/api', () => ({
   placeMasiCompany: vi.fn(),
   takeBackMasiPlacement: vi.fn(),
   fetchMasiCompanyContacts: vi.fn(),
+  fetchMasiCompanyFigures: vi.fn(),
   patchMasiContact: vi.fn(),
 }));
 const api = await import('../../services/api');
@@ -110,6 +111,8 @@ beforeEach(() => {
     candidates: [],
   });
   vi.mocked(api.fetchMasiCompanyContacts).mockReset();
+  vi.mocked(api.fetchMasiCompanyFigures).mockReset();
+  vi.mocked(api.fetchMasiCompanyFigures).mockResolvedValue({ quarters: [] });
   vi.mocked(api.patchMasiContact).mockReset();
   vi.mocked(api.fetchMasiCompanyContacts).mockResolvedValue({
     content: [],

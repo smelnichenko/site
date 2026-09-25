@@ -1945,6 +1945,32 @@ export function patchMasiCompany(
   return masiSend(`/companies/${id}`, 'PATCH', patch, 'save the company');
 }
 
+/**
+ * One quarter of a company's figures from the Tax and Customs Board, in euros and heads. A figure the board did not
+ * publish is absent, never zero: a bank reports no turnover. `published` is the date of the board's file.
+ */
+export interface MasiQuarterFigures {
+  year: number;
+  quarter: number;
+  turnover?: number;
+  employees?: number;
+  stateTaxes?: number;
+  labourTaxes?: number;
+  published: string;
+}
+
+/** A company's figures, oldest first; none for a company without a registry code, or one the board's files never had. */
+export interface MasiCompanyFigures {
+  quarters: MasiQuarterFigures[];
+}
+
+export function fetchMasiCompanyFigures(
+  id: number,
+  signal?: AbortSignal,
+): Promise<MasiCompanyFigures> {
+  return masiGet(`/companies/${id}/figures`, signal, 'load the figures');
+}
+
 /** The registered companies this employer might be; with a code, the one company the register has under it, or none. */
 export function fetchMasiRegisterCandidates(
   id: number,

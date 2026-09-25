@@ -9,6 +9,8 @@ import type {
   CvVersionMeta,
   MasiCalendar,
   MasiCalendarEvent,
+  MasiCompany,
+  MasiCompanyFigures,
   MasiJob,
   MasiMatch,
   MasiPackage,
@@ -189,6 +191,70 @@ const jobs: Paged<MasiJob> = {
   totalElements: 3,
 };
 
+/** A company as hard as the register makes one: a long name, a long address, a website with no break in it. */
+const company: MasiCompany = {
+  id: 3,
+  name: `${LONG_TITLE} AS`,
+  registryCode: '10391131',
+  website: UNBROKEN,
+  careersUrl: null,
+  atsVendor: null,
+  emtakCode: '62101',
+  sizeBand: '250+',
+  hqCity: 'Tallinn',
+  address: 'Harju maakond, Tallinn, Kesklinna linnaosa, Ahtri tn 12, 10151',
+  tags: null,
+  status: 'ACTIVE',
+  origin: 'DISCOVERED',
+  firstSeenAt: '2026-09-16T10:00:00Z',
+  lastSeenAt: '2026-09-22T05:00:00Z',
+  registerSeenAt: '2026-09-20T03:00:00Z',
+  blacklisted: false,
+  agency: false,
+  agencyMark: null,
+  userNote: null,
+};
+
+/**
+ * NORTAL AS's quarters as the Tax and Customs Board published them (10.07.2026, both files): year, quarter,
+ * turnover, employees, state taxes, labour taxes — 18 quarters, a first quarter four times the others.
+ */
+const NORTAL: Array<[number, number, number | null, number | null, number | null, number | null]> =
+  [
+    [2022, 1, 28966602, 366, 3264450, 2095885],
+    [2022, 2, 12769344, 378, 3111967, 2488008],
+    [2022, 3, 7241017, 385, 2918123, 2532906],
+    [2022, 4, 8612479, 387, 3017960, 2593337],
+    [2023, 1, 52480675, 389, 3741977, 2644147],
+    [2023, 2, 9181436, 403, 3445839, 2877011],
+    [2023, 3, 10708478, 392, 3643885, 2791338],
+    [2023, 4, 11042909, 387, 3615824, 2710587],
+    [2024, 1, 64368962, 384, 4563233, 2781451],
+    [2024, 2, 11220658, 369, 3988990, 2983629],
+    [2024, 3, 11082094, 350, 3679443, 2830189],
+    [2024, 4, 13183088, 345, 3720515, 2607995],
+    [2025, 1, 55102823, 347, 4379122, 2666445],
+    [2025, 2, 11339111, 348, 3369772, 2814691],
+    [2025, 3, 11694332, 359, 3401362, 2860768],
+    [2025, 4, 12013040, 357, 3884926, 2825625],
+    [2026, 1, 64852805, 367, 4545083, 2770242],
+    [2026, 2, 14920312, 356, 3676181, 2762582],
+  ];
+
+const figures: MasiCompanyFigures = {
+  quarters: NORTAL.map(([year, quarter, turnover, employees, stateTaxes, labourTaxes]) => ({
+    year,
+    quarter,
+    published: '2026-07-10',
+    ...(turnover === null ? {} : { turnover }),
+    ...(employees === null ? {} : { employees }),
+    ...(stateTaxes === null ? {} : { stateTaxes }),
+    ...(labourTaxes === null ? {} : { labourTaxes }),
+  })),
+};
+
+const none = { content: [], page: 0, size: 200, totalElements: 0 };
+
 export interface Answer {
   status: number;
   body?: unknown;
@@ -215,6 +281,11 @@ export function answer(url: URL): Answer | undefined {
     [/^\/jobs\/\d+\/history$/, () => ({ status: 200, body: [] })],
     [/^\/jobs\/\d+\/similar$/, () => ({ status: 200, body: [] })],
     [/^\/packages$/, () => ({ status: 200, body: packages })],
+    [/^\/companies\/\d+$/, () => ({ status: 200, body: company })],
+    [/^\/companies\/\d+\/register-match$/, () => ({ status: 204 })],
+    [/^\/companies\/\d+\/contacts$/, () => ({ status: 200, body: none })],
+    [/^\/companies\/\d+\/figures$/, () => ({ status: 200, body: figures })],
+    [/^\/persons\/of-company\/\d+$/, () => ({ status: 200, body: [] })],
     [/^\/packages\/retune$/, () => ({ status: 200, body: { count: 12, estimatedUsd: 3.42 } })],
   ];
   const hit = routes.find(([re]) => re.test(path));

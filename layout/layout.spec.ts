@@ -31,6 +31,16 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn }> 
     ready: '[data-testid="package-panel"]',
     drawn: { '.masi-lint': [1, UNBROKEN_PART], '.masi-package .error': [1, UNBROKEN_PART] },
   },
+  {
+    name: 'company with its figures',
+    path: '/masi/companies/3',
+    ready: '.masi-figures-card',
+    // the three charts drawn at a size, not three empty boxes: recharts draws nothing into a box it measured as 0
+    drawn: {
+      '.masi-figures .recharts-surface': [3],
+      '.masi-figures-latest dd': [3, '356 (2026 Q2)'],
+    },
+  },
   { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
   { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
   {
@@ -81,7 +91,10 @@ async function open(
       await route.fulfill({ status: 599, json: { error: 'no fixture' } });
       return;
     }
-    await route.fulfill({ status: a.status, json: a.body ?? {} });
+    // a 204 has no body at all; any other answer is JSON
+    await route.fulfill(
+      a.status === 204 ? { status: 204 } : { status: a.status, json: a.body ?? {} },
+    );
   });
   await page.goto(`/?path=${encodeURIComponent(path)}`);
   await page.locator(ready).first().waitFor();

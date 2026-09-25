@@ -18,6 +18,7 @@ import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDate, mapsUrl } from './format';
 import MasiTable from '../../components/MasiTable';
 import RegisterCard from './RegisterCard';
+import FiguresCard from './FiguresCard';
 import { byCompany, rolesText, whereLabel } from './people';
 import { agencyText } from './register';
 
@@ -245,6 +246,7 @@ export default function MasiCompanyDetail() {
         </div>
       </div>
       <RegisterCard company={company} onChange={registerChanged} />
+      <FiguresCard company={company} />
       <div className="card">
         <div className="card-header">
           <span className="card-title">Jobs</span>
