@@ -22,7 +22,7 @@ vi.mock('recharts', () => {
     YAxis: () => null,
     CartesianGrid: () => null,
     Tooltip: () => null,
-    Legend: () => null,
+    Legend: () => <span>legend</span>,
     ReferenceLine: () => null,
   };
 });
@@ -123,9 +123,9 @@ describe('FiguresCard', () => {
     render(<FiguresCard company={company('10391131')} />);
 
     expect(await screen.findByText('Figures')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Tax and Customs Board, by quarter · file of 10 Jul 2026/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/by quarter · file of/)).toHaveTextContent(
+      'Tax and Customs Board, by quarter · file of 10 Jul 2026',
+    );
     // each chart named by its caption, its drawing hidden from a screen reader, which reads the table instead
     const chart = (name: string) => {
       const figure = screen.getByRole('figure', { name });
@@ -189,7 +189,9 @@ describe('FiguresCard', () => {
   it('names the newest file its quarters came from, and the latest of each figure', async () => {
     vi.mocked(api.fetchMasiCompanyFigures).mockResolvedValue({ quarters: nortal });
     render(<FiguresCard company={company('10391131')} />);
-    expect(await screen.findByText(/file of 10 Jul 2026/)).toBeInTheDocument();
+    expect(await screen.findByText(/by quarter · file of/)).toHaveTextContent(
+      'file of 10 Jul 2026',
+    );
     const [employees, turnover, taxes] = screen.getAllByRole('definition');
     expect(employees).toHaveTextContent('356 (2026 Q2)');
     expect(turnover).toHaveTextContent('14.9M € (2026 Q2)');
@@ -266,9 +268,9 @@ describe('FiguresCard', () => {
     render(<FiguresCard company={company('10391131')} />);
     await screen.findByText('Figures');
     // each source its own line to wrap on, the two in the order they are charted
-    expect(
-      screen.getByText('Tax and Customs Board, by quarter · file of 10 Jul 2026'),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/by quarter · file of/)).toHaveTextContent(
+      'Tax and Customs Board, by quarter · file of 10 Jul 2026',
+    );
     expect(screen.getByText('e-Business Register annual reports')).toBeInTheDocument();
     const byYear = screen.getByRole('figure', { name: 'Revenue and profit by financial year (€)' });
     expect(byYear).toHaveTextContent('series Revenue');
@@ -317,6 +319,12 @@ describe('FiguresCard', () => {
         'rowheader',
       ),
     ).toHaveTextContent('Jul 2024');
+    // a figure the report does not carry is a dash in the table, never a zero — the headcount among them
+    expect(
+      within(screen.getByRole('table', { name: 'Figures by financial year' }))
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual(['10,489,884 €', '—', '—', '—']);
   });
 
   it('shows no years, no year chart and no annual line from a masi that predates the annual reports', async () => {
@@ -328,5 +336,8 @@ describe('FiguresCard', () => {
       'Annual average',
     );
     expect(screen.getAllByRole('definition')).toHaveLength(3);
+    // one source, one line: no legend to tell the lines apart, no register named
+    expect(screen.queryByText('e-Business Register annual reports')).not.toBeInTheDocument();
+    expect(screen.getByRole('figure', { name: 'Employees' })).not.toHaveTextContent('legend');
   });
 });

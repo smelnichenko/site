@@ -151,6 +151,10 @@ for (const width of [390, 600, 768, 960, 1366]) {
     expect(m.years.yTicks, 'and plots their money').toBe('0|20M|40M|60M|80M');
     expect(m.years.zeroOnAxis, 'its zero line on the 0 tick').toBe(true);
     expect(m.years.thinnestBar, 'no year bar thinner than 3 px').toBeGreaterThanOrEqual(3);
+    expect(
+      m.years.thickestBar,
+      'no year bar wider than a quarter would be read as',
+    ).toBeLessThanOrEqual(48);
     expect(m.latest, 'the latest of each figure, the years as well').toEqual([
       '356 (2026 Q2)',
       '14.9M € (2026 Q2)',
@@ -228,6 +232,9 @@ for (const width of [390, 600, 768, 960, 1366]) {
       'Operating profit : 5,352,000 €',
       'Profit : 11,509,000 €',
     ]);
+    for (const item of await page.locator('.recharts-tooltip-item').all()) {
+      await expect(item, 'tooltip words in text colour').toHaveCSS('color', 'rgb(51, 51, 51)');
+    }
     await expect(
       page.locator('.masi-figures-years .recharts-default-tooltip'),
       'a tooltip small enough not to cover the years on a phone',
@@ -256,27 +263,77 @@ test('a small company: its own scale, a gap where a count is missing, a bar belo
 });
 
 /**
- * A company the board's quarterly files do not give (10003666, years only, as published): its years alone, named by
- * when they end — every label that fits, none over another, the first and the last always — a loss hanging below the
- * zero line, its headcount among the latest figures from the annual reports, and only that source named.
+ * A company in no quarterly file of the board (10002603, dormant since 2022, as published): its six years alone, named
+ * by when they end — every label that fits, none over another, the first and the last always — its losses hanging below
+ * the zero line, its headcount among the latest figures from the annual reports, and only that source named.
  */
 for (const width of [390, 1366]) {
   test(`a company with annual reports only, at ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
-    await open(page, '/masi/companies/5', '.masi-figures-card');
+    await open(page, '/masi/companies/7', '.masi-figures-card');
     const m = await page.evaluate(measureFigures);
     expect(m.quarterlyCharts, 'no quarterly charts').toBe(0);
     expect(m.sourceSpans).toEqual(['e-Business Register annual reports']);
-    expect(m.latest).toEqual(['55 (Jul 2025)', '10.5M € (Jul 2025)', '336.9K € (Jul 2025)']);
+    expect(m.latest).toEqual(['0 (2024)', '0 € (2024)', '0 € (2024)']);
     expect(m.yearTickOverlap, 'no year label over another').toBe(false);
     expect(
-      m.years.xTicks.startsWith('Aug 2019') && m.years.xTicks.endsWith('Jul 2025'),
+      m.years.xTicks.startsWith('2019') && m.years.xTicks.endsWith('2024'),
       m.years.xTicks,
     ).toBe(true);
     expect(m.years.zeroOnAxis, 'the zero line on the 0 tick').toBe(true);
-    expect(m.yearBelowZero, "the loss year's profit hangs below the zero line").toBe(1);
+    // 2020 and 2021: an operating loss and a loss each
+    expect(m.yearBelowZero, 'the losses hang below the zero line').toBe(4);
   });
 }
+
+/**
+ * Years that are not the calendar's, beside the quarters. HORTICOM OÜ's years end in July (the first in August): each
+ * year's average is held from the quarter after the previous year's end to the quarter of its own, so the dashed step
+ * takes each new level in the first quarter after a year's end (2022 Q4, 2023 Q4, 2024 Q4) and stops at the last
+ * year's end (2025 Q3).
+ * ARTISTON, OÜ filed no report for 2024 — it moved to calendar years, its next report covering 18 months — so its line
+ * breaks there, and its years are named by when they end (Jun 2020 …), not by the register's label (2019 …).
+ */
+test('years that end in July: a step at each year end, straight across its quarters', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await open(page, '/masi/companies/5', '.masi-figures-card');
+  const m = await page.evaluate(measureFigures);
+  const { dots, steps, first, last, moves, curves } = m.annualPath;
+  const at = (i: number) => dots[i];
+  expect(moves, 'one unbroken line').toBe(1);
+  expect(curves, 'straight steps, no curves').toBe(false);
+  expect(first, 'from the first quarter on the axis (2022 Q1)').toBeCloseTo(at(0), 0);
+  expect(last, "to the last year's end (2025 Q3)").toBeCloseTo(at(14), 0);
+  expect(steps.length, 'a step at each year end').toBe(3);
+  // the new level from the first quarter after each year's end: 2022 Q4, 2023 Q4, 2024 Q4
+  steps.forEach((x, i) => expect(x, `step ${i + 1}`).toBeCloseTo(at(3 + 4 * i), 0));
+  expect(m.years.xTicks.split('|')[0], 'the first year ends in August').toBe('Aug 2019');
+});
+
+test('a year without a report breaks the line; years named by when they end', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await open(page, '/masi/companies/6', '.masi-figures-card');
+  const m = await page.evaluate(measureFigures);
+  expect(m.annualPath.moves, 'broken where 2024 has no report').toBe(2);
+  expect(m.years.xTicks).toBe('Jun 2020|Jun 2021|Jun 2022|Jun 2023|Jun 2024|2025');
+});
+
+/**
+ * The source line on a phone's range of widths: each source its own line, no separator to start a wrapped one, and the
+ * file's date never broken (at 412–460 px it broke inside "10 Jul 2026" before).
+ */
+test('the sources: one under the other, the date whole, at 360–480 px', async ({ page }) => {
+  for (const width of [360, 390, 412, 430, 440, 460, 480]) {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/companies/3', '.masi-figures-card');
+    const m = await page.evaluate(measureFigures);
+    expect(m.sources.stacked, `${width} px: one source under the other`).toBe(true);
+    expect(m.sources.separators, `${width} px: no separator`).toEqual(['none', 'none']);
+    expect(m.sources.dateLines, `${width} px: the date on one line`).toBe(1);
+  }
+});
 
 /** What the figures card draws, as numbers the tests compare. */
 function measureFigures() {
@@ -331,6 +388,36 @@ function measureFigures() {
         colour: getComputedStyle(e.querySelector('span') ?? e).color,
       })),
     ),
+    annualPath: (() => {
+      const d = charts[0]?.querySelectorAll('.recharts-line-curve')[1]?.getAttribute('d') ?? '';
+      const moves = (d.match(/M/g) ?? []).length;
+      const points = d
+        .split(/[ML]/)
+        .filter((p) => p.includes(','))
+        .map((p) => p.split(',').map(Number));
+      // a step: two points one above the other
+      const steps = points
+        .filter(
+          (p, i) =>
+            i > 0 &&
+            Math.abs(p[0] - points[i - 1][0]) < 0.5 &&
+            Math.abs(p[1] - points[i - 1][1]) > 0.5,
+        )
+        .map((p) => p[0]);
+      const dots = [
+        ...(charts[0]?.querySelectorAll('.recharts-line-dots')[0]?.querySelectorAll('circle') ??
+          []),
+      ].map((c) => Number(c.getAttribute('cx')));
+      return {
+        moves,
+        // steps are straight: a curve between two years would slope through quarters no year held
+        curves: /[CQSA]/i.test(d),
+        first: points[0]?.[0],
+        last: points[points.length - 1]?.[0],
+        steps,
+        dots,
+      };
+    })(),
     annual: (() => {
       const curve = charts[0]?.querySelectorAll('.recharts-line-curve')[1];
       const icon = charts[0]
@@ -351,15 +438,33 @@ function measureFigures() {
     yearBelowZero: bars(yearChart ?? undefined).filter(
       (p) => p.getBoundingClientRect().top >= zero(yearChart).line - 1,
     ).length,
-    sourceSpans: [...document.querySelectorAll('.masi-figures-card .card-header-aside span')].map(
+    sourceSpans: [...document.querySelectorAll('.masi-figures-card .card-header-aside > span')].map(
       (e) => e.textContent,
     ),
+    sources: (() => {
+      const spans = [...document.querySelectorAll('.masi-figures-card .card-header-aside > span')];
+      const date = document.querySelector('.masi-figures-card .card-header-aside .nowrap');
+      const range = document.createRange();
+      if (date) range.selectNodeContents(date);
+      return {
+        separators: spans.map((e) => getComputedStyle(e, '::before').content),
+        stacked: spans.every(
+          (e, i) =>
+            i === 0 ||
+            e.getBoundingClientRect().top >= spans[i - 1].getBoundingClientRect().bottom - 1,
+        ),
+        dateLines: date ? range.getClientRects().length : 0,
+      };
+    })(),
     quarterlyCharts: charts.length,
     years: {
       xTicks: texts(yearChart ?? undefined, '.recharts-xAxis-tick-labels text'),
       yTicks: texts(yearChart ?? undefined, '.recharts-yAxis-tick-labels text'),
       zeroOnAxis: zeroOf(yearChart),
       thinnestBar: Math.min(
+        ...bars(yearChart ?? undefined).map((p) => p.getBoundingClientRect().width),
+      ),
+      thickestBar: Math.max(
         ...bars(yearChart ?? undefined).map((p) => p.getBoundingClientRect().width),
       ),
       shortestBar: Math.min(

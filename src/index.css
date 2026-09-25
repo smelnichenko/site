@@ -1180,14 +1180,15 @@ a.muted,
   gap: 4px 16px;
 }
 
-/* its two sources wrap as whole units, one under the other when the line is full */
+/* its sources one under the other, each whole */
 .masi-figures-card .card-header-aside {
-  flex-wrap: wrap;
-  gap: 0 1ch;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
 }
 
-.masi-figures-card .card-header-aside span + span::before {
-  content: '· ';
+.masi-figures-card .nowrap {
+  white-space: nowrap;
 }
 
 .masi-figures {

@@ -3,6 +3,7 @@ import {
   formatEuros,
   formatEurosExact,
   employeeAxis,
+  employeeScale,
   formatTick,
   latest,
   quarterRows,
@@ -149,5 +150,51 @@ describe('the annual reports', () => {
       { label: '2025', revenue: 3, operatingProfit: null, profit: -1, avgEmployees: null },
     ]);
     expect(latest(rows, (r) => r.profit)).toEqual({ label: '2025', value: -1 });
+  });
+
+  it('hold a December year across exactly its four quarters, on an axis wider than it on both sides', () => {
+    const board = [q(2022, 4, { employees: 9 }), q(2024, 2, { employees: 12 })];
+    const rows = quarterRows(board, [fy(2023, '2023-12-31', { avgEmployees: 10 })]);
+    expect(rows.map((r) => r.label)).toEqual([
+      '2022 Q4',
+      '2023 Q1',
+      '2023 Q2',
+      '2023 Q3',
+      '2023 Q4',
+      '2024 Q1',
+      '2024 Q2',
+    ]);
+    expect(rows.map((r) => r.annualEmployees)).toEqual([null, 10, 10, 10, 10, null, null]);
+  });
+
+  it('hold a year from the quarter it began in when masi says: an 18-month year across six quarters', () => {
+    const board = [q(2024, 1), q(2026, 1)];
+    const rows = quarterRows(board, [
+      { ...fy(2025, '2025-12-31', { avgEmployees: 22 }), periodStart: '2024-07-01' },
+    ]);
+    expect(rows.map((r) => r.annualEmployees)).toEqual([null, null, 22, 22, 22, 22, 22, 22, null]);
+  });
+
+  // 10015764 as published: a full 2024, then a year of four months (2025-01-30 – 2025-05-21) as it changed its year
+  it('never let a short year take the quarters of the year before it', () => {
+    const board = [q(2024, 1), q(2025, 2)];
+    const years = [
+      fy(2024, '2024-12-31', { avgEmployees: 10 }),
+      fy(2025, '2025-05-21', { avgEmployees: 2 }),
+    ];
+    expect(quarterRows(board, years).map((r) => r.annualEmployees)).toEqual([10, 10, 10, 10, 2, 2]);
+    const told = [years[0], { ...years[1], periodStart: '2025-01-30' }];
+    expect(quarterRows(board, told).map((r) => r.annualEmployees)).toEqual([10, 10, 10, 10, 2, 2]);
+  });
+});
+
+describe('employeeScale', () => {
+  it('fits the annual average when it is above every quarterly count', () => {
+    const rows = quarterRows(
+      [q(2025, 1, { employees: 400 })],
+      [fy(2025, '2025-12-31', { avgEmployees: 460 })],
+    );
+    // 460 people a year on average above 400 a quarter: the axis reaches 600, not the 500 the quarters alone would
+    expect(employeeScale(rows)).toEqual([0, 200, 400, 600]);
   });
 });

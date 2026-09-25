@@ -1966,6 +1966,8 @@ export interface MasiQuarterFigures {
  */
 export interface MasiYearFigures {
   year: number;
+  /** When the financial year began; absent from a masi that does not send it yet. */
+  periodStart?: string;
   periodEnd?: string;
   revenue?: number;
   operatingProfit?: number;

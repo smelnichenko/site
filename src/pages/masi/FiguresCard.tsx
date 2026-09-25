@@ -16,7 +16,7 @@ import { fetchMasiCompanyFigures, MasiCompany, MasiCompanyFigures } from '../../
 import { errorMessage, formatDate } from './format';
 import {
   formatEuros,
-  employeeAxis,
+  employeeScale,
   formatEurosExact,
   formatTick,
   latest,
@@ -103,13 +103,7 @@ export default function FiguresCard({ company }: Readonly<Props>) {
   const message = current?.message ?? null;
   const rows = useMemo(() => quarterRows(figures?.quarters ?? [], figures?.years ?? []), [figures]);
   const years = useMemo(() => yearRows(figures?.years ?? []), [figures]);
-  const employees = useMemo(
-    () =>
-      employeeAxis(
-        Math.max(0, ...rows.map((r) => Math.max(r.employees ?? 0, r.annualEmployees ?? 0))),
-      ),
-    [rows],
-  );
+  const employees = useMemo(() => employeeScale(rows), [rows]);
 
   if (!coded) return null;
   if (message) {
@@ -143,9 +137,13 @@ export default function FiguresCard({ company }: Readonly<Props>) {
       <div className="card-header">
         <span className="card-title">Figures</span>
         <span className="card-header-aside muted">
-          {/* one span a source: a narrow card breaks between them, not inside a date */}
+          {/* one line a source, the date never broken: two sources side by side read as one phrase, and a separator
+              at the start of a wrapped line reads as a stray dot */}
           {quarterly && (
-            <span>Tax and Customs Board, by quarter · file of {formatDate(published)}</span>
+            <span>
+              Tax and Customs Board, by quarter · file of{' '}
+              <span className="nowrap">{formatDate(published)}</span>
+            </span>
           )}
           {years.length > 0 && <span>e-Business Register annual reports</span>}
         </span>

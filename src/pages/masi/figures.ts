@@ -7,7 +7,7 @@ export interface QuarterRow {
   employees: number | null;
   stateTaxes: number | null;
   labourTaxes: number | null;
-  /** The annual report's average headcount (full-time equivalents), held across the four quarters of its year. */
+  /** The annual report's average headcount (full-time equivalents), held across the quarters of its year. */
   annualEmployees: number | null;
 }
 
@@ -22,19 +22,19 @@ export interface YearRow {
 
 const index = (q: { year: number; quarter: number }) => q.year * 4 + q.quarter - 1;
 
-/** The quarter a financial year ends in, on the quarters' axis. */
-function endIndex(y: MasiYearFigures): number | null {
-  if (!y.periodEnd) return null;
-  const [year, month] = y.periodEnd.split('-').map(Number);
+/** The quarter a date (`YYYY-MM-DD`) falls in, on the quarters' axis. */
+function quarterIndex(date: string): number {
+  const [year, month] = date.split('-').map(Number);
   return year * 4 + Math.floor((month - 1) / 3);
 }
 
 /**
  * Every quarter from the first to the last the board published, in order. A quarter it has no row for stays on the
  * axis as a gap — skipping it would draw two quarters a year apart side by side — and a figure it left empty is null,
- * never zero: a bank reports no turnover. An annual report's average headcount is held across the four quarters of
- * its financial year where they are on the axis: years before the board's quarters stretch no quarterly chart, and are
- * in the chart and the table by year.
+ * never zero: a bank reports no turnover. An annual report's average headcount is held across the quarters of its
+ * financial year where they are on the axis — from the quarter it began in, or the four quarters before its end when
+ * masi does not say — and years before the board's quarters stretch no quarterly chart: they are in the chart and the
+ * table by year.
  */
 export function quarterRows(
   quarters: MasiQuarterFigures[],
@@ -42,10 +42,17 @@ export function quarterRows(
 ): QuarterRow[] {
   const byIndex = new Map(quarters.map((q) => [index(q), q]));
   const annual = new Map<number, number>();
-  for (const y of years) {
-    const end = endIndex(y);
-    if (end === null || y.avgEmployees === undefined) continue;
-    for (let i = end - 3; i <= end; i++) annual.set(i, y.avgEmployees);
+  // in the order the years end: a year never takes a quarter an earlier one holds — a short year (a company changing
+  // its financial year) must not be drawn over the year before it
+  const ordered = [...years].sort((a, b) => (a.periodEnd ?? '').localeCompare(b.periodEnd ?? ''));
+  for (const y of ordered) {
+    if (!y.periodEnd || y.avgEmployees === undefined) continue;
+    const end = quarterIndex(y.periodEnd);
+    // from the quarter the year began in when masi says, else the four quarters a year has
+    const start = y.periodStart ? quarterIndex(y.periodStart) : end - 3;
+    for (let i = start; i <= end; i++) {
+      if (!annual.has(i)) annual.set(i, y.avgEmployees);
+    }
   }
   const indices = [...byIndex.keys()];
   const first = Math.min(...indices);
@@ -103,6 +110,13 @@ export function yearRows(years: MasiYearFigures[]): YearRow[] {
       profit: y.profit ?? null,
       avgEmployees: y.avgEmployees ?? null,
     }));
+}
+
+/** The employees axis for the rows: the quarterly count and the annual average both fit under it. */
+export function employeeScale(rows: QuarterRow[]): number[] {
+  return employeeAxis(
+    Math.max(0, ...rows.map((r) => Math.max(r.employees ?? 0, r.annualEmployees ?? 0))),
+  );
 }
 
 /** The last row that carries the figure, and its value; null when no row does. */

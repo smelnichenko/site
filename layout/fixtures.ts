@@ -271,35 +271,96 @@ const ANTERAS: typeof NORTAL = [
  * period end, revenue, operating profit, profit, average employees (full-time equivalents). NORTAL's are under its
  * reports' second id.
  */
-type Year = [number, string, number, number, number, number | null];
+/** year, period start, period end, revenue, operating profit, profit, average employees (FTE) */
+type Year = [number, string, string, number, number, number, number | null];
 const NORTAL_YEARS: Year[] = [
-  [2023, '2023-12-31', 66_191_000, 5_352_000, 11_509_000, 386],
-  [2024, '2024-12-31', 62_729_000, 5_649_000, 36_532_000, 345],
-  [2025, '2025-12-31', 64_414_000, 1_383_000, 7_062_000, 361],
+  [2023, '2023-01-01', '2023-12-31', 66_191_000, 5_352_000, 11_509_000, 386],
+  [2024, '2024-01-01', '2024-12-31', 62_729_000, 5_649_000, 36_532_000, 345],
+  [2025, '2025-01-01', '2025-12-31', 64_414_000, 1_383_000, 7_062_000, 361],
 ];
 const ANTERAS_YEARS: Year[] = [
-  [2023, '2023-12-31', 137_630, 1_048, 1_048, 3],
-  [2024, '2024-12-31', 218_036, 135_356, 135_356, 3],
-  [2025, '2025-12-31', 137_794, 45_273, 45_273, 3],
+  [2023, '2023-01-01', '2023-12-31', 137_630, 1_048, 1_048, 3],
+  [2024, '2024-01-01', '2024-12-31', 218_036, 135_356, 135_356, 3],
+  [2025, '2025-01-01', '2025-12-31', 137_794, 45_273, 45_273, 3],
 ];
 
 /**
- * 10003666's annual reports, as published — a company the board's quarterly files do not give the page (years only):
- * seven financial years, the first to August and the rest to July, a loss in 2023, no headcount in 2020.
+ * Three more companies as the board and the register publish them, each a shape the charts must draw right:
+ * - HORTICOM OÜ (10003666): financial years to July (the first to August, 2020 eleven months) beside its quarters.
+ * - ARTISTON, OÜ (10242514): years July to June, each labelled by the register with the year it BEGAN; no 2024 report
+ *   — it moved to calendar years, its 2025 report covering 18 months (2024-07 – 2025-12) — so a gap in its annual line.
+ * - 10002603 (OÜ): in no quarterly file of the board — dormant since 2022 — six years of reports alone.
  */
-const GROUP_YEARS: Year[] = [
-  [2019, '2019-08-31', 7_685_613, 96_064, 6_919, 51],
-  [2020, '2020-07-31', 7_818_511, 520_123, 432_203, null],
-  [2021, '2021-07-31', 9_379_293, 509_791, 471_057, 50],
-  [2022, '2022-07-31', 9_698_125, 376_421, 353_571, 51],
-  [2023, '2023-07-31', 10_157_840, 403_991, -36_770, 56],
-  [2024, '2024-07-31', 10_489_884, 403_973, 368_763, 57],
-  [2025, '2025-07-31', 10_475_906, 314_967, 336_904, 55],
+const HORTICOM: typeof NORTAL = [
+  [2022, 1, 3476548, 55, 480669, 122490],
+  [2022, 2, 6184745, 55, 759026, 141557],
+  [2022, 3, 2423006, 50, 327624, 138804],
+  [2022, 4, 3275655, 51, 396251, 158290],
+  [2023, 1, 3547871, 54, 439619, 144625],
+  [2023, 2, 6175280, 58, 849928, 161451],
+  [2023, 3, 2384337, 48, 353949, 144560],
+  [2023, 4, 2854312, 47, 319744, 165418],
+  [2024, 1, 3779961, 54, 502054, 141667],
+  [2024, 2, 6783899, 55, 916018, 165874],
+  [2024, 3, 2406487, 50, 347826, 152602],
+  [2024, 4, 2648069, 50, 352578, 172182],
+  [2025, 1, 3569257, 60, 472486, 160177],
+  [2025, 2, 6602044, 55, 933689, 176608],
+  [2025, 3, 2494297, 48, 450615, 170969],
+  [2025, 4, 2391168, 48, 346896, 167600],
+  [2026, 1, 3322567, 55, 448543, 161415],
+  [2026, 2, 7589302, 48, 1097510, 172897],
+];
+const HORTICOM_YEARS: Year[] = [
+  [2019, '2018-09-01', '2019-08-31', 7685613, 96064, 6919, 51],
+  [2020, '2019-09-01', '2020-07-31', 7818511, 520123, 432203, null],
+  [2021, '2020-08-01', '2021-07-31', 9379293, 509791, 471057, 50],
+  [2022, '2021-08-01', '2022-07-31', 9698125, 376421, 353571, 51],
+  [2023, '2022-08-01', '2023-07-31', 10157840, 403991, -36770, 56],
+  [2024, '2023-08-01', '2024-07-31', 10489884, 403973, 368763, 57],
+  [2025, '2024-08-01', '2025-07-31', 10475906, 314967, 336904, 55],
+];
+const ARTISTON: typeof NORTAL = [
+  [2022, 1, 3175167, 21, 215716, 29535],
+  [2022, 2, 3643322, 21, 208819, 28281],
+  [2022, 3, 3718266, 21, 157878, 28546],
+  [2022, 4, 5417766, 26, 326039, 34625],
+  [2023, 1, 4756127, 23, 265317, 39093],
+  [2023, 2, 2711914, 23, 127953, 37856],
+  [2023, 3, 1872465, 22, 81991, 36284],
+  [2023, 4, 2344977, 30, 133150, 37336],
+  [2024, 1, 4259550, 23, 234455, 40981],
+  [2024, 2, 2690266, 22, 230890, 37812],
+  [2024, 3, 3146292, 24, 86106, 37517],
+  [2024, 4, 3569418, 29, 230214, 39584],
+  [2025, 1, 3751267, 23, 232451, 50178],
+  [2025, 2, 3116312, 23, 149290, 42160],
+  [2025, 3, 1803031, 23, 103785, 43889],
+  [2025, 4, 2253190, 27, 165608, 43922],
+  [2026, 1, 3717904, 23, 334680, 48618],
+  [2026, 2, 2265647, 23, 93008, 40328],
+];
+const ARTISTON_YEARS: Year[] = [
+  [2019, '2019-07-01', '2020-06-30', 7211426, -307301, -314519, 21],
+  [2020, '2020-07-01', '2021-06-30', 7381924, 129688, 115121, 22],
+  [2021, '2021-07-01', '2022-06-30', 12950265, 65079, 52204, 22],
+  [2022, '2022-07-01', '2023-06-30', 15801920, 403492, 379438, 23],
+  [2023, '2023-07-01', '2024-06-30', 11471560, 97557, 65763, 22],
+  [2025, '2024-07-01', '2025-12-31', 17587406, -294033, -323734, 22],
+];
+const DORMANT_YEARS: Year[] = [
+  [2019, '2019-01-01', '2019-12-31', 30811, 9, 9, 2],
+  [2020, '2020-01-01', '2020-12-31', 33492, -231, -231, 2],
+  [2021, '2021-01-01', '2021-12-31', 2350, -3971, -3971, 1],
+  [2022, '2022-01-01', '2022-12-31', 0, 0, 0, 0],
+  [2023, '2023-01-01', '2023-12-31', 0, 0, 0, 0],
+  [2024, '2024-01-01', '2024-12-31', 0, 0, 0, 0],
 ];
 
 type Row = (typeof NORTAL)[number];
 const asFigures = (quarters: Row[], years: Year[]): MasiCompanyFigures => ({
-  years: years.map(([year, periodEnd, revenue, operatingProfit, profit, avgEmployees]) => ({
+  // the period start is kept for the record, not sent: masi does not send it yet
+  years: years.map(([year, , periodEnd, revenue, operatingProfit, profit, avgEmployees]) => ({
     year,
     periodEnd,
     revenue,
@@ -322,7 +383,9 @@ const asFigures = (quarters: Row[], years: Year[]): MasiCompanyFigures => ({
 const figures: Record<string, MasiCompanyFigures> = {
   '3': asFigures(NORTAL, NORTAL_YEARS),
   '4': asFigures(ANTERAS, ANTERAS_YEARS),
-  '5': asFigures([], GROUP_YEARS),
+  '5': asFigures(HORTICOM, HORTICOM_YEARS),
+  '6': asFigures(ARTISTON, ARTISTON_YEARS),
+  '7': asFigures([], DORMANT_YEARS),
 };
 const small: MasiCompany = {
   ...company,
@@ -331,13 +394,18 @@ const small: MasiCompany = {
   registryCode: '12499281',
   sizeBand: '1-9',
 };
-const group: MasiCompany = {
+const named = (id: number, name: string, registryCode: string): MasiCompany => ({
   ...company,
-  id: 5,
-  name: 'OÜ with financial years to July',
-  registryCode: '10003666',
+  id,
+  name,
+  registryCode,
+});
+const byId: Record<string, MasiCompany> = {
+  '4': small,
+  '5': named(5, 'HORTICOM OÜ', '10003666'),
+  '6': named(6, 'ARTISTON, OÜ', '10242514'),
+  '7': named(7, 'An OÜ dormant since 2022', '10002603'),
 };
-const byId: Record<string, MasiCompany> = { '4': small, '5': group };
 
 const none = { content: [], page: 0, size: 200, totalElements: 0 };
 
