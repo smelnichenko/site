@@ -16,6 +16,7 @@ import { fetchMasiCompanyFigures, MasiCompany, MasiCompanyFigures } from '../../
 import { errorMessage, formatDate } from './format';
 import {
   formatEuros,
+  employeeAxis,
   formatEurosExact,
   formatTick,
   latest,
@@ -43,11 +44,16 @@ const legendText = (value: string) => <span style={TEXT}>{value}</span>;
 const FIRST_SIZE = { width: 300, height: 220 };
 /** Half a bar chart's quarter, in px at the phone's width: the line's points line up with the bars under them. */
 const BAND_HALF = 8;
-/** The employees axis from zero to a little over the most, not to the next round step: 403 people on a 0–600 axis look flat. */
-const headroom = (max: number) => Math.ceil((max * 1.1) / 50) * 50;
 
 interface Props {
   company: MasiCompany;
+}
+
+/** The answer for one company: its figures, or why they could not be loaded. */
+interface Loaded {
+  id: number;
+  figures?: MasiCompanyFigures;
+  message?: string;
 }
 
 /**
@@ -56,26 +62,35 @@ interface Props {
  * board left empty is a gap in the chart, never a zero.
  */
 export default function FiguresCard({ company }: Readonly<Props>) {
-  const [figures, setFigures] = useState<MasiCompanyFigures | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  // what was loaded, and for which company: a company the page moved on from shows nothing of its own while the next
+  // one loads, and no reset is written inside the effect
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
   const coded = company.registryCode !== null;
 
   useEffect(() => {
     if (!coded) return;
+    const id = company.id;
     const controller = new AbortController();
     void (async () => {
       try {
-        const f = await fetchMasiCompanyFigures(company.id, controller.signal);
-        setFigures(f);
-        setMessage(null);
+        setLoaded({ id, figures: await fetchMasiCompanyFigures(id, controller.signal) });
       } catch (e: unknown) {
-        if (!controller.signal.aborted) setMessage(errorMessage(e, 'Failed to load the figures'));
+        if (!controller.signal.aborted) {
+          setLoaded({ id, message: errorMessage(e, 'Failed to load the figures') });
+        }
       }
     })();
     return () => controller.abort();
   }, [company.id, coded]);
 
+  const current = loaded?.id === company.id ? loaded : null;
+  const figures = current?.figures ?? null;
+  const message = current?.message ?? null;
   const rows = useMemo(() => quarterRows(figures?.quarters ?? []), [figures]);
+  const employees = useMemo(
+    () => employeeAxis(Math.max(0, ...rows.map((r) => r.employees ?? 0))),
+    [rows],
+  );
 
   if (!coded) return null;
   if (message) {
@@ -91,7 +106,6 @@ export default function FiguresCard({ company }: Readonly<Props>) {
   if (rows.length === 0) return null;
 
   // ISO dates: the latest is the greatest string
-  // ISO dates: the latest is the greatest string
   const published = (figures?.quarters ?? []).reduce(
     (a, q) => (q.published > a ? q.published : a),
     '',
@@ -101,7 +115,6 @@ export default function FiguresCard({ company }: Readonly<Props>) {
     dataKey: 'label',
     ticks: yearTicks(rows),
     tickFormatter: quarterTick,
-    interval: 0 as const,
     tick: { fontSize: 11 },
   };
   return (
@@ -131,8 +144,8 @@ export default function FiguresCard({ company }: Readonly<Props>) {
                   tick={{ fontSize: 11 }}
                   tickFormatter={formatTick}
                   width={44}
-                  allowDecimals={false}
-                  domain={[0, headroom]}
+                  ticks={employees}
+                  domain={[0, employees[employees.length - 1]]}
                 />
                 <Tooltip itemStyle={TEXT} />
                 <Line

@@ -241,8 +241,34 @@ const NORTAL: Array<[number, number, number | null, number | null, number | null
     [2026, 2, 14920312, 356, 3676181, 2762582],
   ];
 
-const figures: MasiCompanyFigures = {
-  quarters: NORTAL.map(([year, quarter, turnover, employees, stateTaxes, labourTaxes]) => ({
+/**
+ * ANTERAS BALTIC OÜ's quarters, as published: three employees throughout — but for 2025 Q2, which has no count (a gap
+ * in the line) — and a negative turnover in 2025 Q1 (a bar below the zero line).
+ */
+const ANTERAS: typeof NORTAL = [
+  [2022, 1, 17985, 3, 4980, 2557],
+  [2022, 2, 44750, 3, 10144, 3399],
+  [2022, 3, 59125, 3, 7344, 3805],
+  [2022, 4, 35000, 3, 8896, 3429],
+  [2023, 1, 32000, 3, 4515, 3204],
+  [2023, 2, 30830, 3, 7525, 2634],
+  [2023, 3, 18300, 3, 5813, 3314],
+  [2023, 4, 56603, 3, 6311, 3045],
+  [2024, 1, 42300, 3, 6860, 3738],
+  [2024, 2, 12601, 3, 5239, 3350],
+  [2024, 3, 112969, 3, 11610, 3462],
+  [2024, 4, 95550, 3, 22485, 3829],
+  [2025, 1, -34057, 3, 13604, 3918],
+  [2025, 2, 46000, null, 9791, 3655],
+  [2025, 3, 13890, 3, 4623, 1158],
+  [2025, 4, 87960, 3, 15590, 3473],
+  [2026, 1, 10550, 3, 11842, 3496],
+  [2026, 2, 22000, 3, 8013, 3599],
+];
+
+type Row = (typeof NORTAL)[number];
+const asFigures = (quarters: Row[]): MasiCompanyFigures => ({
+  quarters: quarters.map(([year, quarter, turnover, employees, stateTaxes, labourTaxes]) => ({
     year,
     quarter,
     published: '2026-07-10',
@@ -251,6 +277,18 @@ const figures: MasiCompanyFigures = {
     ...(stateTaxes === null ? {} : { stateTaxes }),
     ...(labourTaxes === null ? {} : { labourTaxes }),
   })),
+});
+
+const figures: Record<string, MasiCompanyFigures> = {
+  '3': asFigures(NORTAL),
+  '4': asFigures(ANTERAS),
+};
+const small: MasiCompany = {
+  ...company,
+  id: 4,
+  name: 'ANTERAS BALTIC OÜ',
+  registryCode: '12499281',
+  sizeBand: '1-9',
 };
 
 const none = { content: [], page: 0, size: 200, totalElements: 0 };
@@ -281,10 +319,13 @@ export function answer(url: URL): Answer | undefined {
     [/^\/jobs\/\d+\/history$/, () => ({ status: 200, body: [] })],
     [/^\/jobs\/\d+\/similar$/, () => ({ status: 200, body: [] })],
     [/^\/packages$/, () => ({ status: 200, body: packages })],
-    [/^\/companies\/\d+$/, () => ({ status: 200, body: company })],
+    [/^\/companies\/\d+$/, () => ({ status: 200, body: path.endsWith('/4') ? small : company })],
     [/^\/companies\/\d+\/register-match$/, () => ({ status: 204 })],
     [/^\/companies\/\d+\/contacts$/, () => ({ status: 200, body: none })],
-    [/^\/companies\/\d+\/figures$/, () => ({ status: 200, body: figures })],
+    [
+      /^\/companies\/\d+\/figures$/,
+      () => ({ status: 200, body: figures[path.split('/')[2]] ?? { quarters: [] } }),
+    ],
     [/^\/persons\/of-company\/\d+$/, () => ({ status: 200, body: [] })],
     [/^\/packages\/retune$/, () => ({ status: 200, body: { count: 12, estimatedUsd: 3.42 } })],
   ];

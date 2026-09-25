@@ -19,7 +19,6 @@ const index = (q: { year: number; quarter: number }) => q.year * 4 + q.quarter -
  * never zero: a bank reports no turnover.
  */
 export function quarterRows(quarters: MasiQuarterFigures[]): QuarterRow[] {
-  if (quarters.length === 0) return [];
   const byIndex = new Map(quarters.map((q) => [index(q), q]));
   const indices = [...byIndex.keys()];
   const first = Math.min(...indices);
@@ -36,6 +35,21 @@ export function quarterRows(quarters: MasiQuarterFigures[]): QuarterRow[] {
     });
   }
   return rows;
+}
+
+/**
+ * The employees axis: from zero to a little over the most, in five or fewer even steps of 1, 2 or 5 times a power of
+ * ten — never a fraction of a person. A company without employees sits on the baseline of a 0–1 axis.
+ */
+export function employeeAxis(max: number): number[] {
+  const top = Math.max(max * 1.1, 1);
+  const raw = top / 5;
+  const magnitude = 10 ** Math.floor(Math.log10(raw));
+  const nice =
+    [1, 2, 5, 10].map((m) => m * magnitude).find((step) => step >= raw) ?? 10 * magnitude;
+  const step = Math.max(1, nice);
+  const end = Math.ceil(top / step) * step;
+  return Array.from({ length: end / step + 1 }, (_, i) => i * step);
 }
 
 /** The last quarter that carries the figure, and its value; null when no quarter does. */

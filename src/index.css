@@ -1182,13 +1182,16 @@ a.muted,
 
 .masi-figures {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 16px;
   container-type: inline-size;
 }
 
-/* two columns (416–631 px: three need 3 × 200 + 2 × 16): the third chart takes the row, not half of it */
-@container (min-width: 416px) and (max-width: 631.98px) {
+/*
+ * three in a row only where a chart is 280 px wide (18 quarters of two tax bars need it); two columns (576–871 px:
+ * three need 3 × 280 + 2 × 16) give the third chart the row, not half of it
+ */
+@container (min-width: 576px) and (max-width: 871.98px) {
   .masi-figures > figure:last-child {
     grid-column: 1 / -1;
   }

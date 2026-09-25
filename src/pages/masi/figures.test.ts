@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatEuros,
   formatEurosExact,
+  employeeAxis,
   formatTick,
   latest,
   quarterRows,
@@ -89,5 +90,18 @@ describe('the figures themselves', () => {
     expect(formatEurosExact(-23_032)).toBe('-23,032 €');
     expect(formatEurosExact(undefined)).toBe('—');
     expect(formatTick(1_162_500)).toBe('1.16M');
+  });
+});
+
+describe('employeeAxis', () => {
+  it('reaches a little over the most, in even steps, whatever the size of the company', () => {
+    expect(employeeAxis(403)).toEqual([0, 100, 200, 300, 400, 500]);
+    expect(employeeAxis(449)).toEqual([0, 100, 200, 300, 400, 500]);
+    expect(employeeAxis(3)).toEqual([0, 1, 2, 3, 4]);
+    expect(employeeAxis(1)).toEqual([0, 1, 2]);
+  });
+
+  it('puts a company without employees on the baseline, not halfway up', () => {
+    expect(employeeAxis(0)).toEqual([0, 1]);
   });
 });
