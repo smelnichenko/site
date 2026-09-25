@@ -136,3 +136,8 @@ export function endOfDayIn(date: string, zone: string = MASI_ZONE): string | nul
   );
   return new Date(asUtc - (wall - asUtc)).toISOString();
 }
+
+/** Google Maps' documented search URL for an address: opened by the operator's click, nothing sent before it. */
+export function mapsUrl(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}

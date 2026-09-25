@@ -1406,6 +1406,8 @@ export interface MasiCompany {
   emtakCode: string | null;
   sizeBand: string | null;
   hqCity: string | null;
+  /** The registered address with its postal code, from the e-Business Register; never a sole trader's. */
+  address: string | null;
   tags: string | null;
   status: string;
   origin: string;
