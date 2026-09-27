@@ -585,6 +585,39 @@ describe('MasiCompanyDetail', () => {
     expect(screen.queryByRole('group', { name: 'Confirm the placement' })).not.toBeInTheDocument();
   });
 
+  it('does not carry a handed-over code to the company a placement merged this one into', async () => {
+    const survivor = { ...company, id: 17, name: 'Nortal Grupp AS', registryCode: null };
+    vi.mocked(api.fetchMasiCompany).mockImplementation((id) =>
+      Promise.resolve(id === 17 ? survivor : { ...company, registryCode: null }),
+    );
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
+    vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
+      Promise.resolve({
+        indexed: true,
+        truncated: false,
+        candidates: code ? [registered(code, 'Nortal Grupp AS')] : [],
+      }),
+    );
+    vi.mocked(api.placeMasiCompany).mockResolvedValue(survivor);
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Look up reg. 12345678 in the register' }),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Place it' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('is this company now');
+    await waitFor(() =>
+      expect(api.fetchMasiRegisterCandidates).toHaveBeenCalledWith(17, expect.anything()),
+    );
+
+    expect(vi.mocked(api.fetchMasiRegisterCandidates).mock.calls.filter((c) => c[2])).toEqual([
+      [3, expect.anything(), '12345678'],
+    ]);
+    expect(screen.queryByRole('group', { name: 'Confirm the placement' })).not.toBeInTheDocument();
+  });
+
   it("holds the register card's own choices while a handed-over code is looked up", async () => {
     vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
     vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
