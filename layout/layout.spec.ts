@@ -53,6 +53,12 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
         '.masi-visit-card button': [2, 'Look up reg. 16267372'],
       },
     },
+    {
+      name: 'person with a long address',
+      path: '/masi/persons/5',
+      ready: '[data-testid="person-ties"]',
+      drawn: { '.masi .badge-group .status-badge': [2, 'Do not contact'] },
+    },
     { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
     { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
     {
@@ -593,19 +599,26 @@ for (const { name, path, ready, drawn, widths } of PAGES) {
       expect(spilling, 'no text past its own box').toEqual([]);
 
       // a row of actions stands level: two badges on one line of a badge group share their middle (a global margin
-      // meant for another element — the error banner's on a badge with the error colour — lifts one out of line)
+      // meant for another element — the error banner's on a badge with the error colour — lifts one out of line). One
+      // line is told by the flow, not by overlap: the next badge starts right of the last, where a wrapped one starts
+      // back at the left — a lift of more than a badge's height is still on the line it was lifted from
       const askew = await page.evaluate(() =>
         [...document.querySelectorAll('main .badge-group')].flatMap((group) => {
           const rs = [...group.children]
-            .filter((el) => el.classList.contains('status-badge') && el.getClientRects().length > 0)
-            .map((el) => ({ text: (el.textContent ?? '').trim(), r: el.getBoundingClientRect() }));
-          return rs.flatMap((a, i) =>
-            rs
-              .slice(i + 1)
-              .filter(({ r }) => r.top < a.r.bottom && r.bottom > a.r.top)
-              .filter(({ r }) => Math.abs(r.top + r.height / 2 - (a.r.top + a.r.height / 2)) > 1)
-              .map((b) => `${a.text} ${Math.round(a.r.top)} / ${b.text} ${Math.round(b.r.top)}`),
-          );
+            .filter((el) => el.getClientRects().length > 0)
+            .map((el) => ({
+              badge: el.classList.contains('status-badge'),
+              text: (el.textContent ?? '').trim(),
+              r: el.getBoundingClientRect(),
+            }));
+          return rs.slice(1).flatMap((b, i) => {
+            const a = rs[i];
+            const oneLine = b.r.left >= a.r.right - 1;
+            const middle = (r: DOMRect) => r.top + r.height / 2;
+            return a.badge && b.badge && oneLine && Math.abs(middle(a.r) - middle(b.r)) > 1
+              ? [`${a.text} ${Math.round(a.r.top)} / ${b.text} ${Math.round(b.r.top)}`]
+              : [];
+          });
         }),
       );
       expect(askew, 'badges on one line stand level').toEqual([]);

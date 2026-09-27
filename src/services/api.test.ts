@@ -1020,9 +1020,12 @@ describe('api - masi people and register', () => {
 
   it("reads a company's visits: the body, nothing for a 404 (not visited yet), and the server's word otherwise", async () => {
     const visits = { latest: null, attempt: null, visiting: true };
+    const controller = new AbortController();
     mockFetch.mockResolvedValueOnce(mockResponse(visits));
-    await expect(api.fetchMasiCompanyVisits(82)).resolves.toEqual(visits);
+    await expect(api.fetchMasiCompanyVisits(82, controller.signal)).resolves.toEqual(visits);
     expect(calls()[0][0]).toBe('/api/masi/companies/82/enrichment');
+    // the card abandons a read when the company changes: the request is cancelled, not its answer ignored
+    expect(calls()[0][1]?.signal).toBe(controller.signal);
 
     // not visited yet is no failure: the page shows no card, not an error
     mockFetch.mockResolvedValueOnce(

@@ -85,6 +85,8 @@ describe('VisitCard', () => {
       'https://domainseller.site/',
     );
     expect(screen.getByText('domainseller.site: no registry code')).toBeInTheDocument();
+    // how it was found is said once, in the line about the guess, not again beside the host
+    expect(screen.getAllByText(/a guess from its name/)).toHaveLength(1);
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Accept domainseller.site as its website' }),
@@ -112,9 +114,33 @@ describe('VisitCard', () => {
     ).toBeInTheDocument();
     unmount();
 
-    renderCard({ ...playtech, website: 'https://jobs.domainseller.site/careers' });
+    const { unmount: unmountSubdomain } = renderCard({
+      ...playtech,
+      website: 'https://jobs.domainseller.site/careers',
+    });
     expect(await screen.findByText('not sure it is its site')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Accept / })).not.toBeInTheDocument();
+    unmountSubdomain();
+
+    // the other way round: the candidate under the website the company has
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(
+      visits({ latest: { ...guessed, candidateUrl: 'https://jobs.playtech.com/' } }),
+    );
+    const { unmount: unmountUnder } = renderCard({ ...playtech, website: 'https://playtech.com/' });
+    expect(await screen.findByText('not sure it is its site')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Accept / })).not.toBeInTheDocument();
+    unmountUnder();
+
+    // a name that only ends in the same letters is another site
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(
+      visits({ latest: { ...guessed, candidateUrl: 'https://notdomainseller.site/' } }),
+    );
+    renderCard({ ...playtech, website: 'https://domainseller.site/' });
+    expect(
+      await screen.findByRole('button', {
+        name: 'Accept notdomainseller.site instead of domainseller.site',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('drops a refusal once the company changed under it: the placement it asked for was made', async () => {
@@ -139,6 +165,89 @@ describe('VisitCard', () => {
     );
 
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    // and the visits are read again for the company as it is now
+    expect(api.fetchMasiCompanyVisits).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops a refusal about another company, or about a website the company no longer has', async () => {
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(visits({ latest: guessed }));
+    vi.mocked(api.patchMasiCompany).mockRejectedValue(
+      new Error('domainseller.site is held by Parking OÜ'),
+    );
+    const refused = async () => {
+      await userEvent.click(
+        await screen.findByRole('button', { name: /^Accept domainseller\.site/ }),
+      );
+      expect(await screen.findByRole('alert')).toHaveTextContent('held by Parking OÜ');
+    };
+    const { rerender } = renderCard();
+    await refused();
+
+    // the page moved on to another company without a website or a code: the refusal was not about it
+    rerender(<VisitCard company={{ ...playtech, id: 8 }} onChange={vi.fn()} onLookUp={vi.fn()} />);
+    await waitFor(() =>
+      expect(api.fetchMasiCompanyVisits).toHaveBeenCalledWith(8, expect.any(AbortSignal)),
+    );
+    expect(await screen.findByRole('link', { name: 'domainseller.site' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    await refused();
+    // the company was given another website meanwhile (the operator, on its page)
+    rerender(
+      <VisitCard
+        company={{ ...playtech, id: 8, website: 'https://playtech.com/' }}
+        onChange={vi.fn()}
+        onLookUp={vi.fn()}
+      />,
+    );
+    expect(
+      await screen.findByRole('button', {
+        name: 'Accept domainseller.site instead of playtech.com',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('sends one Accept at a time', async () => {
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(visits({ latest: guessed }));
+    vi.mocked(api.patchMasiCompany).mockReturnValue(new Promise(() => {}));
+    renderCard();
+    const accept = await screen.findByRole('button', {
+      name: 'Accept domainseller.site as its website',
+    });
+
+    await userEvent.click(accept);
+
+    expect(accept).toBeDisabled();
+    expect(accept).toHaveAttribute('aria-busy', 'true');
+    await userEvent.click(accept);
+    expect(api.patchMasiCompany).toHaveBeenCalledTimes(1);
+  });
+
+  it('says nothing of a read it abandoned when the company changed', async () => {
+    vi.mocked(api.fetchMasiCompanyVisits)
+      .mockImplementationOnce(
+        (_id, signal) =>
+          new Promise((_resolve, reject) =>
+            signal?.addEventListener('abort', () =>
+              reject(new DOMException('The operation was aborted.', 'AbortError')),
+            ),
+          ),
+      )
+      .mockResolvedValue(visits({ latest: guessed }));
+    const { rerender } = renderCard();
+    await waitFor(() => expect(api.fetchMasiCompanyVisits).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <VisitCard
+        company={{ ...playtech, website: 'https://playtech.com/' }}
+        onChange={vi.fn()}
+        onLookUp={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole('link', { name: 'domainseller.site' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it("says a company's first visit is under way, not that it failed", async () => {
@@ -319,7 +428,7 @@ describe('VisitCard', () => {
     expect(
       await screen.findByText(/^Tried again .*: the visit did not finish$/),
     ).toBeInTheDocument();
-    expect(screen.queryByText('visiting now')).not.toBeInTheDocument();
+    expect(screen.queryByText(/visiting now/)).not.toBeInTheDocument();
     expect(screen.getByText(/^visited /)).toBeInTheDocument();
   });
 

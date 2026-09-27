@@ -12,6 +12,7 @@ import type {
   MasiCompany,
   MasiCompanyFigures,
   MasiCompanyVisits,
+  MasiPerson,
   MasiJob,
   MasiMatch,
   MasiPackage,
@@ -457,6 +458,33 @@ const byId: Record<string, MasiCompany> = {
 
 const none = { content: [], page: 0, size: 200, totalElements: 0 };
 
+/** A recruiter with a long address, tied to the long-named company: Save beside the red "Do not contact". */
+const person: MasiPerson = {
+  id: 5,
+  name: 'Kati Kask-Maasikas-Mustikas',
+  email: `kati.kask-maasikas-mustikas@${'recruiting'.repeat(4)}.example`,
+  phone: '+372 5555 5555',
+  title: 'Senior Talent Acquisition Partner, Engineering and Product',
+  doNotContact: false,
+  userNote: null,
+  firstSeenAt: '2026-09-16T10:00:00Z',
+  lastSeenAt: '2026-09-22T05:00:00Z',
+  ties: [
+    {
+      companyId: 3,
+      companyName: company.name,
+      agency: false,
+      role: 'POSTED_FOR',
+      evidence: 'LISTING',
+      evidenceRef: 'listing 1',
+      since: '2026-09-16T10:00:00Z',
+      until: null,
+      where: 'SOMEWHERE_ELSE',
+      contactId: 5,
+    },
+  ],
+};
+
 export interface Answer {
   status: number;
   body?: unknown;
@@ -502,6 +530,8 @@ export function answer(url: URL): Answer | undefined {
       () => ({ status: 200, body: figures[path.split('/')[2]] ?? { quarters: [] } }),
     ],
     [/^\/persons\/of-company\/\d+$/, () => ({ status: 200, body: [] })],
+    [/^\/persons\/\d+$/, () => ({ status: 200, body: person })],
+    [/^\/activity$/, () => ({ status: 200, body: { ...none, size: 20 } })],
     [/^\/packages\/retune$/, () => ({ status: 200, body: { count: 12, estimatedUsd: 3.42 } })],
   ];
   const hit = routes.find(([re]) => re.test(path));
