@@ -359,16 +359,17 @@ for (const width of [390, 1366]) {
  * The source line on a phone's range of widths: each source its own line, no separator to start a wrapped one, and the
  * file's date never broken (at 412–460 px it broke inside "10 Jul 2026" before).
  */
-test('company sources: one under the other, the date whole, at 360–480 px', async ({ page }) => {
-  for (const width of [360, 390, 412, 430, 440, 460, 480]) {
+// a test per width: seven page loads in one test overran its 30 s on the loaded CI node
+for (const width of [360, 390, 412, 430, 440, 460, 480]) {
+  test(`company sources: one under the other, the date whole, at ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await open(page, '/masi/companies/3', '.masi-figures-card');
     const m = await page.evaluate(measureFigures);
     expect(m.sources.stacked, `${width} px: one source under the other`).toBe(true);
     expect(m.sources.separators, `${width} px: no separator`).toEqual(['none', 'none']);
     expect(m.sources.dateLines, `${width} px: the date on one line`).toBe(1);
-  }
-});
+  });
+}
 
 /** What the figures card draws, as numbers the tests compare. */
 function measureFigures() {
