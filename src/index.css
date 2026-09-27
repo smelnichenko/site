@@ -1173,6 +1173,35 @@ a.muted,
   white-space: nowrap;
 }
 
+/* masi's visit to a company's own site: its words carry hosts and URLs with no break in them (a guessed domain's label
+   may be 63 letters), so everything in the card wraps inside it rather than widening the page */
+.masi-visit-card,
+.masi-visit-card button {
+  overflow-wrap: anywhere;
+}
+
+.masi-visit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.masi-visit-site {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+}
+
+/* an action naming a site carries its host: its label wraps when the host cannot fit a line (the badges' own words stay
+   on one line elsewhere), within the card's width */
+.masi-visit .status-badge {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+
 /* masi company figures: three charts that sit side by side while they fit and stack on a phone */
 /* the source line goes under the title on a phone, not squeezed beside it */
 .masi-figures-card .card-header {

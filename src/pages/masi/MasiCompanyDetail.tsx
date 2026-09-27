@@ -19,6 +19,7 @@ import { badgeClass, errorMessage, formatDate, mapsUrl } from './format';
 import MasiTable from '../../components/MasiTable';
 import RegisterCard from './RegisterCard';
 import FiguresCard from './FiguresCard';
+import VisitCard from './VisitCard';
 import { byCompany, rolesText, whereLabel } from './people';
 import { agencyText } from './register';
 
@@ -42,6 +43,7 @@ export default function MasiCompanyDetail() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lookUp, setLookUp] = useState<{ code: string } | null>(null);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -245,7 +247,12 @@ export default function MasiCompanyDetail() {
           />
         </div>
       </div>
-      <RegisterCard company={company} onChange={registerChanged} />
+      <VisitCard
+        company={company}
+        onChange={registerChanged}
+        onLookUp={(code) => setLookUp({ code })}
+      />
+      <RegisterCard company={company} onChange={registerChanged} lookUpRequest={lookUp} />
       <FiguresCard company={company} />
       <div className="card">
         <div className="card-header">

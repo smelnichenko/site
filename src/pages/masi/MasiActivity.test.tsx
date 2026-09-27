@@ -225,6 +225,42 @@ describe('MasiActivity', () => {
     expect(await screen.findByText('Ping them Friday')).toBeInTheDocument();
   });
 
+  it("names masi's register and website lines, and filters only by the kinds the server has", async () => {
+    const own = (id: number, kind: Row['kind'], summary: string): Row => ({
+      ...rows[2],
+      id,
+      kind,
+      origin: 'SYSTEM',
+      jobId: null,
+      jobTitle: null,
+      summary,
+    });
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [
+        own(21, 'REGISTER_MATCHED', 'placed on reg. 10391131 by its own site nortal.com'),
+        own(20, 'WEBSITE_SET', 'website nortal.ee replaced by nortal.com'),
+      ],
+      page: 0,
+      size: 50,
+      totalElements: 2,
+    });
+    renderAt('/masi/activity', '/masi/activity', <MasiActivity />);
+
+    const log = await screen.findByRole('list', { name: 'Activity' });
+    const [placed, website] = within(log).getAllByRole('listitem');
+    expect(within(placed).getByText('placed in the register')).toBeInTheDocument();
+    expect(
+      within(placed).getByText('placed on reg. 10391131 by its own site nortal.com'),
+    ).toBeInTheDocument();
+    expect(within(website).getByText('website changed')).toBeInTheDocument();
+    const kinds = within(screen.getByRole('combobox', { name: 'Kind' }))
+      .getAllByRole('option')
+      .map((o) => o.getAttribute('value'));
+    expect(kinds).toEqual(expect.arrayContaining(['REGISTER_MATCHED', 'WEBSITE_SET']));
+    // a kind the server does not have would answer every filter by it with an error
+    expect(kinds).not.toContain('ANALYSED');
+  });
+
   it('shows the empty state and the error', async () => {
     vi.mocked(api.fetchMasiActivity).mockRejectedValue(new Error('boom'));
     renderAt('/masi/activity', '/masi/activity', <MasiActivity />);

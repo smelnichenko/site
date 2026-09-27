@@ -41,6 +41,15 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn }> 
       '.masi-figures-latest dd': [3, '356 (2026 Q2)'],
     },
   },
+  {
+    name: 'unplaced company with its visit to a guess',
+    path: '/masi/companies/8',
+    ready: '.masi-visit-card',
+    drawn: {
+      '.masi-visit-card .muted': [3, UNBROKEN_PART],
+      '.masi-visit-card button': [2, 'Look up reg. 16267372'],
+    },
+  },
   { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
   { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
   {

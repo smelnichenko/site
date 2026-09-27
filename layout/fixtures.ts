@@ -11,6 +11,7 @@ import type {
   MasiCalendarEvent,
   MasiCompany,
   MasiCompanyFigures,
+  MasiCompanyVisits,
   MasiJob,
   MasiMatch,
   MasiPackage,
@@ -400,7 +401,54 @@ const named = (id: number, name: string, registryCode: string): MasiCompany => (
   name,
   registryCode,
 });
+/** A board's employer masi has not placed: no code, no website, and a visit to a guess with much to say. */
+const unplaced: MasiCompany = {
+  ...company,
+  id: 8,
+  name: `${LONG_TITLE} OÜ`,
+  registryCode: null,
+  website: null,
+  address: null,
+  origin: 'FROM_LISTING',
+  registerSeenAt: null,
+};
+/** The longest a registrable domain's label may be (63), guessed from the name: the host is one unbroken word. */
+const GUESSED = `${'kaugeltvaadatudtarkvaraarendus'.repeat(2)}ab.ee`;
+const visits: Record<string, MasiCompanyVisits> = {
+  '8': {
+    latest: {
+      runAt: '2026-09-21T22:00:00Z',
+      outcome: 'UNCONFIRMED',
+      candidateUrl: `https://${GUESSED}/`,
+      evidence: `${GUESSED} prints registry code 16267372, which fits its name: ${UNBROKEN}`,
+      adoptedCode: null,
+      careersUrl: UNBROKEN,
+      atsVendor: 'teamdash',
+      requests: 6,
+      cut: true,
+      foundBy: 'GUESS',
+      triedUrl: `https://${GUESSED.replace('.ee', '.com')}/`,
+      namedCode: '16267372',
+    },
+    attempt: {
+      runAt: '2026-09-22T05:00:00Z',
+      outcome: 'VISIT_FAILED',
+      candidateUrl: null,
+      evidence: null,
+      adoptedCode: null,
+      careersUrl: null,
+      atsVendor: null,
+      requests: 0,
+      cut: false,
+      foundBy: null,
+      triedUrl: null,
+      namedCode: null,
+    },
+    visiting: true,
+  },
+};
 const byId: Record<string, MasiCompany> = {
+  '8': unplaced,
   '4': small,
   '5': named(5, 'HORTICOM OÜ', '10003666'),
   '6': named(6, 'ARTISTON, OÜ', '10242514'),
@@ -437,6 +485,17 @@ export function answer(url: URL): Answer | undefined {
     [/^\/packages$/, () => ({ status: 200, body: packages })],
     [/^\/companies\/\d+$/, () => ({ status: 200, body: byId[path.split('/')[2]] ?? company })],
     [/^\/companies\/\d+\/register-match$/, () => ({ status: 204 })],
+    [
+      /^\/companies\/\d+\/register-candidates$/,
+      () => ({ status: 200, body: { indexed: true, truncated: false, candidates: [] } }),
+    ],
+    [
+      /^\/companies\/\d+\/enrichment$/,
+      () => {
+        const v = visits[path.split('/')[2]];
+        return v ? { status: 200, body: v } : { status: 404, body: { error: 'no visit yet' } };
+      },
+    ],
     [/^\/companies\/\d+\/contacts$/, () => ({ status: 200, body: none })],
     [
       /^\/companies\/\d+\/figures$/,

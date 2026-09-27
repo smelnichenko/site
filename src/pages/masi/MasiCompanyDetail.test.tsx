@@ -21,6 +21,7 @@ vi.mock('../../services/api', () => ({
   fetchMasiCompanyContacts: vi.fn(),
   fetchMasiCompanyFigures: vi.fn(),
   patchMasiContact: vi.fn(),
+  fetchMasiCompanyVisits: vi.fn(),
 }));
 const api = await import('../../services/api');
 
@@ -114,6 +115,9 @@ beforeEach(() => {
   vi.mocked(api.fetchMasiCompanyFigures).mockReset();
   vi.mocked(api.fetchMasiCompanyFigures).mockResolvedValue({ quarters: [] });
   vi.mocked(api.patchMasiContact).mockReset();
+  vi.mocked(api.fetchMasiCompanyVisits).mockReset();
+  vi.mocked(api.placeMasiCompany).mockReset();
+  vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(null);
   vi.mocked(api.fetchMasiCompanyContacts).mockResolvedValue({
     content: [],
     page: 0,
@@ -386,6 +390,116 @@ describe('MasiCompanyDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Place it' }));
     await waitFor(() => expect(api.placeMasiCompany).toHaveBeenCalledWith(3, '10391131'));
     expect(await screen.findByRole('link', { name: 'Kati Kask' })).toBeInTheDocument();
+  });
+
+  it('hands a code its site names to the register card, which says what it is and asks before placing', async () => {
+    const uncoded = { ...company, registryCode: null };
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue(uncoded);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue({
+      latest: {
+        runAt: '2026-09-27T09:00:00Z',
+        outcome: 'CODE_HELD',
+        candidateUrl: 'https://nortal.ee/',
+        evidence: 'nortal.ee names Nortal Grupp AS (12345678), a company masi holds',
+        adoptedCode: null,
+        careersUrl: null,
+        atsVendor: null,
+        requests: 2,
+        cut: false,
+        foundBy: 'CONTACT',
+        triedUrl: null,
+        namedCode: '12345678',
+      },
+      attempt: null,
+      visiting: false,
+    });
+    const held = {
+      registryCode: '12345678',
+      name: 'Nortal Grupp AS',
+      legalForm: 'AS',
+      emtakCode: '62011',
+      hqCity: 'Tallinn',
+      sizeBand: '250+',
+      website: 'https://nortal.ee/',
+      how: 'CODE' as const,
+      sure: false,
+      employerForm: true,
+      heldById: 40,
+      heldByName: 'Nortal Grupp AS',
+    };
+    vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
+      Promise.resolve({ indexed: true, truncated: false, candidates: code ? [held] : [] }),
+    );
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Look up reg. 12345678 in the register' }),
+    );
+
+    await waitFor(() =>
+      expect(api.fetchMasiRegisterCandidates).toHaveBeenCalledWith(
+        3,
+        expect.anything(),
+        '12345678',
+      ),
+    );
+    const confirm = await screen.findByRole('group', { name: 'Confirm the placement' });
+    expect(confirm).toHaveTextContent('Nortal Grupp AS (reg. 12345678)');
+    // the choice is made there: focus goes to it, and nothing is placed until the operator says so
+    expect(within(confirm).getByRole('button', { name: 'Place it' })).toHaveFocus();
+    expect(api.placeMasiCompany).not.toHaveBeenCalled();
+  });
+
+  it('reads everything again once a website is accepted', async () => {
+    const bare = { ...company, registryCode: null, website: null };
+    const accepted = { ...bare, website: 'https://nortal.com/' };
+    // the page shows what it reads again, not what the PATCH answered
+    vi.mocked(api.fetchMasiCompany).mockResolvedValueOnce(bare).mockResolvedValue(accepted);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue({
+      latest: {
+        runAt: '2026-09-27T09:00:00Z',
+        outcome: 'UNCONFIRMED',
+        candidateUrl: 'https://nortal.com/',
+        evidence: 'nortal.com: no registry code',
+        adoptedCode: null,
+        careersUrl: null,
+        atsVendor: null,
+        requests: 2,
+        cut: false,
+        foundBy: 'GUESS',
+        triedUrl: null,
+        namedCode: null,
+      },
+      attempt: null,
+      visiting: false,
+    });
+    vi.mocked(api.patchMasiCompany).mockResolvedValue(accepted);
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Accept nortal.com as its website' }),
+    );
+
+    await waitFor(() => expect(api.fetchMasiCompany).toHaveBeenCalledTimes(2));
+    expect(api.patchMasiCompany).toHaveBeenCalledWith(3, { website: 'https://nortal.com/' });
+    expect(await screen.findByRole('link', { name: 'website' })).toHaveAttribute(
+      'href',
+      'https://nortal.com/',
+    );
   });
 
   it('says where a merged company went', async () => {
