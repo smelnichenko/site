@@ -721,6 +721,7 @@ describe('MasiCompanyDetail', () => {
     vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
     let asked = 0;
+    let answer: (a: MasiRegisterCandidates) => void = () => {};
     vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, signal, code) => {
       if (!code) return Promise.resolve({ indexed: true, truncated: false, candidates: [] });
       asked++;
@@ -731,10 +732,8 @@ describe('MasiCompanyDetail', () => {
           ),
         );
       }
-      return Promise.resolve({
-        indexed: true,
-        truncated: false,
-        candidates: [registered(code, 'Nortal Grupp AS')],
+      return new Promise((resolve) => {
+        answer = resolve;
       });
     });
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
@@ -744,9 +743,18 @@ describe('MasiCompanyDetail', () => {
 
     await userEvent.click(lookUp);
     await userEvent.click(lookUp);
+    await waitFor(() => expect(asked).toBe(2));
+    // the abandoned look-up's rejection is in: its rejection lands on the next task
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(await screen.findByRole('group', { name: 'Confirm the placement' })).toBeInTheDocument();
+    // while the new look-up is out, the abandoned one says nothing
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    answer({
+      indexed: true,
+      truncated: false,
+      candidates: [registered('12345678', 'Nortal Grupp AS')],
+    });
+    expect(await screen.findByRole('group', { name: 'Confirm the placement' })).toBeInTheDocument();
   });
 
   it('brings a handed-over code the register does not have into view', async () => {

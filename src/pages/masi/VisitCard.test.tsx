@@ -225,6 +225,7 @@ describe('VisitCard', () => {
   });
 
   it('says nothing of a read it abandoned when the company changed', async () => {
+    let answer: (v: MasiCompanyVisits) => void = () => {};
     vi.mocked(api.fetchMasiCompanyVisits)
       .mockImplementationOnce(
         (_id, signal) =>
@@ -234,7 +235,12 @@ describe('VisitCard', () => {
             ),
           ),
       )
-      .mockResolvedValue(visits({ latest: guessed }));
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            answer = resolve;
+          }),
+      );
     const { rerender } = renderCard();
     await waitFor(() => expect(api.fetchMasiCompanyVisits).toHaveBeenCalledTimes(1));
 
@@ -245,9 +251,14 @@ describe('VisitCard', () => {
         onLookUp={vi.fn()}
       />,
     );
+    await waitFor(() => expect(api.fetchMasiCompanyVisits).toHaveBeenCalledTimes(2));
+    // the abandoned read's rejection is in: its rejection lands on the next task
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(await screen.findByRole('link', { name: 'domainseller.site' })).toBeInTheDocument();
+    // while the new read is out, the abandoned one says nothing
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    answer(visits({ latest: guessed }));
+    expect(await screen.findByRole('link', { name: 'domainseller.site' })).toBeInTheDocument();
   });
 
   it("says a company's first visit is under way, not that it failed", async () => {
