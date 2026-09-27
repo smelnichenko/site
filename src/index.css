@@ -1194,6 +1194,16 @@ a.muted,
   gap: 0 8px;
 }
 
+/* the actions, and the answer to one, a little apart from the words above them */
+.masi-visit > .badge-group {
+  margin-top: 4px;
+}
+
+.masi-visit-card .error,
+.masi-visit-card .masi-visit-done {
+  margin: 8px 0 0;
+}
+
 /* an action naming a site carries its host: its label wraps when the host cannot fit a line (the badges' own words stay
    on one line elsewhere), within the card's width */
 .masi-visit .status-badge {

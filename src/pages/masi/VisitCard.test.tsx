@@ -70,7 +70,7 @@ describe('VisitCard', () => {
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(visits({ latest: guessed }));
     const accepted = { ...playtech, website: 'https://domainseller.site/' };
     vi.mocked(api.patchMasiCompany).mockResolvedValue(accepted);
-    const { onChange } = renderCard();
+    const { onChange, rerender } = renderCard();
 
     expect(await screen.findByRole('region', { name: 'Own site' })).toBeInTheDocument();
     expect(api.fetchMasiCompanyVisits).toHaveBeenCalledWith(7, expect.any(AbortSignal));
@@ -91,6 +91,76 @@ describe('VisitCard', () => {
     );
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(accepted));
     expect(api.patchMasiCompany).toHaveBeenCalledWith(7, { website: 'https://domainseller.site/' });
+
+    // the page hands the accepted company back: the card says so where the button was, and reads its visits again
+    rerender(<VisitCard company={accepted} onChange={onChange} onLookUp={vi.fn()} />);
+    const done = await screen.findByRole('status');
+    expect(done).toHaveTextContent('domainseller.site is its website now.');
+    expect(done).toHaveFocus();
+    await waitFor(() => expect(api.fetchMasiCompanyVisits).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('button', { name: /^Accept / })).not.toBeInTheDocument();
+  });
+
+  it('says which website an Accept replaces, and takes a subdomain of the candidate as the same site', async () => {
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(visits({ latest: guessed }));
+    const { unmount } = renderCard({ ...playtech, website: 'https://www.playtech.com/' });
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Accept domainseller.site instead of playtech.com',
+      }),
+    ).toBeInTheDocument();
+    unmount();
+
+    renderCard({ ...playtech, website: 'https://jobs.domainseller.site/careers' });
+    expect(await screen.findByText('not sure it is its site')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Accept / })).not.toBeInTheDocument();
+  });
+
+  it('drops a refusal once the company changed under it: the placement it asked for was made', async () => {
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(visits({ latest: guessed }));
+    vi.mocked(api.patchMasiCompany).mockRejectedValue(
+      new Error(
+        'the register gives domainseller.site to Parking OÜ (12345678): place this company on that code',
+      ),
+    );
+    const { rerender } = renderCard();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Accept domainseller.site as its website' }),
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('place this company on that code');
+
+    rerender(
+      <VisitCard
+        company={{ ...playtech, registryCode: '12345678' }}
+        onChange={vi.fn()}
+        onLookUp={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  });
+
+  it("says a company's first visit is under way, not that it failed", async () => {
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(
+      visits({
+        attempt: {
+          ...guessed,
+          outcome: 'VISIT_FAILED',
+          candidateUrl: null,
+          evidence: null,
+          triedUrl: null,
+        },
+        visiting: true,
+      }),
+    );
+    renderCard();
+
+    expect(
+      await screen.findByText('masi is visiting its site for the first time.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('visiting now')).toBeInTheDocument();
+    expect(screen.queryByText(/did not finish/)).not.toBeInTheDocument();
   });
 
   it("says why a website was refused, in the server's words, and changes nothing", async () => {
@@ -222,7 +292,8 @@ describe('VisitCard', () => {
     );
     renderCard();
 
-    expect(await screen.findByText('visiting now')).toBeInTheDocument();
+    // under way, and when the judgement shown is from
+    expect(await screen.findByText('visiting now · visited 27 Sept 2026')).toBeInTheDocument();
     expect(screen.queryByText(/did not finish/)).not.toBeInTheDocument();
     // the candidate the operator acts on stays
     expect(

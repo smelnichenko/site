@@ -18,59 +18,62 @@ const NOW = new Date('2026-09-22T06:00:00Z');
 /** `drawn`: selector -> [at least this many, each/any containing this text] — the fixture's stress, on the page */
 type Drawn = Record<string, [number, string?]>;
 const UNBROKEN_PART = 'example.com/a/very/long/unbroken';
-const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn }> = [
-  {
-    name: 'CV and its translations',
-    path: '/masi/cv',
-    ready: '[data-testid="cv-translations"]',
-    drawn: { '.masi-cv-translations ul.error li': [3, UNBROKEN_PART] },
-  },
-  {
-    name: 'job with its package and match',
-    path: '/masi/jobs/7',
-    ready: '[data-testid="package-panel"]',
-    drawn: { '.masi-lint': [1, UNBROKEN_PART], '.masi-package .error': [1, UNBROKEN_PART] },
-  },
-  {
-    name: 'company with its figures',
-    path: '/masi/companies/3',
-    ready: '.masi-figures-card',
-    // the three charts drawn at a size, not three empty boxes: recharts draws nothing into a box it measured as 0
-    drawn: {
-      '.masi-figures .recharts-wrapper > svg': [3],
-      '.masi-figures-latest dd': [3, '356 (2026 Q2)'],
+/** `widths`: where a page's hard case is — a label that wraps to four lines at 360 px — beyond the two every page has */
+const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; widths?: number[] }> =
+  [
+    {
+      name: 'CV and its translations',
+      path: '/masi/cv',
+      ready: '[data-testid="cv-translations"]',
+      drawn: { '.masi-cv-translations ul.error li': [3, UNBROKEN_PART] },
     },
-  },
-  {
-    name: 'unplaced company with its visit to a guess',
-    path: '/masi/companies/8',
-    ready: '.masi-visit-card',
-    drawn: {
-      '.masi-visit-card .muted': [3, UNBROKEN_PART],
-      '.masi-visit-card button': [2, 'Look up reg. 16267372'],
+    {
+      name: 'job with its package and match',
+      path: '/masi/jobs/7',
+      ready: '[data-testid="package-panel"]',
+      drawn: { '.masi-lint': [1, UNBROKEN_PART], '.masi-package .error': [1, UNBROKEN_PART] },
     },
-  },
-  { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
-  { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
-  {
-    name: 'calendar month',
-    path: '/masi/calendar?view=month&day=2026-09-22',
-    ready: '.masi-month',
-    drawn: { '.masi-month .masi-chip': [8], '.masi-more': [1, '+'] },
-  },
-  {
-    name: 'calendar week',
-    path: '/masi/calendar?view=week&day=2026-09-22',
-    ready: '.masi-week',
-    drawn: { '.masi-block': [4, UNBROKEN_PART] },
-  },
-  {
-    name: 'calendar day',
-    path: '/masi/calendar?view=day&day=2026-09-22',
-    ready: '.masi-week',
-    drawn: { '.masi-block': [4, UNBROKEN_PART] },
-  },
-];
+    {
+      name: 'company with its figures',
+      path: '/masi/companies/3',
+      ready: '.masi-figures-card',
+      // the three charts drawn at a size, not three empty boxes: recharts draws nothing into a box it measured as 0
+      drawn: {
+        '.masi-figures .recharts-wrapper > svg': [3],
+        '.masi-figures-latest dd': [3, '356 (2026 Q2)'],
+      },
+    },
+    {
+      name: 'unplaced company with its visit to a guess',
+      path: '/masi/companies/8',
+      ready: '.masi-visit-card',
+      widths: [360, 390, 768, 1366],
+      drawn: {
+        '.masi-visit-card .muted': [3, UNBROKEN_PART],
+        '.masi-visit-card button': [2, 'Look up reg. 16267372'],
+      },
+    },
+    { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
+    { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
+    {
+      name: 'calendar month',
+      path: '/masi/calendar?view=month&day=2026-09-22',
+      ready: '.masi-month',
+      drawn: { '.masi-month .masi-chip': [8], '.masi-more': [1, '+'] },
+    },
+    {
+      name: 'calendar week',
+      path: '/masi/calendar?view=week&day=2026-09-22',
+      ready: '.masi-week',
+      drawn: { '.masi-block': [4, UNBROKEN_PART] },
+    },
+    {
+      name: 'calendar day',
+      path: '/masi/calendar?view=day&day=2026-09-22',
+      ready: '.masi-week',
+      drawn: { '.masi-block': [4, UNBROKEN_PART] },
+    },
+  ];
 
 /** Opens a page with masi answered from the fixtures; returns the API calls no fixture answered. */
 async function open(
@@ -538,8 +541,8 @@ function measureFigures() {
   };
 }
 
-for (const { name, path, ready, drawn } of PAGES) {
-  for (const width of WIDTHS) {
+for (const { name, path, ready, drawn, widths } of PAGES) {
+  for (const width of widths ?? WIDTHS) {
     test(`${name} at ${width} px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       const { unanswered, errors } = await open(page, path, ready);

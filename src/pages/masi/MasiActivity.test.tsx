@@ -252,7 +252,7 @@ describe('MasiActivity', () => {
     expect(
       within(placed).getByText('placed on reg. 10391131 by its own site nortal.com'),
     ).toBeInTheDocument();
-    expect(within(website).getByText('website changed')).toBeInTheDocument();
+    expect(within(website).getByText('website')).toBeInTheDocument();
     const kinds = within(screen.getByRole('combobox', { name: 'Kind' }))
       .getAllByRole('option')
       .map((o) => o.getAttribute('value'));

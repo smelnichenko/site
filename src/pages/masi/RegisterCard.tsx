@@ -28,7 +28,7 @@ interface Props {
   /** The company changed on the register: its code, its facts, the board it brought — the page reloads what it shows. */
   onChange: (c: MasiCompany) => void;
   /** A code handed over from elsewhere on the page (a code its site names): looked up and offered like a typed one. */
-  lookUpRequest?: { code: string } | null;
+  lookUpRequest?: { companyId: number; code: string } | null;
 }
 
 /**
@@ -47,6 +47,11 @@ export default function RegisterCard({ company, onChange, lookUpRequest }: Reado
   const [message, setMessage] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const placeButton = useRef<HTMLButtonElement>(null);
+  const messageBox = useRef<HTMLDivElement>(null);
+  // the hand-over answered last, and one whose answer was only words: brought into view, as the button that asked is
+  // above this card
+  const [answered, setAnswered] = useState<object | null>(null);
+  const [revealed, setRevealed] = useState<object | null>(null);
   const coded = company.registryCode !== null;
 
   useEffect(() => {
@@ -101,17 +106,18 @@ export default function RegisterCard({ company, onChange, lookUpRequest }: Reado
   }
 
   /** The register's answer for a code: the one company under it, offered for confirmation, or why there is none. */
-  const offer = useCallback((answer: MasiRegisterCandidates, code: string) => {
+  const offer = useCallback((answer: MasiRegisterCandidates, code: string): boolean => {
     if (answer.candidates.length === 0) {
       setMessage(
         answer.indexed
           ? `The register has no company with the code ${code}.`
           : 'The register has not been read yet: masi reads it every Sunday.',
       );
-    } else {
-      setMessage(null);
-      setPending(answer.candidates[0]);
+      return false;
     }
+    setMessage(null);
+    setPending(answer.candidates[0]);
+    return true;
   }, []);
 
   /** A typed code is looked up first and confirmed like any candidate: the register says what it is, and whether masi holds it. */
@@ -127,21 +133,37 @@ export default function RegisterCard({ company, onChange, lookUpRequest }: Reado
     }
   }
 
+  // a request handed over for another company (the page moved on, or merged) is not this card's
+  const request = lookUpRequest?.companyId === company.id ? lookUpRequest : null;
+  /** A hand-over under way: the card's own actions wait for its answer, which would replace what they chose. */
+  const handing = request !== null && !coded && answered !== request;
+
   useEffect(() => {
     // a code handed over (one its site names) is looked up like a typed one; each hand-over is its own request, the same
     // code again included: the operator asked again. Nothing is set before the answer is in.
-    if (!lookUpRequest || coded) return;
-    const { code } = lookUpRequest;
+    if (!request || coded) return;
+    const { code } = request;
     const controller = new AbortController();
     void (async () => {
       try {
-        offer(await fetchMasiRegisterCandidates(company.id, controller.signal, code), code);
+        if (!offer(await fetchMasiRegisterCandidates(company.id, controller.signal, code), code)) {
+          setRevealed(request);
+        }
+        setAnswered(request);
       } catch (e: unknown) {
-        if (!controller.signal.aborted) setMessage(errorMessage(e, 'Looking the code up failed'));
+        if (!controller.signal.aborted) {
+          setMessage(errorMessage(e, 'Looking the code up failed'));
+          setRevealed(request);
+          setAnswered(request);
+        }
       }
     })();
     return () => controller.abort();
-  }, [lookUpRequest, coded, company.id, offer]);
+  }, [request, coded, company.id, offer]);
+
+  useEffect(() => {
+    if (revealed) messageBox.current?.focus();
+  }, [revealed]);
 
   async function takeBack() {
     setBusy(true);
@@ -167,7 +189,7 @@ export default function RegisterCard({ company, onChange, lookUpRequest }: Reado
         <span className="card-title">Register</span>
       </div>
       {message && (
-        <div className="error" role="alert">
+        <div className="error" role="alert" ref={messageBox} tabIndex={-1}>
           {message}
         </div>
       )}
@@ -237,7 +259,7 @@ export default function RegisterCard({ company, onChange, lookUpRequest }: Reado
                         type="button"
                         className="btn-small"
                         onClick={() => setPending(c)}
-                        disabled={busy}
+                        disabled={busy || handing}
                         aria-label={`Choose ${c.name}`}
                       >
                         Choose
@@ -262,7 +284,7 @@ export default function RegisterCard({ company, onChange, lookUpRequest }: Reado
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
             />
-            <button type="submit" className="btn-small" disabled={busy || !typed.trim()}>
+            <button type="submit" className="btn-small" disabled={busy || handing || !typed.trim()}>
               Look up
             </button>
           </form>
@@ -286,7 +308,7 @@ export default function RegisterCard({ company, onChange, lookUpRequest }: Reado
               type="button"
               className="btn-small"
               onClick={() => setPending(null)}
-              disabled={busy}
+              disabled={busy || handing}
             >
               Cancel
             </button>

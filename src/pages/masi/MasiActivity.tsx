@@ -28,7 +28,7 @@ const WORDS: Record<Row['kind'], string> = {
   NOTE: 'note',
   SCHEDULED: 'scheduled',
   REGISTER_MATCHED: 'placed in the register',
-  WEBSITE_SET: 'website changed',
+  WEBSITE_SET: 'website',
 };
 
 function countWords(n: number): string {
