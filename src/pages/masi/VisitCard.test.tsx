@@ -169,6 +169,8 @@ describe('VisitCard', () => {
     const { onLookUp, unmount } = renderCard();
 
     expect(await screen.findByText('the site names a company masi holds')).toBeInTheDocument();
+    // the holder's site is not this company's: only an unconfirmed site is offered
+    expect(screen.queryByRole('button', { name: /^Accept / })).not.toBeInTheDocument();
     await userEvent.click(
       screen.getByRole('button', { name: 'Look up reg. 12345678 in the register' }),
     );
@@ -298,6 +300,22 @@ describe('VisitCard', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Accept / })).not.toBeInTheDocument();
+  });
+
+  it("shows nothing of the company the page moved on from while the next one's visits load", async () => {
+    vi.mocked(api.fetchMasiCompanyVisits)
+      .mockResolvedValueOnce(visits({ latest: guessed }))
+      .mockReturnValueOnce(new Promise(() => {}));
+    const { rerender } = renderCard();
+    expect(await screen.findByRole('link', { name: 'domainseller.site' })).toBeInTheDocument();
+
+    rerender(<VisitCard company={{ ...playtech, id: 8 }} onChange={vi.fn()} onLookUp={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(api.fetchMasiCompanyVisits).toHaveBeenCalledWith(8, expect.any(AbortSignal)),
+    );
+    expect(screen.queryByRole('link', { name: 'domainseller.site' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Accept / })).not.toBeInTheDocument();
   });
 
