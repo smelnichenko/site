@@ -592,6 +592,24 @@ for (const { name, path, ready, drawn, widths } of PAGES) {
       });
       expect(spilling, 'no text past its own box').toEqual([]);
 
+      // a row of actions stands level: two badges on one line of a badge group share their middle (a global margin
+      // meant for another element — the error banner's on a badge with the error colour — lifts one out of line)
+      const askew = await page.evaluate(() =>
+        [...document.querySelectorAll('main .badge-group')].flatMap((group) => {
+          const rs = [...group.children]
+            .filter((el) => el.classList.contains('status-badge') && el.getClientRects().length > 0)
+            .map((el) => ({ text: (el.textContent ?? '').trim(), r: el.getBoundingClientRect() }));
+          return rs.flatMap((a, i) =>
+            rs
+              .slice(i + 1)
+              .filter(({ r }) => r.top < a.r.bottom && r.bottom > a.r.top)
+              .filter(({ r }) => Math.abs(r.top + r.height / 2 - (a.r.top + a.r.height / 2)) > 1)
+              .map((b) => `${a.text} ${Math.round(a.r.top)} / ${b.text} ${Math.round(b.r.top)}`),
+          );
+        }),
+      );
+      expect(askew, 'badges on one line stand level').toEqual([]);
+
       const tiny = await page.evaluate(() => {
         const targets = [
           ...document.querySelectorAll(

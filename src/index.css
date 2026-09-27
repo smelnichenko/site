@@ -1093,6 +1093,8 @@ a.muted,
   /* as a button (a toggle) it would keep the browser's 2px outset border and font: flat like the action buttons */
   border: none;
   font-family: inherit;
+  /* the class it shares with the error banner brings the banner's 20px bottom margin, which lifts it out of its row */
+  margin-bottom: 0;
 }
 
 /* a label beside a name — "agency" — that is not a button: no fill of the buttons, no pointer, apart from the name */
