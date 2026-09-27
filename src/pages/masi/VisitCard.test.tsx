@@ -252,7 +252,7 @@ describe('VisitCard', () => {
       />,
     );
     await waitFor(() => expect(api.fetchMasiCompanyVisits).toHaveBeenCalledTimes(2));
-    // the abandoned read's rejection is in: its rejection lands on the next task
+    // a task later the abandoned read's rejection is in
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     // while the new read is out, the abandoned one says nothing

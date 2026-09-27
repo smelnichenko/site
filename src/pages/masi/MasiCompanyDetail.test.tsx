@@ -744,7 +744,7 @@ describe('MasiCompanyDetail', () => {
     await userEvent.click(lookUp);
     await userEvent.click(lookUp);
     await waitFor(() => expect(asked).toBe(2));
-    // the abandoned look-up's rejection is in: its rejection lands on the next task
+    // a task later the abandoned look-up's rejection is in
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     // while the new look-up is out, the abandoned one says nothing
