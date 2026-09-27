@@ -254,12 +254,7 @@ export default function MasiCompanyDetail() {
         onChange={registerChanged}
         onLookUp={(code) => setLookUp({ companyId, code })}
       />
-      <RegisterCard
-        key={company.id}
-        company={company}
-        onChange={registerChanged}
-        lookUpRequest={lookUp}
-      />
+      <RegisterCard company={company} onChange={registerChanged} lookUpRequest={lookUp} />
       <FiguresCard company={company} />
       <div className="card">
         <div className="card-header">
