@@ -1093,6 +1093,8 @@ a.muted,
   /* as a button (a toggle) it would keep the browser's 2px outset border and font: flat like the action buttons */
   border: none;
   font-family: inherit;
+  /* the class it shares with the error banner brings the banner's 20px bottom margin, which lifts it out of its row */
+  margin-bottom: 0;
 }
 
 /* a label beside a name — "agency" — that is not a button: no fill of the buttons, no pointer, apart from the name */
@@ -1171,6 +1173,45 @@ a.muted,
 
 .masi .status-badge {
   white-space: nowrap;
+}
+
+/* masi's visit to a company's own site: its words carry hosts and URLs with no break in them (a guessed domain's label
+   may be 63 letters), so everything in the card wraps inside it rather than widening the page */
+.masi-visit-card,
+.masi-visit-card button {
+  overflow-wrap: anywhere;
+}
+
+.masi-visit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.masi-visit-site {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+}
+
+/* the actions, and the answer to one, a little apart from the words above them */
+.masi-visit > .badge-group {
+  margin-top: 4px;
+}
+
+.masi-visit-card .error,
+.masi-visit-card .masi-visit-done {
+  margin: 8px 0 0;
+}
+
+/* an action naming a site carries its host: its label wraps when the host cannot fit a line (the badges' own words stay
+   on one line elsewhere), within the card's width */
+.masi-visit .status-badge {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
 }
 
 /* masi company figures: three charts that sit side by side while they fit and stack on a phone */

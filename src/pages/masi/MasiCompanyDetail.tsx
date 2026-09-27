@@ -19,6 +19,7 @@ import { badgeClass, errorMessage, formatDate, mapsUrl } from './format';
 import MasiTable from '../../components/MasiTable';
 import RegisterCard from './RegisterCard';
 import FiguresCard from './FiguresCard';
+import VisitCard from './VisitCard';
 import { byCompany, rolesText, whereLabel } from './people';
 import { agencyText } from './register';
 
@@ -42,6 +43,8 @@ export default function MasiCompanyDetail() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // a code the site names, handed to the register card; each click its own request, for this company only
+  const [lookUp, setLookUp] = useState<{ companyId: number; code: string } | null>(null);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -92,6 +95,7 @@ export default function MasiCompanyDetail() {
 
   /** A placement or its taking back changes the code, the facts and the board: everything the page shows is read again. */
   function registerChanged(c: MasiCompany) {
+    setLookUp(null); // handled: a placement taken back must not bring the code it was on back to the confirmation
     setCompany(c);
     void reload().catch((e: unknown) => setError(errorMessage(e, 'Failed to reload the company')));
   }
@@ -245,7 +249,12 @@ export default function MasiCompanyDetail() {
           />
         </div>
       </div>
-      <RegisterCard company={company} onChange={registerChanged} />
+      <VisitCard
+        company={company}
+        onChange={registerChanged}
+        onLookUp={(code) => setLookUp({ companyId, code })}
+      />
+      <RegisterCard company={company} onChange={registerChanged} lookUpRequest={lookUp} />
       <FiguresCard company={company} />
       <div className="card">
         <div className="card-header">

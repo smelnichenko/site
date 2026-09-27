@@ -18,50 +18,68 @@ const NOW = new Date('2026-09-22T06:00:00Z');
 /** `drawn`: selector -> [at least this many, each/any containing this text] — the fixture's stress, on the page */
 type Drawn = Record<string, [number, string?]>;
 const UNBROKEN_PART = 'example.com/a/very/long/unbroken';
-const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn }> = [
-  {
-    name: 'CV and its translations',
-    path: '/masi/cv',
-    ready: '[data-testid="cv-translations"]',
-    drawn: { '.masi-cv-translations ul.error li': [3, UNBROKEN_PART] },
-  },
-  {
-    name: 'job with its package and match',
-    path: '/masi/jobs/7',
-    ready: '[data-testid="package-panel"]',
-    drawn: { '.masi-lint': [1, UNBROKEN_PART], '.masi-package .error': [1, UNBROKEN_PART] },
-  },
-  {
-    name: 'company with its figures',
-    path: '/masi/companies/3',
-    ready: '.masi-figures-card',
-    // the three charts drawn at a size, not three empty boxes: recharts draws nothing into a box it measured as 0
-    drawn: {
-      '.masi-figures .recharts-wrapper > svg': [3],
-      '.masi-figures-latest dd': [3, '356 (2026 Q2)'],
+/** `widths`: where a page's hard case is — a label that wraps to four lines at 360 px — beyond the two every page has */
+const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; widths?: number[] }> =
+  [
+    {
+      name: 'CV and its translations',
+      path: '/masi/cv',
+      ready: '[data-testid="cv-translations"]',
+      drawn: { '.masi-cv-translations ul.error li': [3, UNBROKEN_PART] },
     },
-  },
-  { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
-  { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
-  {
-    name: 'calendar month',
-    path: '/masi/calendar?view=month&day=2026-09-22',
-    ready: '.masi-month',
-    drawn: { '.masi-month .masi-chip': [8], '.masi-more': [1, '+'] },
-  },
-  {
-    name: 'calendar week',
-    path: '/masi/calendar?view=week&day=2026-09-22',
-    ready: '.masi-week',
-    drawn: { '.masi-block': [4, UNBROKEN_PART] },
-  },
-  {
-    name: 'calendar day',
-    path: '/masi/calendar?view=day&day=2026-09-22',
-    ready: '.masi-week',
-    drawn: { '.masi-block': [4, UNBROKEN_PART] },
-  },
-];
+    {
+      name: 'job with its package and match',
+      path: '/masi/jobs/7',
+      ready: '[data-testid="package-panel"]',
+      drawn: { '.masi-lint': [1, UNBROKEN_PART], '.masi-package .error': [1, UNBROKEN_PART] },
+    },
+    {
+      name: 'company with its figures',
+      path: '/masi/companies/3',
+      ready: '.masi-figures-card',
+      // the three charts drawn at a size, not three empty boxes: recharts draws nothing into a box it measured as 0
+      drawn: {
+        '.masi-figures .recharts-wrapper > svg': [3],
+        '.masi-figures-latest dd': [3, '356 (2026 Q2)'],
+      },
+    },
+    {
+      name: 'unplaced company with its visit to a guess',
+      path: '/masi/companies/8',
+      ready: '.masi-visit-card',
+      widths: [360, 390, 768, 1366],
+      drawn: {
+        '.masi-visit-card .muted': [3, UNBROKEN_PART],
+        '.masi-visit-card button': [2, 'Look up reg. 16267372'],
+      },
+    },
+    {
+      name: 'person with a long address',
+      path: '/masi/persons/5',
+      ready: '[data-testid="person-ties"]',
+      drawn: { '.masi .badge-group .status-badge': [2, 'Do not contact'] },
+    },
+    { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
+    { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
+    {
+      name: 'calendar month',
+      path: '/masi/calendar?view=month&day=2026-09-22',
+      ready: '.masi-month',
+      drawn: { '.masi-month .masi-chip': [8], '.masi-more': [1, '+'] },
+    },
+    {
+      name: 'calendar week',
+      path: '/masi/calendar?view=week&day=2026-09-22',
+      ready: '.masi-week',
+      drawn: { '.masi-block': [4, UNBROKEN_PART] },
+    },
+    {
+      name: 'calendar day',
+      path: '/masi/calendar?view=day&day=2026-09-22',
+      ready: '.masi-week',
+      drawn: { '.masi-block': [4, UNBROKEN_PART] },
+    },
+  ];
 
 /** Opens a page with masi answered from the fixtures; returns the API calls no fixture answered. */
 async function open(
@@ -341,16 +359,17 @@ for (const width of [390, 1366]) {
  * The source line on a phone's range of widths: each source its own line, no separator to start a wrapped one, and the
  * file's date never broken (at 412–460 px it broke inside "10 Jul 2026" before).
  */
-test('company sources: one under the other, the date whole, at 360–480 px', async ({ page }) => {
-  for (const width of [360, 390, 412, 430, 440, 460, 480]) {
+// a test per width: seven page loads in one test overran its 30 s on the loaded CI node
+for (const width of [360, 390, 412, 430, 440, 460, 480]) {
+  test(`company sources: one under the other, the date whole, at ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await open(page, '/masi/companies/3', '.masi-figures-card');
     const m = await page.evaluate(measureFigures);
     expect(m.sources.stacked, `${width} px: one source under the other`).toBe(true);
     expect(m.sources.separators, `${width} px: no separator`).toEqual(['none', 'none']);
     expect(m.sources.dateLines, `${width} px: the date on one line`).toBe(1);
-  }
-});
+  });
+}
 
 /** What the figures card draws, as numbers the tests compare. */
 function measureFigures() {
@@ -529,8 +548,8 @@ function measureFigures() {
   };
 }
 
-for (const { name, path, ready, drawn } of PAGES) {
-  for (const width of WIDTHS) {
+for (const { name, path, ready, drawn, widths } of PAGES) {
+  for (const width of widths ?? WIDTHS) {
     test(`${name} at ${width} px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       const { unanswered, errors } = await open(page, path, ready);
@@ -579,6 +598,31 @@ for (const { name, path, ready, drawn } of PAGES) {
           );
       });
       expect(spilling, 'no text past its own box').toEqual([]);
+
+      // a row of actions stands level: two badges on one line of a badge group share their middle (a global margin
+      // meant for another element — the error banner's on a badge with the error colour — lifts one out of line). One
+      // line is told by the flow, not by overlap: the next badge starts right of the last, where a wrapped one starts
+      // back at the left — a lift of more than a badge's height is still on the line it was lifted from
+      const askew = await page.evaluate(() =>
+        [...document.querySelectorAll('main .badge-group')].flatMap((group) => {
+          const rs = [...group.children]
+            .filter((el) => el.getClientRects().length > 0)
+            .map((el) => ({
+              badge: el.classList.contains('status-badge'),
+              text: (el.textContent ?? '').trim(),
+              r: el.getBoundingClientRect(),
+            }));
+          return rs.slice(1).flatMap((b, i) => {
+            const a = rs[i];
+            const oneLine = b.r.left >= a.r.right - 1;
+            const middle = (r: DOMRect) => r.top + r.height / 2;
+            return a.badge && b.badge && oneLine && Math.abs(middle(a.r) - middle(b.r)) > 1
+              ? [`${a.text} ${Math.round(a.r.top)} / ${b.text} ${Math.round(b.r.top)}`]
+              : [];
+          });
+        }),
+      );
+      expect(askew, 'badges on one line stand level').toEqual([]);
 
       const tiny = await page.evaluate(() => {
         const targets = [

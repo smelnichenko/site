@@ -1018,6 +1018,35 @@ describe('api - masi people and register', () => {
   const calls = () => mockFetch.mock.calls as Array<[string, RequestInit | undefined]>;
   const bodyOf = (call: number): unknown => JSON.parse(calls()[call][1]?.body as string) as unknown;
 
+  it("reads a company's visits: the body, nothing for a 404 (not visited yet), and the server's word otherwise", async () => {
+    const visits = { latest: null, attempt: null, visiting: true };
+    const controller = new AbortController();
+    mockFetch.mockResolvedValueOnce(mockResponse(visits));
+    await expect(api.fetchMasiCompanyVisits(82, controller.signal)).resolves.toEqual(visits);
+    expect(calls()[0][0]).toBe('/api/masi/companies/82/enrichment');
+    // the card abandons a read when the company changes: the request is cancelled, not its answer ignored
+    expect(calls()[0][1]?.signal).toBe(controller.signal);
+
+    // not visited yet is no failure: the page shows no card, not an error
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({ error: 'company 82 has no visit to its site yet' }, { status: 404 }),
+    );
+    await expect(api.fetchMasiCompanyVisits(82)).resolves.toBeNull();
+
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({ error: 'the database is down' }, { status: 500 }),
+    );
+    await expect(api.fetchMasiCompanyVisits(82)).rejects.toThrow('the database is down');
+  });
+
+  it("accepts a website as the operator's word: PATCH with the website alone", async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: 82 }));
+    await api.patchMasiCompany(82, { website: 'https://domainseller.site/' });
+    expect(calls()[0][0]).toBe('/api/masi/companies/82');
+    expect(calls()[0][1]?.method).toBe('PATCH');
+    expect(bodyOf(0)).toEqual({ website: 'https://domainseller.site/' });
+  });
+
   it("reads a company's placement: the body, nothing for a 204, and the server's word for a failure", async () => {
     const placement = { registryCode: '14532901', placedAt: '2026-09-24T01:00:00Z' };
     mockFetch.mockResolvedValueOnce(mockResponse(placement));

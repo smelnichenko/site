@@ -1,4 +1,9 @@
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
+
+// findBy and waitFor give up after Testing Library's 1 s: on the loaded CI node that the tests' own timeout was raised
+// for, a page's first answer can take longer, and a slow render would fail as a missing element.
+configure({ asyncUtilTimeout: 5000 });
 
 // Formatted dates in assertions must not depend on the machine: the workstation is Europe/Tallinn, CI is UTC.
 process.env.TZ = 'Europe/Tallinn';

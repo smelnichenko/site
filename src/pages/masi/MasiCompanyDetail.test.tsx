@@ -6,7 +6,7 @@ import MasiCompanyDetail from './MasiCompanyDetail';
 import { mapsUrl } from './format';
 import { agencyText } from './register';
 import { job, renderAt } from './testUtils';
-import type { MasiContact, MasiPerson } from '../../services/api';
+import type { MasiContact, MasiPerson, MasiRegisterCandidates } from '../../services/api';
 
 vi.mock('../../services/api', () => ({
   fetchMasiCompany: vi.fn(),
@@ -21,6 +21,7 @@ vi.mock('../../services/api', () => ({
   fetchMasiCompanyContacts: vi.fn(),
   fetchMasiCompanyFigures: vi.fn(),
   patchMasiContact: vi.fn(),
+  fetchMasiCompanyVisits: vi.fn(),
 }));
 const api = await import('../../services/api');
 
@@ -114,6 +115,9 @@ beforeEach(() => {
   vi.mocked(api.fetchMasiCompanyFigures).mockReset();
   vi.mocked(api.fetchMasiCompanyFigures).mockResolvedValue({ quarters: [] });
   vi.mocked(api.patchMasiContact).mockReset();
+  vi.mocked(api.fetchMasiCompanyVisits).mockReset();
+  vi.mocked(api.placeMasiCompany).mockReset();
+  vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(null);
   vi.mocked(api.fetchMasiCompanyContacts).mockResolvedValue({
     content: [],
     page: 0,
@@ -138,6 +142,41 @@ const desk: MasiContact = {
   userNote: null,
   personId: null,
 };
+
+/** A visit whose site names a registered company masi holds: the code handed to the register card. */
+const heldVisits = {
+  latest: {
+    runAt: '2026-09-27T09:00:00Z',
+    outcome: 'CODE_HELD' as const,
+    candidateUrl: 'https://nortal.ee/',
+    evidence: 'nortal.ee names Nortal Grupp AS (12345678), a company masi holds',
+    adoptedCode: null,
+    careersUrl: null,
+    atsVendor: null,
+    requests: 2,
+    cut: false,
+    foundBy: 'CONTACT' as const,
+    triedUrl: null,
+    namedCode: '12345678',
+  },
+  attempt: null,
+  visiting: false,
+};
+const registered = (code: string, name: string) => ({
+  registryCode: code,
+  name,
+  legalForm: 'AS',
+  emtakCode: '62011',
+  hqCity: 'Tallinn',
+  sizeBand: '250+',
+  website: null,
+  how: 'CODE' as const,
+  sure: false,
+  employerForm: true,
+  heldById: null,
+  heldByName: null,
+});
+const noJobs = { content: [], page: 0, size: 100, totalElements: 0 };
 
 describe('MasiCompanyDetail', () => {
   it('shows the company, its open and closed jobs and its people; blacklists and flags a person through the API', async () => {
@@ -386,6 +425,353 @@ describe('MasiCompanyDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Place it' }));
     await waitFor(() => expect(api.placeMasiCompany).toHaveBeenCalledWith(3, '10391131'));
     expect(await screen.findByRole('link', { name: 'Kati Kask' })).toBeInTheDocument();
+  });
+
+  it('hands a code its site names to the register card, which says what it is and asks before placing', async () => {
+    const uncoded = { ...company, registryCode: null };
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue(uncoded);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue({
+      latest: {
+        runAt: '2026-09-27T09:00:00Z',
+        outcome: 'CODE_HELD',
+        candidateUrl: 'https://nortal.ee/',
+        evidence: 'nortal.ee names Nortal Grupp AS (12345678), a company masi holds',
+        adoptedCode: null,
+        careersUrl: null,
+        atsVendor: null,
+        requests: 2,
+        cut: false,
+        foundBy: 'CONTACT',
+        triedUrl: null,
+        namedCode: '12345678',
+      },
+      attempt: null,
+      visiting: false,
+    });
+    const held = {
+      registryCode: '12345678',
+      name: 'Nortal Grupp AS',
+      legalForm: 'AS',
+      emtakCode: '62011',
+      hqCity: 'Tallinn',
+      sizeBand: '250+',
+      website: 'https://nortal.ee/',
+      how: 'CODE' as const,
+      sure: false,
+      employerForm: true,
+      heldById: 40,
+      heldByName: 'Nortal Grupp AS',
+    };
+    vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
+      Promise.resolve({ indexed: true, truncated: false, candidates: code ? [held] : [] }),
+    );
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Look up reg. 12345678 in the register' }),
+    );
+
+    await waitFor(() =>
+      expect(api.fetchMasiRegisterCandidates).toHaveBeenCalledWith(
+        3,
+        expect.anything(),
+        '12345678',
+      ),
+    );
+    const confirm = await screen.findByRole('group', { name: 'Confirm the placement' });
+    expect(confirm).toHaveTextContent('Nortal Grupp AS (reg. 12345678)');
+    // the choice is made there: focus goes to it, and nothing is placed until the operator says so
+    expect(within(confirm).getByRole('button', { name: 'Place it' })).toHaveFocus();
+    expect(api.placeMasiCompany).not.toHaveBeenCalled();
+  });
+
+  it('reads everything again once a website is accepted', async () => {
+    const bare = { ...company, registryCode: null, website: null };
+    const accepted = { ...bare, website: 'https://nortal.com/' };
+    // the page shows what it reads again, not what the PATCH answered: the read carries the website as stored
+    const reread = { ...accepted, website: 'https://www.nortal.com/' };
+    vi.mocked(api.fetchMasiCompany).mockResolvedValueOnce(bare).mockResolvedValue(reread);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue({
+      latest: {
+        runAt: '2026-09-27T09:00:00Z',
+        outcome: 'UNCONFIRMED',
+        candidateUrl: 'https://nortal.com/',
+        evidence: 'nortal.com: no registry code',
+        adoptedCode: null,
+        careersUrl: null,
+        atsVendor: null,
+        requests: 2,
+        cut: false,
+        foundBy: 'GUESS',
+        triedUrl: null,
+        namedCode: null,
+      },
+      attempt: null,
+      visiting: false,
+    });
+    vi.mocked(api.patchMasiCompany).mockResolvedValue(accepted);
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Accept nortal.com as its website' }),
+    );
+
+    await waitFor(() => expect(api.fetchMasiCompany).toHaveBeenCalledTimes(2));
+    expect(api.patchMasiCompany).toHaveBeenCalledWith(3, { website: 'https://nortal.com/' });
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'website' })).toHaveAttribute(
+        'href',
+        'https://www.nortal.com/',
+      ),
+    );
+  });
+
+  it('does not bring a handed-over code back to the confirmation once its placement is taken back', async () => {
+    const uncoded = { ...company, registryCode: null };
+    const placed = { ...company, registryCode: '12345678' };
+    vi.mocked(api.fetchMasiCompany)
+      .mockResolvedValueOnce(uncoded)
+      .mockResolvedValueOnce(placed)
+      .mockResolvedValue(uncoded);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
+    vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
+      Promise.resolve({
+        indexed: true,
+        truncated: false,
+        candidates: code ? [registered(code, 'Nortal Grupp AS')] : [],
+      }),
+    );
+    vi.mocked(api.placeMasiCompany).mockResolvedValue(placed);
+    vi.mocked(api.fetchMasiRegisterPlacement).mockResolvedValue({
+      registryCode: '12345678',
+      placedAt: '2026-09-27T10:00:00Z',
+      priorWebsite: null,
+      priorHqCity: null,
+      priorEmtakCode: null,
+      priorSizeBand: null,
+    });
+    vi.mocked(api.takeBackMasiPlacement).mockReset();
+    vi.mocked(api.takeBackMasiPlacement).mockResolvedValue(uncoded);
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Look up reg. 12345678 in the register' }),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Place it' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Take back' }));
+    await waitFor(() => expect(api.takeBackMasiPlacement).toHaveBeenCalledWith(3));
+    // the card asks the register by name again, as for any company without a code
+    await waitFor(() =>
+      expect(
+        vi.mocked(api.fetchMasiRegisterCandidates).mock.calls.filter((c) => c[2] === undefined),
+      ).toHaveLength(2),
+    );
+
+    const byCode = vi.mocked(api.fetchMasiRegisterCandidates).mock.calls.filter((c) => c[2]);
+    expect(byCode, 'the code is looked up once: when the operator asked').toHaveLength(1);
+    expect(screen.queryByRole('group', { name: 'Confirm the placement' })).not.toBeInTheDocument();
+  });
+
+  it('does not carry a handed-over code to the company a placement merged this one into', async () => {
+    const survivor = { ...company, id: 17, name: 'Nortal Grupp AS', registryCode: null };
+    vi.mocked(api.fetchMasiCompany).mockImplementation((id) =>
+      Promise.resolve(id === 17 ? survivor : { ...company, registryCode: null }),
+    );
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
+    vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
+      Promise.resolve({
+        indexed: true,
+        truncated: false,
+        candidates: code ? [registered(code, 'Nortal Grupp AS')] : [],
+      }),
+    );
+    vi.mocked(api.placeMasiCompany).mockResolvedValue(survivor);
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Look up reg. 12345678 in the register' }),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Place it' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('is this company now');
+    await waitFor(() =>
+      expect(api.fetchMasiRegisterCandidates).toHaveBeenCalledWith(17, expect.anything()),
+    );
+
+    expect(vi.mocked(api.fetchMasiRegisterCandidates).mock.calls.filter((c) => c[2])).toEqual([
+      [3, expect.anything(), '12345678'],
+    ]);
+    expect(screen.queryByRole('group', { name: 'Confirm the placement' })).not.toBeInTheDocument();
+  });
+
+  it("holds the register card's own choices while a handed-over code is looked up, and only until then", async () => {
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
+    let answer: (a: MasiRegisterCandidates) => void = () => {};
+    vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
+      code
+        ? new Promise((resolve) => {
+            answer = resolve;
+          })
+        : Promise.resolve({
+            indexed: true,
+            truncated: false,
+            candidates: [registered('10391131', 'Nortal AS')],
+          }),
+    );
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    const choose = await screen.findByRole('button', { name: 'Choose Nortal AS' });
+    await userEvent.click(choose);
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    await userEvent.type(screen.getByLabelText('Or a registry code'), '87654321');
+    const typed = screen.getByRole('button', { name: 'Look up' });
+    expect([choose, cancel, typed].every((b) => !(b as HTMLButtonElement).disabled)).toBe(true);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Look up reg. 12345678 in the register' }),
+    );
+
+    // its answer would replace what is chosen meanwhile
+    await waitFor(() => expect(choose).toBeDisabled());
+    expect(cancel).toBeDisabled();
+    expect(typed).toBeDisabled();
+
+    answer({ indexed: true, truncated: false, candidates: [] });
+    expect(await screen.findByRole('alert')).toHaveTextContent('no company with the code 12345678');
+    expect(choose).toBeEnabled();
+    expect(typed).toBeEnabled();
+  });
+
+  it('says a handed-over look-up failed, brings it into view, and lets the card be used again', async () => {
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
+    vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
+      code
+        ? Promise.reject(new Error('the register is being read'))
+        : Promise.resolve({
+            indexed: true,
+            truncated: false,
+            candidates: [registered('10391131', 'Nortal AS')],
+          }),
+    );
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Look up reg. 12345678 in the register' }),
+    );
+
+    const said = await screen.findByRole('alert');
+    expect(said).toHaveTextContent('the register is being read');
+    expect(said).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Choose Nortal AS' })).toBeEnabled();
+  });
+
+  it('looks the same code up again when asked again', async () => {
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
+    vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
+      Promise.resolve({
+        indexed: true,
+        truncated: false,
+        candidates: code ? [registered(code, 'Nortal Grupp AS')] : [],
+      }),
+    );
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    const lookUp = await screen.findByRole('button', {
+      name: 'Look up reg. 12345678 in the register',
+    });
+
+    await userEvent.click(lookUp);
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('group', { name: 'Confirm the placement' })).not.toBeInTheDocument();
+    await userEvent.click(lookUp);
+
+    expect(await screen.findByRole('group', { name: 'Confirm the placement' })).toBeInTheDocument();
+    expect(vi.mocked(api.fetchMasiRegisterCandidates).mock.calls.filter((c) => c[2])).toHaveLength(
+      2,
+    );
+  });
+
+  it('says nothing of a handed-over look-up it abandoned for a newer one', async () => {
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
+    let asked = 0;
+    let answer: (a: MasiRegisterCandidates) => void = () => {};
+    vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, signal, code) => {
+      if (!code) return Promise.resolve({ indexed: true, truncated: false, candidates: [] });
+      asked++;
+      if (asked === 1) {
+        return new Promise((_resolve, reject) =>
+          signal?.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted.', 'AbortError')),
+          ),
+        );
+      }
+      return new Promise((resolve) => {
+        answer = resolve;
+      });
+    });
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    const lookUp = await screen.findByRole('button', {
+      name: 'Look up reg. 12345678 in the register',
+    });
+
+    await userEvent.click(lookUp);
+    await userEvent.click(lookUp);
+    await waitFor(() => expect(asked).toBe(2));
+    // a task later the abandoned look-up's rejection is in
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // while the new look-up is out, the abandoned one says nothing
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    answer({
+      indexed: true,
+      truncated: false,
+      candidates: [registered('12345678', 'Nortal Grupp AS')],
+    });
+    expect(await screen.findByRole('group', { name: 'Confirm the placement' })).toBeInTheDocument();
+  });
+
+  it('brings a handed-over code the register does not have into view', async () => {
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Look up reg. 12345678 in the register' }),
+    );
+
+    const said = await screen.findByRole('alert');
+    expect(said).toHaveTextContent('The register has no company with the code 12345678.');
+    // the button that asked is above the register card: the answer is brought to the operator
+    expect(said).toHaveFocus();
   });
 
   it('says where a merged company went', async () => {

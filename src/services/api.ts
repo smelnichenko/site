@@ -1727,7 +1727,6 @@ export interface MasiActivity {
   at: string;
   kind:
     | 'COLLECTED'
-    | 'ANALYSED'
     | 'PREPARED'
     | 'APPLIED'
     | 'SENT_MESSAGE'
@@ -1737,7 +1736,9 @@ export interface MasiActivity {
     | 'OFFER'
     | 'REJECTED'
     | 'NOTE'
-    | 'SCHEDULED';
+    | 'SCHEDULED'
+    | 'REGISTER_MATCHED'
+    | 'WEBSITE_SET';
   origin: 'SYSTEM' | 'OPERATOR' | 'MAIL';
   jobId: number | null;
   jobTitle: string | null;
@@ -1940,9 +1941,76 @@ export function patchMasiCompany(
     careersUrl?: string;
     agency?: boolean;
     agencyFromRegister?: boolean;
+    /** The operator's word on the company's own site; empty takes it away for good. Refused 400/409 with why. */
+    website?: string;
   },
 ): Promise<MasiCompany> {
   return masiSend(`/companies/${id}`, 'PATCH', patch, 'save the company');
+}
+
+/** What a visit to a company's own site came to. */
+export type MasiVisitOutcome =
+  | 'PROVED'
+  | 'MATCHED'
+  | 'KNOWN_SITE'
+  | 'CODE_HELD'
+  | 'INDEX_NOT_READY'
+  | 'REGISTER_BUSY'
+  | 'UNCONFIRMED'
+  | 'NO_CANDIDATE'
+  | 'ROBOTS_DENIED'
+  | 'FETCH_FAILED'
+  | 'VISIT_FAILED';
+
+/** Where a visit found the site it judged: the website it had, the register's, its people's, a posting's, a guess. */
+export type MasiSiteFoundBy = 'OWN' | 'REGISTER' | 'CONTACT' | 'POSTING' | 'GUESS';
+
+/** One visit to a company's own site. The last three are absent from a masi that predates them, and null on older visits. */
+export interface MasiCompanyVisit {
+  runAt: string;
+  outcome: MasiVisitOutcome;
+  /** The site judged: where the address tried answered from; null when that was no company's own site (a platform's page). */
+  candidateUrl: string | null;
+  evidence: string | null;
+  /** The registry code the visit placed the company on. */
+  adoptedCode: string | null;
+  careersUrl: string | null;
+  atsVendor: string | null;
+  requests: number;
+  /** A shutdown cut it short: the company is visited again at the next tick. */
+  cut: boolean;
+  foundBy?: MasiSiteFoundBy | null;
+  /** The address tried, when it answered from another domain or from no company's own site. */
+  triedUrl?: string | null;
+  /**
+   * A registry code the site names that fits the company but that the visit did not place it on — held by another
+   * company, nothing tying the site to it, the register busy: the operator's to place. Never one they rejected.
+   */
+  namedCode?: string | null;
+}
+
+/**
+ * A company's visits to its own site: the newest that judged it (what the operator acts on), a newer one that did not
+ * (failed, the register busy, under way), and whether a visit is under way now.
+ */
+export interface MasiCompanyVisits {
+  latest: MasiCompanyVisit | null;
+  attempt: MasiCompanyVisit | null;
+  visiting: boolean;
+}
+
+/** The company's visits to its own site, or null (404) when masi has not visited it yet. */
+export async function fetchMasiCompanyVisits(
+  id: number,
+  signal?: AbortSignal,
+): Promise<MasiCompanyVisits | null> {
+  const response = await apiFetch(`${API_BASE}/masi/companies/${id}/enrichment`, { signal });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || 'Failed to load the visits');
+  }
+  return readJson<MasiCompanyVisits>(response);
 }
 
 /**

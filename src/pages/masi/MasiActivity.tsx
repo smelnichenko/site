@@ -17,7 +17,6 @@ const PAGE_SIZE = 50;
 /** The words for a kind, as a line of the log reads. */
 const WORDS: Record<Row['kind'], string> = {
   COLLECTED: 'collected',
-  ANALYSED: 'analysed',
   PREPARED: 'package prepared',
   APPLIED: 'applied',
   SENT_MESSAGE: 'message sent',
@@ -28,6 +27,8 @@ const WORDS: Record<Row['kind'], string> = {
   REJECTED: 'rejected',
   NOTE: 'note',
   SCHEDULED: 'scheduled',
+  REGISTER_MATCHED: 'placed in the register',
+  WEBSITE_SET: 'website',
 };
 
 function countWords(n: number): string {
