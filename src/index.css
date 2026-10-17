@@ -545,6 +545,7 @@ a.card-title {
 
 .config-form .form-group {
   flex: 1;
+  min-width: 0; /* a flex item may shrink below its field's own width: at a phone's, two fields share a row */
 }
 
 .form-row {
@@ -566,6 +567,12 @@ a.card-title {
 .form-actions > div {
   display: flex;
   gap: 8px;
+}
+
+/* at a phone's width the actions wrap under one another rather than run past the form */
+.form-actions,
+.form-actions > div {
+  flex-wrap: wrap;
 }
 
 .toggle-label {
@@ -619,10 +626,22 @@ a.card-title {
 
 .metric-row input {
   flex: 1;
+  min-width: 0; /* a name and its keywords share a phone's width rather than push the page sideways */
   padding: 4px 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 0.85rem;
+}
+
+/* a span select on the RSS pages (chart period, count window): drawn as the form's other fields, at the app's control
+   height - not the browser's bare 19 px control */
+.span-select {
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
 }
 
 .required {

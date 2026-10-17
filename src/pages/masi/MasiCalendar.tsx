@@ -271,7 +271,7 @@ export default function MasiCalendar() {
     [view, anchor],
   );
   const from = days[0];
-  const to = days[days.length - 1];
+  const to = days.at(-1) ?? from;
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {

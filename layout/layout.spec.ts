@@ -74,6 +74,21 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       drawn: { '.masi-block': [4, UNBROKEN_PART] },
     },
     {
+      name: 'RSS feed with its chart period',
+      path: '/rss/err.ee',
+      ready: '#rss-chart-period',
+      drawn: {
+        '#rss-chart-period option': [6, '365 days'],
+        '[data-testid="metric-chart"], .recharts-wrapper > svg': [2],
+      },
+    },
+    {
+      name: "RSS feed's settings, its count window open",
+      path: '/config?editFeed=1',
+      ready: '#rss-count-window',
+      drawn: { '#rss-count-window option': [6, '30 days'] },
+    },
+    {
       name: 'calendar day',
       path: '/masi/calendar?view=day&day=2026-09-22',
       ready: '.masi-week',

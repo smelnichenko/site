@@ -6,10 +6,15 @@ import {
   fetchRssChartData,
   fetchRssConfig,
   triggerRssCheck,
+  setRssChartPeriod,
+  fetchRssOptions,
+  spanLabel,
   RssFeedResult,
   RssFeedConfig,
   ChartDataByCollection,
+  type RssOptions,
 } from '../services/api';
+import MasiTable from '../components/MasiTable';
 import MetricChart from '../components/MetricChart';
 
 function formatDate(dateString: string): string {
@@ -35,6 +40,8 @@ function RssFeedDetailView() {
   const [chartData, setChartData] = useState<ChartDataByCollection>({});
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+  const [savingPeriod, setSavingPeriod] = useState(false);
+  const [options, setOptions] = useState<RssOptions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
@@ -58,12 +65,14 @@ function RssFeedDetailView() {
       try {
         // NB: no setState before the first await — the load effect calls this directly, and a
         // synchronous setState there is a cascading render. Callers clear `error` themselves.
-        const [resultsResponse, chartDataResponse, configList] = await Promise.all([
+        const [resultsResponse, chartDataResponse, configList, rssOptions] = await Promise.all([
           fetchRssResults(decodedFeedName, page, PAGE_SIZE, signal),
-          fetchRssChartData(decodedFeedName, 100, signal),
+          fetchRssChartData(decodedFeedName, signal),
           fetchRssConfig(signal),
+          fetchRssOptions(signal).catch(() => null), // without them, no period select: the chart stays as kept
         ]);
         if (signal.aborted) return;
+        setOptions(rssOptions);
         setResults(resultsResponse.content);
         setTotalElements(resultsResponse.totalElements);
         setChartData(chartDataResponse);
@@ -117,6 +126,22 @@ function RssFeedDetailView() {
     }
   }
 
+  /** Kept with the feed, so the dashboard and every later visit chart the same period; the chart is read again for it. */
+  async function changeChartPeriod(chartPeriod: string) {
+    if (!config) return;
+    try {
+      setSavingPeriod(true);
+      setError(null);
+      const saved = await setRssChartPeriod(config.id, chartPeriod);
+      setConfig({ ...config, chartPeriod: saved.chartPeriod });
+      setChartData(await fetchRssChartData(decodedFeedName));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Saving the chart period failed');
+    } finally {
+      setSavingPeriod(false);
+    }
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>;
   }
@@ -163,7 +188,9 @@ function RssFeedDetailView() {
           >
             <div>
               <div className="stat-value">{latestResult.articleCount ?? 0}</div>
-              <div className="stat-label">Articles (last check)</div>
+              <div className="stat-label">
+                Articles counted{config ? ` (last ${spanLabel(config.countWindow)})` : ''}
+              </div>
             </div>
             <div>
               <div className="stat-value">{latestResult.responseTimeMs ?? 0}ms</div>
@@ -178,19 +205,38 @@ function RssFeedDetailView() {
 
         {config && (
           <div style={{ marginTop: '1rem' }}>
-            <div style={{ fontSize: '0.85rem', color: '#666' }}>
+            <div style={{ fontSize: '0.85rem', color: '#666', overflowWrap: 'anywhere' }}>
               URL:{' '}
               <a href={config.url} target="_blank" rel="noopener noreferrer">
                 {config.url}
               </a>
             </div>
             <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
-              Schedule: {config.cron} | Fetch content: {config.fetchContent ? 'Yes' : 'No'} | Max
-              articles: {config.maxArticles}
+              Schedule: {config.cron} | Fetch content: {config.fetchContent ? 'Yes' : 'No'} | Counts
+              over: {spanLabel(config.countWindow)}
             </div>
           </div>
         )}
       </div>
+
+      {config && options && (
+        <div className="form-group">
+          <label htmlFor="rss-chart-period">Chart period</label>
+          <select
+            id="rss-chart-period"
+            className="span-select"
+            value={config.chartPeriod}
+            disabled={savingPeriod}
+            onChange={(e) => void changeChartPeriod(e.target.value)}
+          >
+            {options.chartPeriods.map((p) => (
+              <option key={p} value={p}>
+                {spanLabel(p)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {config?.collections.map((collection) => {
         const points = chartData[collection.name];
@@ -211,7 +257,7 @@ function RssFeedDetailView() {
         <div className="card-header">
           <span className="card-title">Recent Results</span>
         </div>
-        <table className="table">
+        <MasiTable label="Recent results">
           <thead>
             <tr>
               <th>Time</th>
@@ -248,7 +294,7 @@ function RssFeedDetailView() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </MasiTable>
         {totalPages > 1 && (
           <>
             <ReactPaginate

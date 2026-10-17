@@ -49,15 +49,32 @@ export interface PageMonitorRequest {
   enabled: boolean;
 }
 
+/** What a feed's chart period and count window may be (span codes: "1h", "7d"), and what a new feed gets - the API's own. */
+export interface RssOptions {
+  chartPeriods: string[];
+  defaultChartPeriod: string;
+  countWindows: string[];
+  defaultCountWindow: string;
+}
+
+/** A span code said in words: "1h" is "1 hour", "7d" "7 days"; a code of another shape is shown as it is. */
+export function spanLabel(code: string): string {
+  const m = /^(\d+)([hd])$/.exec(code);
+  if (!m) return code;
+  const n = Number(m[1]);
+  return `${n} ${m[2] === 'h' ? 'hour' : 'day'}${n === 1 ? '' : 's'}`;
+}
+
 export interface RssFeedMonitorConfig {
   id: number;
   name: string;
   url: string;
   cron: string;
   fetchContent: boolean;
-  maxArticles: number;
+  countWindow: string;
   enabled: boolean;
   collections: MetricsCollectionConfig[];
+  chartPeriod: string;
 }
 
 export interface RssFeedMonitorRequest {
@@ -65,7 +82,8 @@ export interface RssFeedMonitorRequest {
   url: string;
   cron: string;
   fetchContent: boolean;
-  maxArticles: number;
+  /** Left out, the feed keeps its window (a new one: 1 day). */
+  countWindow?: string;
   enabled: boolean;
   collections: { name: string; metrics: { name: string; keywords: string[] }[] }[];
 }
@@ -218,7 +236,8 @@ export interface RssFeedConfig {
   collections: MetricsCollectionConfig[];
   cron: string;
   fetchContent: boolean;
-  maxArticles: number;
+  countWindow: string;
+  chartPeriod: string;
 }
 
 export interface MetricChartPoint {
@@ -270,16 +289,36 @@ export async function fetchRssLatestResult(
   return readJson(response);
 }
 
+/** The feed's chart over the period kept with the feed (averaged into at most a few hundred points). */
 export async function fetchRssChartData(
   feedName: string,
-  limit = 100,
   signal?: AbortSignal,
 ): Promise<ChartDataByCollection> {
   const response = await apiFetch(
-    `${API_BASE}/rss/results/${encodeURIComponent(feedName)}/chart-data?limit=${limit}`,
+    `${API_BASE}/rss/results/${encodeURIComponent(feedName)}/chart-data`,
     { signal },
   );
   if (!response.ok) throw new Error('Failed to fetch RSS chart data');
+  return readJson(response);
+}
+
+export async function fetchRssOptions(signal?: AbortSignal): Promise<RssOptions> {
+  const response = await apiFetch(`${API_BASE}/rss/config/options`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch RSS options');
+  return readJson(response);
+}
+
+/** Keeps the chart's period with the feed: every screen charts it from now on. */
+export async function setRssChartPeriod(
+  id: number,
+  chartPeriod: string,
+): Promise<RssFeedMonitorConfig> {
+  const response = await apiFetch(`${API_BASE}/rss/config/${id}/chart-period`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chartPeriod }),
+  });
+  if (!response.ok) throw new Error('Failed to save the chart period');
   return readJson(response);
 }
 

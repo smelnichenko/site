@@ -1,5 +1,5 @@
 /**
- * The masi pages as the app shows them — the real components under the real stylesheet, in the app's
+ * The masi pages - and the monitor's RSS feed and settings pages - as the app shows them — the real components under the real stylesheet, in the app's
  * <main className="container"> — at the route `?path=` names. No login: the layout test answers the pages'
  * API calls itself (layout/fixtures.ts), so the pages render whatever they would render with that data.
  */
@@ -7,6 +7,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import '../src/index.css';
+import { LoadingProvider } from '../src/contexts/LoadingProvider';
+import MonitorConfig from '../src/pages/MonitorConfig';
+import RssFeedDetail from '../src/pages/RssFeedDetail';
 import MasiCalendar from '../src/pages/masi/MasiCalendar';
 import MasiCompanyDetail from '../src/pages/masi/MasiCompanyDetail';
 import MasiCv from '../src/pages/masi/MasiCv';
@@ -30,6 +33,15 @@ if (root) {
             <Route path="/masi/jobs/:id" element={<MasiJobDetail />} />
             <Route path="/masi/packages" element={<MasiPackages />} />
             <Route path="/masi/persons/:id" element={<MasiPersonDetail />} />
+            <Route path="/rss/:feedName" element={<RssFeedDetail />} />
+            <Route
+              path="/config"
+              element={
+                <LoadingProvider>
+                  <MonitorConfig />
+                </LoadingProvider>
+              }
+            />
           </Routes>
         </main>
       </MemoryRouter>

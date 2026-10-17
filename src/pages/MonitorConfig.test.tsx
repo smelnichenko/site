@@ -4,19 +4,24 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import MonitorConfig from './MonitorConfig';
 
-vi.mock('../services/api', () => ({
-  fetchPageMonitorConfigs: vi.fn(),
-  createPageMonitor: vi.fn(),
-  updatePageMonitor: vi.fn(),
-  deletePageMonitor: vi.fn(),
-  fetchRssFeedMonitorConfigs: vi.fn(),
-  createRssFeedMonitor: vi.fn(),
-  updateRssFeedMonitor: vi.fn(),
-  deleteRssFeedMonitor: vi.fn(),
-  testPageMonitor: vi.fn(),
-  testRssFeedMonitor: vi.fn(),
-  generateRssCollections: vi.fn(),
-}));
+vi.mock('../services/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/api')>();
+  return {
+    spanLabel: actual.spanLabel,
+    fetchRssOptions: vi.fn(),
+    fetchPageMonitorConfigs: vi.fn(),
+    createPageMonitor: vi.fn(),
+    updatePageMonitor: vi.fn(),
+    deletePageMonitor: vi.fn(),
+    fetchRssFeedMonitorConfigs: vi.fn(),
+    createRssFeedMonitor: vi.fn(),
+    updateRssFeedMonitor: vi.fn(),
+    deleteRssFeedMonitor: vi.fn(),
+    testPageMonitor: vi.fn(),
+    testRssFeedMonitor: vi.fn(),
+    generateRssCollections: vi.fn(),
+  };
+});
 
 vi.mock('../contexts/LoadingContext', () => ({
   useLoading: () => ({
@@ -45,13 +50,22 @@ const mockRssMonitors = [
     url: 'http://x.com/rss',
     cron: '0 0 * * * *',
     fetchContent: false,
-    maxArticles: 30,
+    countWindow: '1d',
+    chartPeriod: '2d',
     enabled: true,
     collections: [{ name: 'col1', metrics: [{ name: 'AI', keywords: ['ai'] }] }],
   },
 ];
 
+const rssOptions = {
+  chartPeriods: ['1d', '2d', '7d', '30d', '90d', '365d'],
+  defaultChartPeriod: '2d',
+  countWindows: ['1h', '6h', '12h', '1d', '7d', '30d'],
+  defaultCountWindow: '1d',
+};
+
 beforeEach(() => {
+  vi.mocked(api.fetchRssOptions).mockReset().mockResolvedValue(rssOptions);
   vi.mocked(api.fetchPageMonitorConfigs).mockReset();
   vi.mocked(api.fetchRssFeedMonitorConfigs).mockReset();
   vi.mocked(api.createPageMonitor).mockReset();
@@ -262,7 +276,10 @@ describe('MonitorConfig', () => {
     await user.click(screen.getByText('+ Add RSS Feed'));
     expect(screen.getByLabelText(/Name/)).toBeInTheDocument();
     expect(screen.getByLabelText(/URL/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Max Articles/)).toBeInTheDocument();
+    expect(await screen.findByLabelText('Count over')).toHaveValue('1d');
+    expect(screen.queryByLabelText(/Max Articles/)).not.toBeInTheDocument();
+    // the chart's period is the feed page's: a form loaded earlier must not overwrite one chosen there
+    expect(screen.queryByLabelText('Chart period')).not.toBeInTheDocument();
   });
 
   it('creates a new RSS feed monitor via form', async () => {
@@ -274,7 +291,8 @@ describe('MonitorConfig', () => {
       url: 'http://example.com/rss',
       cron: '0 0 * * * *',
       fetchContent: false,
-      maxArticles: 30,
+      countWindow: '1d',
+      chartPeriod: '2d',
       enabled: true,
       collections: [],
     });
@@ -374,7 +392,8 @@ describe('MonitorConfig', () => {
       url: 'http://x.com/rss',
       cron: '0 0 * * * *',
       fetchContent: false,
-      maxArticles: 30,
+      countWindow: '1d',
+      chartPeriod: '2d',
       enabled: true,
       collections: [],
     });
@@ -620,7 +639,6 @@ describe('MonitorConfig', () => {
       url: 'http://x.com/rss',
       cron: '0 0 * * * *',
       fetchContent: false,
-      maxArticles: 30,
       enabled: true,
       collections: [{ name: 'col1', metrics: [{ name: 'AI', keywords: ['ai'] }] }],
     });
@@ -634,8 +652,9 @@ describe('MonitorConfig', () => {
         url: 'http://x.com/rss',
         cron: '0 0 * * * *',
         fetchContent: true,
-        maxArticles: 50,
+        countWindow: '7d',
         enabled: false,
+        chartPeriod: '90d',
         collections: [
           {
             name: 'col1',
@@ -658,7 +677,16 @@ describe('MonitorConfig', () => {
       expect(screen.getByDisplayValue('ai, machine learning, deep learning')).toBeInTheDocument();
       expect(screen.getByDisplayValue('Tech Feed')).toBeInTheDocument();
       expect(screen.getByDisplayValue('http://x.com/rss')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('50')).toBeInTheDocument();
+      expect(screen.getByLabelText('Count over')).toHaveValue('7d');
+    });
+    // an edit sends the window it shows: the feed's own, unless changed
+    vi.mocked(api.updateRssFeedMonitor).mockResolvedValue(rssWithMultiKeywords[0]);
+    await user.click(screen.getByText('Save'));
+    await waitFor(() => {
+      expect(api.updateRssFeedMonitor).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ countWindow: '7d' }),
+      );
     });
   });
 
@@ -671,7 +699,8 @@ describe('MonitorConfig', () => {
       url: 'http://example.com/rss',
       cron: '0 0 * * * *',
       fetchContent: false,
-      maxArticles: 30,
+      countWindow: '1d',
+      chartPeriod: '2d',
       enabled: true,
       collections: [],
     });
@@ -694,10 +723,12 @@ describe('MonitorConfig', () => {
     fireEvent.change(screen.getByPlaceholderText('Keywords (comma-separated)'), {
       target: { value: 'ai, ml, deep learning' },
     });
+    await user.selectOptions(screen.getByLabelText('Count over'), '7 days');
     await user.click(screen.getByText('Save'));
 
     expect(api.createRssFeedMonitor).toHaveBeenCalledWith(
       expect.objectContaining({
+        countWindow: '7d',
         collections: [
           {
             name: 'Tech',
@@ -773,7 +804,7 @@ describe('MonitorConfig', () => {
     expect(screen.getByLabelText(/Name/)).toHaveAttribute('id', 'rss-name');
     expect(screen.getByLabelText(/URL/)).toHaveAttribute('id', 'rss-url');
     expect(screen.getByLabelText(/Cron/)).toHaveAttribute('id', 'rss-cron');
-    expect(screen.getByLabelText(/Max Articles/)).toHaveAttribute('id', 'rss-max-articles');
+    expect(screen.getByLabelText('Count over')).toHaveAttribute('id', 'rss-count-window');
   });
   describe('?editPage= deep link', () => {
     it('opens the editor for the monitor the link names, once its list has loaded', async () => {
@@ -798,5 +829,30 @@ describe('MonitorConfig', () => {
       expect(await screen.findByRole('button', { name: /Add Page Monitor/i })).toBeInTheDocument();
       expect(screen.queryByLabelText(/Pattern/i)).not.toBeInTheDocument();
     });
+  });
+
+  it("the settings list says each feed's window in words", async () => {
+    vi.mocked(api.fetchPageMonitorConfigs).mockResolvedValue([]);
+    vi.mocked(api.fetchRssFeedMonitorConfigs).mockResolvedValue([
+      { ...mockRssMonitors[0], countWindow: '12h' },
+    ]);
+    renderConfig();
+    expect(await screen.findByText(/Counts over: 12 hours/)).toBeInTheDocument();
+  });
+
+  it('without the options the form has no window select, and a new feed is sent without one', async () => {
+    vi.mocked(api.fetchRssOptions).mockRejectedValue(new Error('down'));
+    vi.mocked(api.fetchPageMonitorConfigs).mockResolvedValue([]);
+    vi.mocked(api.fetchRssFeedMonitorConfigs).mockResolvedValue([]);
+    vi.mocked(api.createRssFeedMonitor).mockResolvedValue({ ...mockRssMonitors[0], id: 3 });
+    const user = userEvent.setup();
+    renderConfig();
+    await user.click(await screen.findByText('+ Add RSS Feed'));
+    expect(screen.queryByLabelText('Count over')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Name/), 'Feed');
+    await user.type(screen.getByLabelText(/URL/), 'http://example.com/rss');
+    await user.click(screen.getByText('Save'));
+    await waitFor(() => expect(api.createRssFeedMonitor).toHaveBeenCalled());
+    expect(vi.mocked(api.createRssFeedMonitor).mock.calls[0][0].countWindow).toBeUndefined();
   });
 });
