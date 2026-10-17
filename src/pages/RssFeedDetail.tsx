@@ -12,6 +12,7 @@ import {
   ChartDataByCollection,
   CHART_PERIODS,
   CHART_PERIOD_LABELS,
+  COUNT_WINDOW_LABELS,
   type ChartPeriod,
 } from '../services/api';
 import MetricChart from '../components/MetricChart';
@@ -184,7 +185,9 @@ function RssFeedDetailView() {
           >
             <div>
               <div className="stat-value">{latestResult.articleCount ?? 0}</div>
-              <div className="stat-label">Articles (last check)</div>
+              <div className="stat-label">
+                Articles counted{config ? ` (last ${COUNT_WINDOW_LABELS[config.countWindow]})` : ''}
+              </div>
             </div>
             <div>
               <div className="stat-value">{latestResult.responseTimeMs ?? 0}ms</div>
@@ -206,8 +209,8 @@ function RssFeedDetailView() {
               </a>
             </div>
             <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
-              Schedule: {config.cron} | Fetch content: {config.fetchContent ? 'Yes' : 'No'} | Max
-              articles: {config.maxArticles}
+              Schedule: {config.cron} | Fetch content: {config.fetchContent ? 'Yes' : 'No'} | Counts
+              over: {COUNT_WINDOW_LABELS[config.countWindow]}
             </div>
           </div>
         )}

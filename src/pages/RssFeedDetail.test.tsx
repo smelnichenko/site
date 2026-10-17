@@ -9,6 +9,7 @@ vi.mock('../services/api', async (importOriginal) => {
   return {
     CHART_PERIODS: actual.CHART_PERIODS,
     CHART_PERIOD_LABELS: actual.CHART_PERIOD_LABELS,
+    COUNT_WINDOW_LABELS: actual.COUNT_WINDOW_LABELS,
     fetchRssResults: vi.fn(),
     fetchRssChartData: vi.fn(),
     fetchRssConfig: vi.fn(),
@@ -84,7 +85,7 @@ describe('RssFeedDetail', () => {
         collections: [],
         cron: '0 0 * * * *',
         fetchContent: false,
-        maxArticles: 30,
+        countWindow: '1d' as const,
         chartPeriod: '2d',
       },
     ]);
@@ -145,7 +146,7 @@ describe('RssFeedDetail', () => {
       collections: [{ name: 'c1', metrics: [{ name: 'AI', keywords: ['ai'] }] }],
       cron: '0 0 * * * *',
       fetchContent: false,
-      maxArticles: 30,
+      countWindow: '1d' as const,
       chartPeriod: '2d' as const,
     };
 
@@ -197,6 +198,23 @@ describe('RssFeedDetail', () => {
       expect(await screen.findByText('Failed to save the chart period')).toBeInTheDocument();
       expect(screen.getByLabelText('Chart period')).toHaveValue('2d');
       expect(api.fetchRssChartData).toHaveBeenCalledTimes(1);
+    });
+
+    it("says the feed's window: the articles counted over it, and in its settings line", async () => {
+      vi.mocked(api.fetchRssResults).mockResolvedValue({
+        content: [mockResult],
+        pageable: { pageNumber: 0, pageSize: 20 },
+        totalElements: 1,
+        totalPages: 1,
+        last: true,
+        first: true,
+      });
+      vi.mocked(api.fetchRssConfig).mockResolvedValue([{ ...feedConfig, countWindow: '7d' }]);
+      vi.mocked(api.fetchRssChartData).mockResolvedValue({});
+      renderDetail();
+      expect(await screen.findByText('Articles counted (last 7 days)')).toBeInTheDocument();
+      expect(screen.getByText(/Counts\s+over: 7 days/)).toBeInTheDocument();
+      expect(screen.queryByText(/Max\s+articles/)).not.toBeInTheDocument();
     });
 
     it('offers every period, by name', async () => {

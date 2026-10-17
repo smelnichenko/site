@@ -21,6 +21,9 @@ import {
   CHART_PERIODS,
   CHART_PERIOD_LABELS,
   type ChartPeriod,
+  COUNT_WINDOWS,
+  COUNT_WINDOW_LABELS,
+  type CountWindow,
 } from '../services/api';
 import LoadingButton from '../components/LoadingButton';
 import { useLoading } from '../contexts/LoadingContext';
@@ -273,7 +276,7 @@ interface RssFormState {
   url: string;
   cron: string;
   fetchContent: boolean;
-  maxArticles: number;
+  countWindow: CountWindow;
   enabled: boolean;
   collections: CollectionFormState[];
   chartPeriod: ChartPeriod;
@@ -284,7 +287,7 @@ const emptyRssForm: RssFormState = {
   url: '',
   cron: '0 0 * * * *',
   fetchContent: false,
-  maxArticles: 30,
+  countWindow: '1d',
   enabled: true,
   collections: [],
   chartPeriod: '2d',
@@ -442,20 +445,19 @@ function RssFeedForm({
         />
       </div>
       <div>
-        <div className="form-group" style={{ width: '10%' }}>
-          <label htmlFor="rss-max-articles">
-            Max Articles <span className="required">*</span>
-          </label>
-          <input
-            id="rss-max-articles"
-            type="number"
-            min="1"
-            value={form.maxArticles}
-            onChange={(e) =>
-              setForm({ ...form, maxArticles: Number.parseInt(e.target.value, 10) || 30 })
-            }
-            required
-          />
+        <div className="form-group">
+          <label htmlFor="rss-count-window">Count over</label>
+          <select
+            id="rss-count-window"
+            value={form.countWindow}
+            onChange={(e) => setForm({ ...form, countWindow: e.target.value as CountWindow })}
+          >
+            {COUNT_WINDOWS.map((w) => (
+              <option key={w} value={w}>
+                {COUNT_WINDOW_LABELS[w]}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="form-group">
           <label htmlFor="rss-chart-period">Chart period</label>
@@ -650,7 +652,6 @@ function buildTestRssRequest(fm: RssFeedMonitorConfig): RssFeedMonitorRequest {
     url: fm.url,
     cron: fm.cron,
     fetchContent: fm.fetchContent,
-    maxArticles: fm.maxArticles,
     enabled: fm.enabled,
     collections: fm.collections.map((c) => ({
       name: c.name,
@@ -665,7 +666,7 @@ function toRssFormInitial(fm: RssFeedMonitorConfig): RssFormState {
     url: fm.url,
     cron: fm.cron,
     fetchContent: fm.fetchContent,
-    maxArticles: fm.maxArticles,
+    countWindow: fm.countWindow ?? '1d',
     enabled: fm.enabled,
     collections: fm.collections.map((c) => ({
       name: c.name,
@@ -913,7 +914,8 @@ function MonitorConfig() {
                       <span className={`status-dot ${fm.enabled ? 'active' : 'inactive'}`} />
                       <span className="config-detail">{fm.url}</span>
                       <span className="config-detail">
-                        Cron: <code>{fm.cron}</code> | Max articles: {fm.maxArticles}
+                        Cron: <code>{fm.cron}</code> | Counts over:{' '}
+                        {COUNT_WINDOW_LABELS[fm.countWindow]}
                       </span>
                       {fm.collections.map((c) => (
                         <span key={c.name} className="config-detail">

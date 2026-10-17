@@ -61,13 +61,25 @@ export const CHART_PERIOD_LABELS: Record<ChartPeriod, string> = {
   '365d': '1 year',
 };
 
+/** How far back a feed's check counts its articles: every article it listed within it, once each. */
+export const COUNT_WINDOWS = ['1h', '6h', '12h', '1d', '7d', '30d'] as const;
+export type CountWindow = (typeof COUNT_WINDOWS)[number];
+export const COUNT_WINDOW_LABELS: Record<CountWindow, string> = {
+  '1h': '1 hour',
+  '6h': '6 hours',
+  '12h': '12 hours',
+  '1d': '1 day',
+  '7d': '7 days',
+  '30d': '30 days',
+};
+
 export interface RssFeedMonitorConfig {
   id: number;
   name: string;
   url: string;
   cron: string;
   fetchContent: boolean;
-  maxArticles: number;
+  countWindow: CountWindow;
   enabled: boolean;
   collections: MetricsCollectionConfig[];
   chartPeriod: ChartPeriod;
@@ -78,7 +90,8 @@ export interface RssFeedMonitorRequest {
   url: string;
   cron: string;
   fetchContent: boolean;
-  maxArticles: number;
+  /** Left out, the feed keeps its window (a new one: 1 day). */
+  countWindow?: CountWindow;
   enabled: boolean;
   collections: { name: string; metrics: { name: string; keywords: string[] }[] }[];
   /** Left out, the feed keeps the period it has. */
@@ -233,7 +246,7 @@ export interface RssFeedConfig {
   collections: MetricsCollectionConfig[];
   cron: string;
   fetchContent: boolean;
-  maxArticles: number;
+  countWindow: CountWindow;
   chartPeriod: ChartPeriod;
 }
 

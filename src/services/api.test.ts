@@ -263,7 +263,6 @@ describe('api - RSS feed monitor CRUD', () => {
       url: 'http://x.com',
       cron: '0 0 * * * *',
       fetchContent: false,
-      maxArticles: 30,
       enabled: true,
       collections: [],
     };
@@ -282,7 +281,6 @@ describe('api - RSS feed monitor CRUD', () => {
       url: 'http://x.com',
       cron: '0 0 * * * *',
       fetchContent: false,
-      maxArticles: 30,
       enabled: true,
       collections: [],
     };
@@ -297,7 +295,6 @@ describe('api - RSS feed monitor CRUD', () => {
       url: 'http://x.com',
       cron: '0 0 * * * *',
       fetchContent: false,
-      maxArticles: 30,
       enabled: true,
       collections: [],
     };
@@ -723,7 +720,6 @@ describe('api - test endpoints', () => {
       url: 'http://x.com',
       cron: '0 0 * * * *',
       fetchContent: false,
-      maxArticles: 30,
       enabled: true,
       collections: [],
     };
