@@ -351,6 +351,35 @@ describe('api - RSS feed monitor CRUD', () => {
   });
 });
 
+describe('api - spans', () => {
+  it('spanLabel says a span code in words, and shows any other as it is', async () => {
+    const { spanLabel } = await import('./api');
+    expect(['1h', '6h', '1d', '2d', '365d'].map(spanLabel)).toEqual([
+      '1 hour',
+      '6 hours',
+      '1 day',
+      '2 days',
+      '365 days',
+    ]);
+    expect(spanLabel('1w')).toBe('1w');
+  });
+
+  it('fetchRssOptions reads the codes the API offers', async () => {
+    const { fetchRssOptions } = await import('./api');
+    const options = {
+      chartPeriods: ['1d'],
+      defaultChartPeriod: '1d',
+      countWindows: ['1h'],
+      defaultCountWindow: '1h',
+    };
+    mockFetch.mockResolvedValueOnce(mockResponse(options));
+    expect(await fetchRssOptions()).toEqual(options);
+    expect(mockFetch.mock.calls[mockFetch.mock.calls.length - 1][0]).toMatch(
+      /\/rss\/config\/options$/,
+    );
+  });
+});
+
 describe('api - chart period', () => {
   it('setRssChartPeriod keeps the period with the feed', async () => {
     const { setRssChartPeriod } = await import('./api');

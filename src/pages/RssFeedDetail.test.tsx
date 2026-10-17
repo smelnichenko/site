@@ -7,9 +7,8 @@ import RssFeedDetail from './RssFeedDetail';
 vi.mock('../services/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../services/api')>();
   return {
-    CHART_PERIODS: actual.CHART_PERIODS,
-    CHART_PERIOD_LABELS: actual.CHART_PERIOD_LABELS,
-    COUNT_WINDOW_LABELS: actual.COUNT_WINDOW_LABELS,
+    spanLabel: actual.spanLabel,
+    fetchRssOptions: vi.fn(),
     fetchRssResults: vi.fn(),
     fetchRssChartData: vi.fn(),
     fetchRssConfig: vi.fn(),
@@ -19,7 +18,12 @@ vi.mock('../services/api', async (importOriginal) => {
 });
 
 vi.mock('../components/MetricChart', () => ({
-  default: ({ title }: { title: string }) => <div data-testid="metric-chart">{title}</div>,
+  // the points it was given, as text: a test sees which chart is drawn, not only that one is
+  default: ({ title, data }: { title: string; data: unknown }) => (
+    <div data-testid="metric-chart">
+      {title} {JSON.stringify(data)}
+    </div>
+  ),
 }));
 
 vi.mock('react-paginate', () => ({
@@ -28,7 +32,15 @@ vi.mock('react-paginate', () => ({
 
 const api = await import('../services/api');
 
+const rssOptions = {
+  chartPeriods: ['1d', '2d', '7d', '30d', '90d', '365d'],
+  defaultChartPeriod: '2d',
+  countWindows: ['1h', '6h', '12h', '1d', '7d', '30d'],
+  defaultCountWindow: '1d',
+};
+
 beforeEach(() => {
+  vi.mocked(api.fetchRssOptions).mockReset().mockResolvedValue(rssOptions);
   vi.mocked(api.fetchRssResults).mockReset();
   vi.mocked(api.fetchRssChartData).mockReset();
   vi.mocked(api.fetchRssConfig).mockReset();
@@ -85,7 +97,7 @@ describe('RssFeedDetail', () => {
         collections: [],
         cron: '0 0 * * * *',
         fetchContent: false,
-        countWindow: '1d' as const,
+        countWindow: '1d',
         chartPeriod: '2d',
       },
     ]);
@@ -146,8 +158,8 @@ describe('RssFeedDetail', () => {
       collections: [{ name: 'c1', metrics: [{ name: 'AI', keywords: ['ai'] }] }],
       cron: '0 0 * * * *',
       fetchContent: false,
-      countWindow: '1d' as const,
-      chartPeriod: '2d' as const,
+      countWindow: '1d',
+      chartPeriod: '2d',
     };
 
     function loaded() {
@@ -177,11 +189,17 @@ describe('RssFeedDetail', () => {
       const select = await screen.findByLabelText('Chart period');
       expect(select).toHaveValue('2d');
 
+      expect(screen.getByTestId('metric-chart')).toHaveTextContent('"AI":2');
       await user.selectOptions(select, '7 days');
       expect(api.setRssChartPeriod).toHaveBeenCalledWith(7, '7d');
       await waitFor(() => expect(screen.getByLabelText('Chart period')).toHaveValue('7d'));
       expect(api.fetchRssChartData).toHaveBeenCalledTimes(2);
       expect(api.fetchRssChartData).toHaveBeenLastCalledWith('test-feed');
+      // kept first, then read: the chart read is the new period's - and it is the one drawn
+      expect(vi.mocked(api.setRssChartPeriod).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(api.fetchRssChartData).mock.invocationCallOrder[1],
+      );
+      await waitFor(() => expect(screen.getByTestId('metric-chart')).toHaveTextContent('"AI":1.5'));
     });
 
     it('a period that cannot be saved is said, and the feed keeps its own', async () => {
@@ -194,7 +212,7 @@ describe('RssFeedDetail', () => {
       renderDetail();
       const select = await screen.findByLabelText('Chart period');
 
-      await user.selectOptions(select, '1 year');
+      await user.selectOptions(select, '365 days');
       expect(await screen.findByText('Failed to save the chart period')).toBeInTheDocument();
       expect(screen.getByLabelText('Chart period')).toHaveValue('2d');
       expect(api.fetchRssChartData).toHaveBeenCalledTimes(1);
@@ -228,8 +246,19 @@ describe('RssFeedDetail', () => {
         '7 days',
         '30 days',
         '90 days',
-        '1 year',
+        '365 days',
       ]);
+    });
+
+    it('without the options, no period select - the chart is drawn as kept', async () => {
+      loaded();
+      vi.mocked(api.fetchRssOptions).mockRejectedValue(new Error('down'));
+      vi.mocked(api.fetchRssChartData).mockResolvedValue({
+        c1: [{ time: 't', timestamp: 1, AI: 3 }],
+      });
+      renderDetail();
+      expect(await screen.findByTestId('metric-chart')).toHaveTextContent('"AI":3');
+      expect(screen.queryByLabelText('Chart period')).not.toBeInTheDocument();
     });
   });
 });

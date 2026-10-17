@@ -7,13 +7,12 @@ import {
   fetchRssConfig,
   triggerRssCheck,
   setRssChartPeriod,
+  fetchRssOptions,
+  spanLabel,
   RssFeedResult,
   RssFeedConfig,
   ChartDataByCollection,
-  CHART_PERIODS,
-  CHART_PERIOD_LABELS,
-  COUNT_WINDOW_LABELS,
-  type ChartPeriod,
+  type RssOptions,
 } from '../services/api';
 import MetricChart from '../components/MetricChart';
 
@@ -41,6 +40,7 @@ function RssFeedDetailView() {
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [savingPeriod, setSavingPeriod] = useState(false);
+  const [options, setOptions] = useState<RssOptions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
@@ -64,12 +64,14 @@ function RssFeedDetailView() {
       try {
         // NB: no setState before the first await — the load effect calls this directly, and a
         // synchronous setState there is a cascading render. Callers clear `error` themselves.
-        const [resultsResponse, chartDataResponse, configList] = await Promise.all([
+        const [resultsResponse, chartDataResponse, configList, rssOptions] = await Promise.all([
           fetchRssResults(decodedFeedName, page, PAGE_SIZE, signal),
           fetchRssChartData(decodedFeedName, signal),
           fetchRssConfig(signal),
+          fetchRssOptions(signal).catch(() => null), // without them, no period select: the chart stays as kept
         ]);
         if (signal.aborted) return;
+        setOptions(rssOptions);
         setResults(resultsResponse.content);
         setTotalElements(resultsResponse.totalElements);
         setChartData(chartDataResponse);
@@ -124,7 +126,7 @@ function RssFeedDetailView() {
   }
 
   /** Kept with the feed, so the dashboard and every later visit chart the same period; the chart is read again for it. */
-  async function changeChartPeriod(chartPeriod: ChartPeriod) {
+  async function changeChartPeriod(chartPeriod: string) {
     if (!config) return;
     try {
       setSavingPeriod(true);
@@ -186,7 +188,7 @@ function RssFeedDetailView() {
             <div>
               <div className="stat-value">{latestResult.articleCount ?? 0}</div>
               <div className="stat-label">
-                Articles counted{config ? ` (last ${COUNT_WINDOW_LABELS[config.countWindow]})` : ''}
+                Articles counted{config ? ` (last ${spanLabel(config.countWindow)})` : ''}
               </div>
             </div>
             <div>
@@ -210,24 +212,24 @@ function RssFeedDetailView() {
             </div>
             <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
               Schedule: {config.cron} | Fetch content: {config.fetchContent ? 'Yes' : 'No'} | Counts
-              over: {COUNT_WINDOW_LABELS[config.countWindow]}
+              over: {spanLabel(config.countWindow)}
             </div>
           </div>
         )}
       </div>
 
-      {config && (
+      {config && options && (
         <div className="form-group">
           <label htmlFor="rss-chart-period">Chart period</label>
           <select
             id="rss-chart-period"
             value={config.chartPeriod}
             disabled={savingPeriod}
-            onChange={(e) => void changeChartPeriod(e.target.value as ChartPeriod)}
+            onChange={(e) => void changeChartPeriod(e.target.value)}
           >
-            {CHART_PERIODS.map((p) => (
+            {options.chartPeriods.map((p) => (
               <option key={p} value={p}>
-                {CHART_PERIOD_LABELS[p]}
+                {spanLabel(p)}
               </option>
             ))}
           </select>

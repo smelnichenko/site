@@ -49,29 +49,21 @@ export interface PageMonitorRequest {
   enabled: boolean;
 }
 
-/** How far back a feed's chart reaches; kept with the feed by the API. */
-export const CHART_PERIODS = ['1d', '2d', '7d', '30d', '90d', '365d'] as const;
-export type ChartPeriod = (typeof CHART_PERIODS)[number];
-export const CHART_PERIOD_LABELS: Record<ChartPeriod, string> = {
-  '1d': '1 day',
-  '2d': '2 days',
-  '7d': '7 days',
-  '30d': '30 days',
-  '90d': '90 days',
-  '365d': '1 year',
-};
+/** What a feed's chart period and count window may be (span codes: "1h", "7d"), and what a new feed gets - the API's own. */
+export interface RssOptions {
+  chartPeriods: string[];
+  defaultChartPeriod: string;
+  countWindows: string[];
+  defaultCountWindow: string;
+}
 
-/** How far back a feed's check counts its articles: every article it listed within it, once each. */
-export const COUNT_WINDOWS = ['1h', '6h', '12h', '1d', '7d', '30d'] as const;
-export type CountWindow = (typeof COUNT_WINDOWS)[number];
-export const COUNT_WINDOW_LABELS: Record<CountWindow, string> = {
-  '1h': '1 hour',
-  '6h': '6 hours',
-  '12h': '12 hours',
-  '1d': '1 day',
-  '7d': '7 days',
-  '30d': '30 days',
-};
+/** A span code said in words: "1h" is "1 hour", "7d" "7 days"; a code of another shape is shown as it is. */
+export function spanLabel(code: string): string {
+  const m = /^(\d+)([hd])$/.exec(code);
+  if (!m) return code;
+  const n = Number(m[1]);
+  return `${n} ${m[2] === 'h' ? 'hour' : 'day'}${n === 1 ? '' : 's'}`;
+}
 
 export interface RssFeedMonitorConfig {
   id: number;
@@ -79,10 +71,10 @@ export interface RssFeedMonitorConfig {
   url: string;
   cron: string;
   fetchContent: boolean;
-  countWindow: CountWindow;
+  countWindow: string;
   enabled: boolean;
   collections: MetricsCollectionConfig[];
-  chartPeriod: ChartPeriod;
+  chartPeriod: string;
 }
 
 export interface RssFeedMonitorRequest {
@@ -91,11 +83,9 @@ export interface RssFeedMonitorRequest {
   cron: string;
   fetchContent: boolean;
   /** Left out, the feed keeps its window (a new one: 1 day). */
-  countWindow?: CountWindow;
+  countWindow?: string;
   enabled: boolean;
   collections: { name: string; metrics: { name: string; keywords: string[] }[] }[];
-  /** Left out, the feed keeps the period it has. */
-  chartPeriod?: ChartPeriod;
 }
 
 export interface PageStats {
@@ -246,8 +236,8 @@ export interface RssFeedConfig {
   collections: MetricsCollectionConfig[];
   cron: string;
   fetchContent: boolean;
-  countWindow: CountWindow;
-  chartPeriod: ChartPeriod;
+  countWindow: string;
+  chartPeriod: string;
 }
 
 export interface MetricChartPoint {
@@ -312,10 +302,16 @@ export async function fetchRssChartData(
   return readJson(response);
 }
 
+export async function fetchRssOptions(signal?: AbortSignal): Promise<RssOptions> {
+  const response = await apiFetch(`${API_BASE}/rss/config/options`, { signal });
+  if (!response.ok) throw new Error('Failed to fetch RSS options');
+  return readJson(response);
+}
+
 /** Keeps the chart's period with the feed: every screen charts it from now on. */
 export async function setRssChartPeriod(
   id: number,
-  chartPeriod: ChartPeriod,
+  chartPeriod: string,
 ): Promise<RssFeedMonitorConfig> {
   const response = await apiFetch(`${API_BASE}/rss/config/${id}/chart-period`, {
     method: 'PUT',

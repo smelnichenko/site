@@ -18,12 +18,9 @@ import {
   testPageMonitor,
   testRssFeedMonitor,
   generateRssCollections,
-  CHART_PERIODS,
-  CHART_PERIOD_LABELS,
-  type ChartPeriod,
-  COUNT_WINDOWS,
-  COUNT_WINDOW_LABELS,
-  type CountWindow,
+  fetchRssOptions,
+  spanLabel,
+  type RssOptions,
 } from '../services/api';
 import LoadingButton from '../components/LoadingButton';
 import { useLoading } from '../contexts/LoadingContext';
@@ -276,10 +273,10 @@ interface RssFormState {
   url: string;
   cron: string;
   fetchContent: boolean;
-  countWindow: CountWindow;
+  /** Left out (the options did not load), the API gives a new feed its default and an edited one keeps its own. */
+  countWindow?: string;
   enabled: boolean;
   collections: CollectionFormState[];
-  chartPeriod: ChartPeriod;
 }
 
 const emptyRssForm: RssFormState = {
@@ -287,10 +284,8 @@ const emptyRssForm: RssFormState = {
   url: '',
   cron: '0 0 * * * *',
   fetchContent: false,
-  countWindow: '1d',
   enabled: true,
   collections: [],
-  chartPeriod: '2d',
 };
 
 function toCollectionRequests(collections: CollectionFormState[]) {
@@ -317,14 +312,18 @@ function mapGeneratedCollections(
 
 function RssFeedForm({
   initial,
+  options,
   onSave,
   onCancel,
 }: Readonly<{
   initial?: RssFormState;
+  options: RssOptions | null;
   onSave: (data: RssFeedMonitorRequest) => Promise<void>;
   onCancel: () => void;
 }>) {
-  const [form, setForm] = useState<RssFormState>(initial || emptyRssForm);
+  const [form, setForm] = useState<RssFormState>(
+    initial || { ...emptyRssForm, countWindow: options?.defaultCountWindow },
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [testingForm, setTestingForm] = useState(false);
@@ -445,34 +444,22 @@ function RssFeedForm({
         />
       </div>
       <div>
-        <div className="form-group">
-          <label htmlFor="rss-count-window">Count over</label>
-          <select
-            id="rss-count-window"
-            value={form.countWindow}
-            onChange={(e) => setForm({ ...form, countWindow: e.target.value as CountWindow })}
-          >
-            {COUNT_WINDOWS.map((w) => (
-              <option key={w} value={w}>
-                {COUNT_WINDOW_LABELS[w]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group">
-          <label htmlFor="rss-chart-period">Chart period</label>
-          <select
-            id="rss-chart-period"
-            value={form.chartPeriod}
-            onChange={(e) => setForm({ ...form, chartPeriod: e.target.value as ChartPeriod })}
-          >
-            {CHART_PERIODS.map((p) => (
-              <option key={p} value={p}>
-                {CHART_PERIOD_LABELS[p]}
-              </option>
-            ))}
-          </select>
-        </div>
+        {options && form.countWindow && (
+          <div className="form-group">
+            <label htmlFor="rss-count-window">Count over</label>
+            <select
+              id="rss-count-window"
+              value={form.countWindow}
+              onChange={(e) => setForm({ ...form, countWindow: e.target.value })}
+            >
+              {options.countWindows.map((w) => (
+                <option key={w} value={w}>
+                  {spanLabel(w)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <label className="toggle-label">
           <input
             type="checkbox"
@@ -666,13 +653,12 @@ function toRssFormInitial(fm: RssFeedMonitorConfig): RssFormState {
     url: fm.url,
     cron: fm.cron,
     fetchContent: fm.fetchContent,
-    countWindow: fm.countWindow ?? '1d',
+    countWindow: fm.countWindow,
     enabled: fm.enabled,
     collections: fm.collections.map((c) => ({
       name: c.name,
       metrics: c.metrics.map((m) => ({ name: m.name, keywords: m.keywords.join(', ') })),
     })),
-    chartPeriod: fm.chartPeriod ?? '2d',
   };
 }
 
@@ -680,6 +666,7 @@ function MonitorConfig() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [pageMonitors, setPageMonitors] = useState<PageMonitorConfig[]>([]);
   const [rssMonitors, setRssMonitors] = useState<RssFeedMonitorConfig[]>([]);
+  const [rssOptions, setRssOptions] = useState<RssOptions | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingPage, setEditingPage] = useState<PageMonitorConfig | null>(null);
   const [editingRss, setEditingRss] = useState<RssFeedMonitorConfig | null>(null);
@@ -693,12 +680,14 @@ function MonitorConfig() {
   // load effect would then re-run and refetch every time a deep link was consumed.
   const loadData = useCallback(async () => {
     try {
-      const [pages, feeds] = await Promise.all([
+      const [pages, feeds, options] = await Promise.all([
         fetchPageMonitorConfigs(),
         fetchRssFeedMonitorConfigs(),
+        fetchRssOptions().catch(() => null), // the forms go on without their window select
       ]);
       setPageMonitors(pages);
       setRssMonitors(feeds);
+      setRssOptions(options);
     } catch {
       /* ignore */
     } finally {
@@ -890,7 +879,11 @@ function MonitorConfig() {
         </div>
 
         {showNewRss && (
-          <RssFeedForm onSave={handleCreateRss} onCancel={() => setShowNewRss(false)} />
+          <RssFeedForm
+            options={rssOptions}
+            onSave={handleCreateRss}
+            onCancel={() => setShowNewRss(false)}
+          />
         )}
 
         {rssMonitors.length === 0 && !showNewRss ? (
@@ -904,6 +897,7 @@ function MonitorConfig() {
                 {editingRss?.id === fm.id ? (
                   <RssFeedForm
                     initial={toRssFormInitial(fm)}
+                    options={rssOptions}
                     onSave={handleUpdateRss}
                     onCancel={() => setEditingRss(null)}
                   />
@@ -914,8 +908,7 @@ function MonitorConfig() {
                       <span className={`status-dot ${fm.enabled ? 'active' : 'inactive'}`} />
                       <span className="config-detail">{fm.url}</span>
                       <span className="config-detail">
-                        Cron: <code>{fm.cron}</code> | Counts over:{' '}
-                        {COUNT_WINDOW_LABELS[fm.countWindow]}
+                        Cron: <code>{fm.cron}</code> | Counts over: {spanLabel(fm.countWindow)}
                       </span>
                       {fm.collections.map((c) => (
                         <span key={c.name} className="config-detail">
