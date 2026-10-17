@@ -125,7 +125,7 @@ export default function FiguresCard({ company }: Readonly<Props>) {
   const dates = (figures?.quarters ?? [])
     .map((q) => q.published)
     .sort((a, b) => a.localeCompare(b));
-  const published = dates[dates.length - 1];
+  const published = dates.at(-1);
   const xAxis = {
     dataKey: 'label',
     ticks: yearTicks(rows),
@@ -166,7 +166,7 @@ export default function FiguresCard({ company }: Readonly<Props>) {
                     tickFormatter={formatTick}
                     width={44}
                     ticks={employees}
-                    domain={[0, employees[employees.length - 1]]}
+                    domain={[0, employees.at(-1) ?? 'auto']}
                   />
                   {/* in the lines' order: the quarterly count first, the annual average after it */}
                   <Tooltip {...tooltip} itemSorter={headOrder} />
