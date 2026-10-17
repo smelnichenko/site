@@ -5,6 +5,7 @@
  * An API call this file does not answer fails the test (layout.spec.ts), so no page renders on a missing fixture.
  */
 import type {
+  ChartDataByCollection,
   CvMaster,
   CvVersionMeta,
   MasiCalendar,
@@ -17,6 +18,10 @@ import type {
   MasiMatch,
   MasiPackage,
   Paged,
+  PagedResponse,
+  RssFeedMonitorConfig,
+  RssFeedResult,
+  RssOptions,
 } from '../src/services/api';
 import { readFileSync } from 'node:fs';
 import { job, prepared } from '../src/pages/masi/fixtures';
@@ -491,7 +496,87 @@ export interface Answer {
 }
 
 /** masi's answer to a GET of the pages under test; undefined for a request no fixture covers. */
+/** An RSS feed as the monitor answers it: a name and an address longer than a settings line, two collections. */
+const rssFeed: RssFeedMonitorConfig = {
+  id: 1,
+  name: 'err.ee',
+  url: 'https://www.err.ee/rss?limit=500&' + 'unbroken'.repeat(12),
+  cron: '0 */30 * * * *',
+  fetchContent: true,
+  countWindow: '1d',
+  chartPeriod: '2d',
+  enabled: true,
+  collections: [
+    {
+      name: 'Topics',
+      metrics: [
+        { name: 'Tehnoloogia', keywords: ['tehnoloogia', 'IT'] },
+        { name: 'Majandus', keywords: ['majandus'] },
+      ],
+    },
+    { name: 'Places', metrics: [{ name: 'Tallinn', keywords: ['tallinn'] }] },
+  ],
+};
+const rssOptions: RssOptions = {
+  chartPeriods: ['1d', '2d', '7d', '30d', '90d', '365d'],
+  defaultChartPeriod: '2d',
+  countWindows: ['1h', '6h', '12h', '1d', '7d', '30d'],
+  defaultCountWindow: '1d',
+};
+const rssResult = (id: number, hoursAgo: number): RssFeedResult => ({
+  id,
+  feedName: 'err.ee',
+  url: rssFeed.url,
+  checkedAt: new Date(Date.parse('2026-09-22T06:00:00Z') - hoursAgo * 3_600_000).toISOString(),
+  responseTimeMs: 312,
+  httpStatus: 200,
+  articleCount: 287,
+  errorMessage: null,
+  metricCounts: [
+    { collectionName: 'Topics', metricName: 'Tehnoloogia', count: 41 },
+    { collectionName: 'Topics', metricName: 'Majandus', count: 17 },
+    { collectionName: 'Places', metricName: 'Tallinn', count: 63 },
+  ],
+});
+const rssResults: PagedResponse<RssFeedResult> = {
+  content: [rssResult(3, 0.5), rssResult(2, 1), rssResult(1, 1.5)],
+  pageable: { pageNumber: 0, pageSize: 20 },
+  totalElements: 3,
+  totalPages: 1,
+  last: true,
+  first: true,
+};
+const rssChart: ChartDataByCollection = {
+  Topics: [24, 18, 12, 6].map((h, i) => ({
+    time: `Sep 2${i} 0${i}:00`,
+    timestamp: Date.parse('2026-09-22T06:00:00Z') - h * 3_600_000,
+    Tehnoloogia: 30 + i,
+    Majandus: 10.5 + i,
+  })),
+  Places: [24, 18, 12, 6].map((h, i) => ({
+    time: `Sep 2${i} 0${i}:00`,
+    timestamp: Date.parse('2026-09-22T06:00:00Z') - h * 3_600_000,
+    Tallinn: 60 + i,
+  })),
+};
+
+/** The monitor's RSS and settings calls (the feed's page, the settings page). */
+function monitorAnswer(path: string): Answer | undefined {
+  const routes: Array<[RegExp, () => Answer]> = [
+    [/^\/rss\/config$/, () => ({ status: 200, body: [rssFeed] })],
+    [/^\/rss\/config\/options$/, () => ({ status: 200, body: rssOptions })],
+    [/^\/rss\/results\/[^/]+$/, () => ({ status: 200, body: rssResults })],
+    [/^\/rss\/results\/[^/]+\/chart-data$/, () => ({ status: 200, body: rssChart })],
+    [/^\/monitor\/config$/, () => ({ status: 200, body: [] })],
+  ];
+  const hit = routes.find(([re]) => re.test(path));
+  return hit ? hit[1]() : undefined;
+}
+
 export function answer(url: URL): Answer | undefined {
+  if (!url.pathname.startsWith('/api/masi')) {
+    return monitorAnswer(url.pathname.replace(/^\/api/, ''));
+  }
   const path = url.pathname.replace(/^\/api\/masi/, '');
   const q = url.searchParams;
   const routes: Array<[RegExp, () => Answer]> = [

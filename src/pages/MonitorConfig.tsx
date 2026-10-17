@@ -449,6 +449,7 @@ function RssFeedForm({
             <label htmlFor="rss-count-window">Count over</label>
             <select
               id="rss-count-window"
+              className="span-select"
               value={form.countWindow}
               onChange={(e) => setForm({ ...form, countWindow: e.target.value })}
             >

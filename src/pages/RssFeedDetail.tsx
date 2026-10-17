@@ -14,6 +14,7 @@ import {
   ChartDataByCollection,
   type RssOptions,
 } from '../services/api';
+import MasiTable from '../components/MasiTable';
 import MetricChart from '../components/MetricChart';
 
 function formatDate(dateString: string): string {
@@ -204,7 +205,7 @@ function RssFeedDetailView() {
 
         {config && (
           <div style={{ marginTop: '1rem' }}>
-            <div style={{ fontSize: '0.85rem', color: '#666' }}>
+            <div style={{ fontSize: '0.85rem', color: '#666', overflowWrap: 'anywhere' }}>
               URL:{' '}
               <a href={config.url} target="_blank" rel="noopener noreferrer">
                 {config.url}
@@ -223,6 +224,7 @@ function RssFeedDetailView() {
           <label htmlFor="rss-chart-period">Chart period</label>
           <select
             id="rss-chart-period"
+            className="span-select"
             value={config.chartPeriod}
             disabled={savingPeriod}
             onChange={(e) => void changeChartPeriod(e.target.value)}
@@ -255,7 +257,7 @@ function RssFeedDetailView() {
         <div className="card-header">
           <span className="card-title">Recent Results</span>
         </div>
-        <table className="table">
+        <MasiTable label="Recent results">
           <thead>
             <tr>
               <th>Time</th>
@@ -292,7 +294,7 @@ function RssFeedDetailView() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </MasiTable>
         {totalPages > 1 && (
           <>
             <ReactPaginate
