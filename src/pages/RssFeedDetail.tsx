@@ -6,9 +6,13 @@ import {
   fetchRssChartData,
   fetchRssConfig,
   triggerRssCheck,
+  setRssChartPeriod,
   RssFeedResult,
   RssFeedConfig,
   ChartDataByCollection,
+  CHART_PERIODS,
+  CHART_PERIOD_LABELS,
+  type ChartPeriod,
 } from '../services/api';
 import MetricChart from '../components/MetricChart';
 
@@ -35,6 +39,7 @@ function RssFeedDetailView() {
   const [chartData, setChartData] = useState<ChartDataByCollection>({});
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+  const [savingPeriod, setSavingPeriod] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
@@ -60,7 +65,7 @@ function RssFeedDetailView() {
         // synchronous setState there is a cascading render. Callers clear `error` themselves.
         const [resultsResponse, chartDataResponse, configList] = await Promise.all([
           fetchRssResults(decodedFeedName, page, PAGE_SIZE, signal),
-          fetchRssChartData(decodedFeedName, 100, signal),
+          fetchRssChartData(decodedFeedName, signal),
           fetchRssConfig(signal),
         ]);
         if (signal.aborted) return;
@@ -114,6 +119,22 @@ function RssFeedDetailView() {
       setError(err instanceof Error ? err.message : 'Check failed');
     } finally {
       setChecking(false);
+    }
+  }
+
+  /** Kept with the feed, so the dashboard and every later visit chart the same period; the chart is read again for it. */
+  async function changeChartPeriod(chartPeriod: ChartPeriod) {
+    if (!config) return;
+    try {
+      setSavingPeriod(true);
+      setError(null);
+      const saved = await setRssChartPeriod(config.id, chartPeriod);
+      setConfig({ ...config, chartPeriod: saved.chartPeriod });
+      setChartData(await fetchRssChartData(decodedFeedName));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Saving the chart period failed');
+    } finally {
+      setSavingPeriod(false);
     }
   }
 
@@ -191,6 +212,24 @@ function RssFeedDetailView() {
           </div>
         )}
       </div>
+
+      {config && (
+        <div className="form-group">
+          <label htmlFor="rss-chart-period">Chart period</label>
+          <select
+            id="rss-chart-period"
+            value={config.chartPeriod}
+            disabled={savingPeriod}
+            onChange={(e) => void changeChartPeriod(e.target.value as ChartPeriod)}
+          >
+            {CHART_PERIODS.map((p) => (
+              <option key={p} value={p}>
+                {CHART_PERIOD_LABELS[p]}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {config?.collections.map((collection) => {
         const points = chartData[collection.name];

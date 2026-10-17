@@ -18,6 +18,9 @@ import {
   testPageMonitor,
   testRssFeedMonitor,
   generateRssCollections,
+  CHART_PERIODS,
+  CHART_PERIOD_LABELS,
+  type ChartPeriod,
 } from '../services/api';
 import LoadingButton from '../components/LoadingButton';
 import { useLoading } from '../contexts/LoadingContext';
@@ -273,6 +276,7 @@ interface RssFormState {
   maxArticles: number;
   enabled: boolean;
   collections: CollectionFormState[];
+  chartPeriod: ChartPeriod;
 }
 
 const emptyRssForm: RssFormState = {
@@ -283,6 +287,7 @@ const emptyRssForm: RssFormState = {
   maxArticles: 30,
   enabled: true,
   collections: [],
+  chartPeriod: '2d',
 };
 
 function toCollectionRequests(collections: CollectionFormState[]) {
@@ -451,6 +456,20 @@ function RssFeedForm({
             }
             required
           />
+        </div>
+        <div className="form-group">
+          <label htmlFor="rss-chart-period">Chart period</label>
+          <select
+            id="rss-chart-period"
+            value={form.chartPeriod}
+            onChange={(e) => setForm({ ...form, chartPeriod: e.target.value as ChartPeriod })}
+          >
+            {CHART_PERIODS.map((p) => (
+              <option key={p} value={p}>
+                {CHART_PERIOD_LABELS[p]}
+              </option>
+            ))}
+          </select>
         </div>
         <label className="toggle-label">
           <input
@@ -652,6 +671,7 @@ function toRssFormInitial(fm: RssFeedMonitorConfig): RssFormState {
       name: c.name,
       metrics: c.metrics.map((m) => ({ name: m.name, keywords: m.keywords.join(', ') })),
     })),
+    chartPeriod: fm.chartPeriod ?? '2d',
   };
 }
 

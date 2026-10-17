@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import MonitorConfig from './MonitorConfig';
 
-vi.mock('../services/api', () => ({
+vi.mock('../services/api', async (importOriginal) => ({
+  CHART_PERIODS: (await importOriginal<typeof import('../services/api')>()).CHART_PERIODS,
+  CHART_PERIOD_LABELS: (await importOriginal<typeof import('../services/api')>())
+    .CHART_PERIOD_LABELS,
   fetchPageMonitorConfigs: vi.fn(),
   createPageMonitor: vi.fn(),
   updatePageMonitor: vi.fn(),
@@ -46,6 +49,7 @@ const mockRssMonitors = [
     cron: '0 0 * * * *',
     fetchContent: false,
     maxArticles: 30,
+    chartPeriod: '2d' as const,
     enabled: true,
     collections: [{ name: 'col1', metrics: [{ name: 'AI', keywords: ['ai'] }] }],
   },
@@ -263,6 +267,7 @@ describe('MonitorConfig', () => {
     expect(screen.getByLabelText(/Name/)).toBeInTheDocument();
     expect(screen.getByLabelText(/URL/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Max Articles/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Chart period')).toHaveValue('2d');
   });
 
   it('creates a new RSS feed monitor via form', async () => {
@@ -275,6 +280,7 @@ describe('MonitorConfig', () => {
       cron: '0 0 * * * *',
       fetchContent: false,
       maxArticles: 30,
+      chartPeriod: '2d' as const,
       enabled: true,
       collections: [],
     });
@@ -375,6 +381,7 @@ describe('MonitorConfig', () => {
       cron: '0 0 * * * *',
       fetchContent: false,
       maxArticles: 30,
+      chartPeriod: '2d' as const,
       enabled: true,
       collections: [],
     });
@@ -636,6 +643,7 @@ describe('MonitorConfig', () => {
         fetchContent: true,
         maxArticles: 50,
         enabled: false,
+        chartPeriod: '90d' as const,
         collections: [
           {
             name: 'col1',
@@ -659,6 +667,7 @@ describe('MonitorConfig', () => {
       expect(screen.getByDisplayValue('Tech Feed')).toBeInTheDocument();
       expect(screen.getByDisplayValue('http://x.com/rss')).toBeInTheDocument();
       expect(screen.getByDisplayValue('50')).toBeInTheDocument();
+      expect(screen.getByLabelText('Chart period')).toHaveValue('90d');
     });
   });
 
@@ -672,6 +681,7 @@ describe('MonitorConfig', () => {
       cron: '0 0 * * * *',
       fetchContent: false,
       maxArticles: 30,
+      chartPeriod: '2d' as const,
       enabled: true,
       collections: [],
     });
@@ -694,10 +704,12 @@ describe('MonitorConfig', () => {
     fireEvent.change(screen.getByPlaceholderText('Keywords (comma-separated)'), {
       target: { value: 'ai, ml, deep learning' },
     });
+    await user.selectOptions(screen.getByLabelText('Chart period'), '30 days');
     await user.click(screen.getByText('Save'));
 
     expect(api.createRssFeedMonitor).toHaveBeenCalledWith(
       expect.objectContaining({
+        chartPeriod: '30d',
         collections: [
           {
             name: 'Tech',

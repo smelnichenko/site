@@ -345,8 +345,36 @@ describe('api - RSS feed monitor CRUD', () => {
     const { fetchRssChartData } = await import('./api');
     const chartData = { col1: [] };
     mockFetch.mockResolvedValueOnce(mockResponse(chartData));
-    const result = await fetchRssChartData('feed1', 50);
+    const result = await fetchRssChartData('feed1');
     expect(result).toEqual(chartData);
+    // the feed's own period: no size or period asked for
+    expect(mockFetch.mock.calls[mockFetch.mock.calls.length - 1][0]).toMatch(
+      /\/rss\/results\/feed1\/chart-data$/,
+    );
+  });
+});
+
+describe('api - chart period', () => {
+  it('setRssChartPeriod keeps the period with the feed', async () => {
+    const { setRssChartPeriod } = await import('./api');
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: 7, chartPeriod: '30d' }));
+    const saved = await setRssChartPeriod(7, '30d');
+    expect(saved.chartPeriod).toBe('30d');
+    const [url, init] = mockFetch.mock.calls[mockFetch.mock.calls.length - 1] as [
+      string,
+      RequestInit,
+    ];
+    expect(url).toMatch(/\/rss\/config\/7\/chart-period$/);
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body as string)).toEqual({ chartPeriod: '30d' });
+  });
+
+  it('setRssChartPeriod says a refusal', async () => {
+    const { setRssChartPeriod } = await import('./api');
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({ error: 'chartPeriod must be one of' }, { status: 400 }),
+    );
+    await expect(setRssChartPeriod(7, '30d')).rejects.toThrow('Failed to save the chart period');
   });
 });
 

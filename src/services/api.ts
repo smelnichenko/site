@@ -49,6 +49,18 @@ export interface PageMonitorRequest {
   enabled: boolean;
 }
 
+/** How far back a feed's chart reaches; kept with the feed by the API. */
+export const CHART_PERIODS = ['1d', '2d', '7d', '30d', '90d', '365d'] as const;
+export type ChartPeriod = (typeof CHART_PERIODS)[number];
+export const CHART_PERIOD_LABELS: Record<ChartPeriod, string> = {
+  '1d': '1 day',
+  '2d': '2 days',
+  '7d': '7 days',
+  '30d': '30 days',
+  '90d': '90 days',
+  '365d': '1 year',
+};
+
 export interface RssFeedMonitorConfig {
   id: number;
   name: string;
@@ -58,6 +70,7 @@ export interface RssFeedMonitorConfig {
   maxArticles: number;
   enabled: boolean;
   collections: MetricsCollectionConfig[];
+  chartPeriod: ChartPeriod;
 }
 
 export interface RssFeedMonitorRequest {
@@ -68,6 +81,8 @@ export interface RssFeedMonitorRequest {
   maxArticles: number;
   enabled: boolean;
   collections: { name: string; metrics: { name: string; keywords: string[] }[] }[];
+  /** Left out, the feed keeps the period it has. */
+  chartPeriod?: ChartPeriod;
 }
 
 export interface PageStats {
@@ -219,6 +234,7 @@ export interface RssFeedConfig {
   cron: string;
   fetchContent: boolean;
   maxArticles: number;
+  chartPeriod: ChartPeriod;
 }
 
 export interface MetricChartPoint {
@@ -270,16 +286,30 @@ export async function fetchRssLatestResult(
   return readJson(response);
 }
 
+/** The feed's chart over the period kept with the feed (averaged into at most a few hundred points). */
 export async function fetchRssChartData(
   feedName: string,
-  limit = 100,
   signal?: AbortSignal,
 ): Promise<ChartDataByCollection> {
   const response = await apiFetch(
-    `${API_BASE}/rss/results/${encodeURIComponent(feedName)}/chart-data?limit=${limit}`,
+    `${API_BASE}/rss/results/${encodeURIComponent(feedName)}/chart-data`,
     { signal },
   );
   if (!response.ok) throw new Error('Failed to fetch RSS chart data');
+  return readJson(response);
+}
+
+/** Keeps the chart's period with the feed: every screen charts it from now on. */
+export async function setRssChartPeriod(
+  id: number,
+  chartPeriod: ChartPeriod,
+): Promise<RssFeedMonitorConfig> {
+  const response = await apiFetch(`${API_BASE}/rss/config/${id}/chart-period`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chartPeriod }),
+  });
+  if (!response.ok) throw new Error('Failed to save the chart period');
   return readJson(response);
 }
 

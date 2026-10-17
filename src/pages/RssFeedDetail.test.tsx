@@ -4,12 +4,18 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import RssFeedDetail from './RssFeedDetail';
 
-vi.mock('../services/api', () => ({
-  fetchRssResults: vi.fn(),
-  fetchRssChartData: vi.fn(),
-  fetchRssConfig: vi.fn(),
-  triggerRssCheck: vi.fn(),
-}));
+vi.mock('../services/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/api')>();
+  return {
+    CHART_PERIODS: actual.CHART_PERIODS,
+    CHART_PERIOD_LABELS: actual.CHART_PERIOD_LABELS,
+    fetchRssResults: vi.fn(),
+    fetchRssChartData: vi.fn(),
+    fetchRssConfig: vi.fn(),
+    triggerRssCheck: vi.fn(),
+    setRssChartPeriod: vi.fn(),
+  };
+});
 
 vi.mock('../components/MetricChart', () => ({
   default: ({ title }: { title: string }) => <div data-testid="metric-chart">{title}</div>,
@@ -26,6 +32,7 @@ beforeEach(() => {
   vi.mocked(api.fetchRssChartData).mockReset();
   vi.mocked(api.fetchRssConfig).mockReset();
   vi.mocked(api.triggerRssCheck).mockReset();
+  vi.mocked(api.setRssChartPeriod).mockReset();
 });
 
 function renderDetail(feedName = 'test-feed') {
@@ -78,6 +85,7 @@ describe('RssFeedDetail', () => {
         cron: '0 0 * * * *',
         fetchContent: false,
         maxArticles: 30,
+        chartPeriod: '2d',
       },
     ]);
 
@@ -126,6 +134,84 @@ describe('RssFeedDetail', () => {
     renderDetail();
     await waitFor(() => {
       expect(screen.getByText('AI: 5')).toBeInTheDocument();
+    });
+  });
+
+  describe('chart period', () => {
+    const feedConfig = {
+      id: 7,
+      name: 'test-feed',
+      url: 'http://x.com/rss',
+      collections: [{ name: 'c1', metrics: [{ name: 'AI', keywords: ['ai'] }] }],
+      cron: '0 0 * * * *',
+      fetchContent: false,
+      maxArticles: 30,
+      chartPeriod: '2d' as const,
+    };
+
+    function loaded() {
+      vi.mocked(api.fetchRssResults).mockResolvedValue({
+        content: [mockResult],
+        pageable: { pageNumber: 0, pageSize: 20 },
+        totalElements: 1,
+        totalPages: 1,
+        last: true,
+        first: true,
+      });
+      vi.mocked(api.fetchRssConfig).mockResolvedValue([feedConfig]);
+    }
+
+    it('shows the period kept with the feed, and keeps a new one with it, charting it at once', async () => {
+      loaded();
+      vi.mocked(api.fetchRssChartData)
+        .mockResolvedValueOnce({ c1: [{ time: 'Oct 17 10:00', timestamp: 1, AI: 2 }] })
+        .mockResolvedValueOnce({ c1: [{ time: 'Oct 11 10:00', timestamp: 0, AI: 1.5 }] });
+      vi.mocked(api.setRssChartPeriod).mockResolvedValue({
+        ...feedConfig,
+        enabled: true,
+        chartPeriod: '7d',
+      });
+      const user = userEvent.setup();
+      renderDetail();
+      const select = await screen.findByLabelText('Chart period');
+      expect(select).toHaveValue('2d');
+
+      await user.selectOptions(select, '7 days');
+      expect(api.setRssChartPeriod).toHaveBeenCalledWith(7, '7d');
+      await waitFor(() => expect(screen.getByLabelText('Chart period')).toHaveValue('7d'));
+      expect(api.fetchRssChartData).toHaveBeenCalledTimes(2);
+      expect(api.fetchRssChartData).toHaveBeenLastCalledWith('test-feed');
+    });
+
+    it('a period that cannot be saved is said, and the feed keeps its own', async () => {
+      loaded();
+      vi.mocked(api.fetchRssChartData).mockResolvedValue({});
+      vi.mocked(api.setRssChartPeriod).mockRejectedValue(
+        new Error('Failed to save the chart period'),
+      );
+      const user = userEvent.setup();
+      renderDetail();
+      const select = await screen.findByLabelText('Chart period');
+
+      await user.selectOptions(select, '1 year');
+      expect(await screen.findByText('Failed to save the chart period')).toBeInTheDocument();
+      expect(screen.getByLabelText('Chart period')).toHaveValue('2d');
+      expect(api.fetchRssChartData).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers every period, by name', async () => {
+      loaded();
+      vi.mocked(api.fetchRssChartData).mockResolvedValue({});
+      renderDetail();
+      const select = await screen.findByLabelText('Chart period');
+      expect(Array.from((select as HTMLSelectElement).options).map((o) => o.text)).toEqual([
+        '1 day',
+        '2 days',
+        '7 days',
+        '30 days',
+        '90 days',
+        '1 year',
+      ]);
     });
   });
 });
