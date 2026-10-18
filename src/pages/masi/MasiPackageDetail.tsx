@@ -15,7 +15,7 @@ export default function MasiPackageDetail() {
   /** Regenerated in another language, a package hands over to that language's CV's package: its own page. */
   function changed(next: MasiPackage) {
     if (pkg && next.id !== pkg.id) {
-      navigate(`/masi/packages/${next.id}`);
+      void navigate(`/masi/packages/${next.id}`);
     }
     setPkg(next);
   }
