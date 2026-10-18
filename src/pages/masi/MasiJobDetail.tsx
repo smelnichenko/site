@@ -117,8 +117,13 @@ export default function MasiJobDetail() {
     return () => clearTimeout(t);
   }, [preparing, polls, refreshPackages]);
 
+  /** The package as it is now - or, regenerated in another language, that language's CV's package, added first. */
   function replacePackage(next: MasiPackage) {
-    setPackages((cur) => cur.map((x) => (x.id === next.id ? next : x)));
+    setPackages((cur) =>
+      cur.some((x) => x.id === next.id)
+        ? cur.map((x) => (x.id === next.id ? next : x))
+        : [next, ...cur],
+    );
   }
 
   async function onPrepare() {

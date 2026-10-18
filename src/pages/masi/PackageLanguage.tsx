@@ -19,9 +19,9 @@ interface Props {
 }
 
 /**
- * The language a package is written in: the posting's by default (an Estonian posting is tuned from the
- * current Estonian translation of the master, when there is one), or the operator's choice — which masi
- * refuses when the master has no current translation into it.
+ * The language a package is written in: the posting's by default, or the operator's choice. The language picks
+ * the CV - the active one in it - so another language is another package; masi refuses a language with no
+ * active CV.
  */
 export default function PackageLanguage({
   id,
