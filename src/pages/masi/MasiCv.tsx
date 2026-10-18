@@ -8,6 +8,7 @@ import {
   fetchCvVersions,
   validateCv,
   CvCompleteness,
+  CvMaster,
   CvVersionMeta,
 } from '../../services/api';
 import LoadingButton from '../../components/LoadingButton';
@@ -70,10 +71,26 @@ function formatDate(iso: string | null): string {
  * problems back with their paths, versions activated explicitly, a PDF preview of the master
  * as the boards would parse it. Nothing here sends anything anywhere.
  */
+/** Every active version, one per language; an older masi names only its one active master. */
+function activesOf(master: CvMaster): CvVersionMeta[] {
+  return master.actives ?? (master.active ? [master.active] : []);
+}
+
+/** One active version as the header names it: its language and number. */
+function activeLabel(a: CvVersionMeta): string {
+  return `${a.language ?? '?'} v${a.version}`;
+}
+
+/** A version the operator wrote, or a translation the operator approved that still passes: its language's CV to be. */
+function activatable(v: CvVersionMeta): boolean {
+  return v.translatedFrom === null || (v.reviewedAt !== null && (v.parity ?? []).length === 0);
+}
+
 function MasiCv() {
   const [yaml, setYaml] = useState('');
   const [note, setNote] = useState('');
   const [active, setActive] = useState<CvVersionMeta | null>(null);
+  const [actives, setActives] = useState<CvVersionMeta[]>([]);
   const [completeness, setCompleteness] = useState<CvCompleteness | null>(null);
   const [versions, setVersions] = useState<CvVersionMeta[]>([]);
   const [shown, setShown] = useState<number | null>(null);
@@ -85,6 +102,7 @@ function MasiCv() {
   const reload = useCallback(async (signal?: AbortSignal) => {
     const [master, list] = await Promise.all([fetchCvMaster(signal), fetchCvVersions(signal)]);
     setActive(master.active);
+    setActives(activesOf(master));
     setCompleteness(master.completeness);
     setVersions(list);
     if (master.yaml !== null) {
@@ -100,6 +118,7 @@ function MasiCv() {
   const reloadVersions = useCallback(async () => {
     const [master, list] = await Promise.all([fetchCvMaster(), fetchCvVersions()]);
     setActive(master.active);
+    setActives(activesOf(master));
     setVersions(list);
   }, []);
 
@@ -225,7 +244,9 @@ function MasiCv() {
         <div className="card-header">
           <span className="card-title">CV master</span>
           <span className="muted">
-            {active ? `active: v${active.version}` : 'no active version'}
+            {actives.length > 0
+              ? `active: ${actives.map(activeLabel).join(' · ')}`
+              : 'no active version'}
             {shown !== null && shown !== active?.version ? ` · showing v${shown}` : ''}
           </span>
         </div>
@@ -351,7 +372,7 @@ function MasiCv() {
                     >
                       Preview PDF
                     </button>
-                    {!v.active && v.translatedFrom === null && (
+                    {!v.active && activatable(v) && (
                       <button
                         className="status-badge add"
                         onClick={() => void onActivate(v.version)}

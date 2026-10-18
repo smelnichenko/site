@@ -78,7 +78,7 @@ describe('MasiCv', () => {
     vi.mocked(api.fetchCvVersions).mockResolvedValue([v1]);
     renderAt('/masi/cv', '/masi/cv', <MasiCv />);
     await waitFor(() => {
-      expect(screen.getByText('active: v1')).toBeInTheDocument();
+      expect(screen.getByText('active: en v1')).toBeInTheDocument();
     });
     expect(screen.getByText('Completeness 86 %')).toBeInTheDocument();
     expect(screen.getByText(/no achievement carries a metric/)).toBeInTheDocument();
@@ -133,7 +133,7 @@ describe('MasiCv', () => {
       activatedAt: '2026-09-18T11:00:00Z',
     });
     renderAt('/masi/cv', '/masi/cv', <MasiCv />);
-    expect(await screen.findByText('active: v1')).toBeInTheDocument();
+    expect(await screen.findByText('active: en v1')).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Note for this version'), 'second');
     await userEvent.click(screen.getByText('Save as new version'));
     expect(await screen.findByText('Version 2 saved (not active yet)')).toBeInTheDocument();
@@ -159,7 +159,7 @@ describe('MasiCv', () => {
       completeness: { score: 70, gaps: ['a gap of v2'] },
     });
     renderAt('/masi/cv', '/masi/cv', <MasiCv />);
-    expect(await screen.findByText('active: v1')).toBeInTheDocument();
+    expect(await screen.findByText('active: en v1')).toBeInTheDocument();
     const editor = screen.getByLabelText<HTMLTextAreaElement>('Evidence bank (YAML)');
     await userEvent.clear(editor);
     await userEvent.type(editor, 'person:{enter}  name: Real Person{enter}');
@@ -689,7 +689,7 @@ describe('MasiCv', () => {
       expect(approve).toBeDisabled();
     });
 
-    it("names each version's language in the list, and offers no activation of a translation", async () => {
+    it("names each version's language in the list, and offers no activation of a translation not approved", async () => {
       vi.mocked(api.fetchCvMaster).mockResolvedValue(master);
       vi.mocked(api.fetchCvVersions).mockResolvedValue([translation(2, {}), v1]);
       renderAt('/masi/cv', '/masi/cv', <MasiCv />);
@@ -700,6 +700,30 @@ describe('MasiCv', () => {
       expect(within(row2).getByText('Estonian')).toBeInTheDocument();
       expect(within(row1).getByText('English')).toBeInTheDocument();
       expect(within(row2).queryByRole('button', { name: 'Activate' })).not.toBeInTheDocument();
+    });
+
+    it("offers to activate an approved translation as its language's CV, and shows each language's active one", async () => {
+      const approved = translation(2, { reviewedAt: '2026-10-18T10:00:00Z', current: true });
+      const blocked = translation(3, {
+        reviewedAt: '2026-10-18T10:00:00Z',
+        parity: ['/person/name differs from the source'],
+      });
+      vi.mocked(api.fetchCvMaster)
+        .mockResolvedValueOnce({ ...master, actives: [v1] })
+        .mockResolvedValue({ ...master, actives: [{ ...approved, active: true }, v1] });
+      vi.mocked(api.fetchCvVersions).mockResolvedValue([blocked, approved, v1]);
+      vi.mocked(api.activateCvVersion).mockResolvedValue({ ...approved, active: true });
+      renderAt('/masi/cv', '/masi/cv', <MasiCv />);
+      expect(await screen.findByText('active: en v1')).toBeInTheDocument();
+      const rows = screen.getAllByRole('row');
+      const row2 = rows.find((r) => within(r).queryByText('v2') !== null)!;
+      const row3 = rows.find((r) => within(r).queryByText('v3') !== null)!;
+      expect(within(row3).queryByRole('button', { name: 'Activate' })).not.toBeInTheDocument(); // it no longer passes
+
+      await userEvent.click(within(row2).getByRole('button', { name: 'Activate' }));
+
+      await waitFor(() => expect(api.activateCvVersion).toHaveBeenCalledWith(2));
+      expect(await screen.findByText('active: et v2 · en v1')).toBeInTheDocument();
     });
   });
 });
