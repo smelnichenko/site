@@ -122,6 +122,11 @@ describe('MasiCv', () => {
       .mockResolvedValue({ active: v1, yaml: 'a: 1\n', completeness: { score: 100, gaps: [] } });
     vi.mocked(api.fetchCvVersions).mockResolvedValueOnce([v1]).mockResolvedValue([v2, v1]);
     vi.mocked(api.createCvVersion).mockResolvedValue({ version: v2, errors: [] });
+    vi.mocked(api.fetchCvVersion).mockResolvedValue({
+      active: v1,
+      yaml: 'a: 1\n',
+      completeness: { score: 100, gaps: [] },
+    });
     vi.mocked(api.activateCvVersion).mockResolvedValue({
       ...v2,
       active: true,
@@ -136,6 +141,42 @@ describe('MasiCv', () => {
     expect(await screen.findByText('Activate')).toBeInTheDocument(); // v2 is not active
     await userEvent.click(screen.getByText('Activate'));
     await waitFor(() => expect(api.activateCvVersion).toHaveBeenCalledWith(2));
+  });
+
+  it('keeps the saved version in the editor, not the active one, after a save', async () => {
+    const v2 = { ...v1, version: 2, note: '', active: false, activatedAt: null };
+    // the server's master is the ACTIVE version's: after the save it is still v1's text
+    vi.mocked(api.fetchCvMaster).mockResolvedValue({
+      active: v1,
+      yaml: 'person:\n  name: Sample Person\n',
+      completeness: { score: 100, gaps: [] },
+    });
+    vi.mocked(api.fetchCvVersions).mockResolvedValueOnce([v1]).mockResolvedValue([v2, v1]);
+    vi.mocked(api.createCvVersion).mockResolvedValue({ version: v2, errors: [] });
+    vi.mocked(api.fetchCvVersion).mockResolvedValue({
+      active: v1,
+      yaml: 'person:\n  name: Real Person\n',
+      completeness: { score: 70, gaps: ['a gap of v2'] },
+    });
+    renderAt('/masi/cv', '/masi/cv', <MasiCv />);
+    expect(await screen.findByText('active: v1')).toBeInTheDocument();
+    const editor = screen.getByLabelText<HTMLTextAreaElement>('Evidence bank (YAML)');
+    await userEvent.clear(editor);
+    await userEvent.type(editor, 'person:{enter}  name: Real Person{enter}');
+
+    await userEvent.click(screen.getByText('Save as new version'));
+
+    expect(await screen.findByText('Version 2 saved (not active yet)')).toBeInTheDocument();
+    expect(editor).toHaveValue('person:\n  name: Real Person\n');
+    expect(screen.getByText(/showing v2/)).toBeInTheDocument();
+    expect(screen.getByText('Completeness 70 %')).toBeInTheDocument(); // v2's, not the active one's
+    await userEvent.click(screen.getByText('Save as new version'));
+    await waitFor(() => expect(api.createCvVersion).toHaveBeenCalledTimes(2));
+    expect(api.createCvVersion).toHaveBeenLastCalledWith(
+      'person:\n  name: Real Person\n',
+      '',
+      undefined,
+    );
   });
 
   it('a refused save shows the errors and creates nothing', async () => {

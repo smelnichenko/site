@@ -153,7 +153,12 @@ function MasiCv() {
       setErrors([]);
       setNote('');
       setMessage(`Version ${r.version.version} saved (not active yet)`);
-      await reload();
+      // the editor keeps the version just saved: the server's master is the ACTIVE one, which a new version is not yet -
+      // reloading it here put the old active text in the editor under the new version's number, and the next save kept it
+      await reloadVersions();
+      const saved = await fetchCvVersion(r.version.version);
+      setYaml(saved.yaml ?? yaml);
+      setCompleteness(saved.completeness);
       setShown(r.version.version);
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : 'Save failed');
