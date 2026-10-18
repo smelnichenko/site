@@ -1193,9 +1193,12 @@ export interface CvCompleteness {
 }
 
 export interface CvMaster {
+  /** The primary CV: the most recently activated one the operator wrote. */
   active: CvVersionMeta | null;
   yaml: string | null;
   completeness: CvCompleteness | null;
+  /** Every active version, one per language (absent from a masi older than per-language activation). */
+  actives?: CvVersionMeta[];
 }
 
 export interface CvValidation {
