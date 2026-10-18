@@ -230,6 +230,12 @@ export default function MasiJobDetail() {
           </div>
         )}
         <MatchSummary match={job.match} />
+        {(job.scores?.length ?? 0) > 1 && (
+          <p className="muted" aria-label="Score with each active CV">
+            by CV:{' '}
+            {job.scores?.map((s) => `${s.language} v${s.version} ${s.score ?? '—'}`).join(' · ')}
+          </p>
+        )}
         <ul className="masi-listings">
           {job.listings.map((l) => (
             <li key={l.id}>

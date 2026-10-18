@@ -100,6 +100,11 @@ export default function MasiDashboard() {
               : `CV master v${data.cv.activeVersion} completeness`}
           </span>
           {data.cv.gaps.length > 0 && <span className="muted">{data.cv.gaps.length} gap(s)</span>}
+          {(data.cv.actives?.length ?? 0) > 1 && (
+            <span className="muted" data-testid="cv-actives">
+              active: {data.cv.actives?.map((a) => `${a.language} v${a.version}`).join(' · ')}
+            </span>
+          )}
         </Link>
       </div>
       <div className="card">
