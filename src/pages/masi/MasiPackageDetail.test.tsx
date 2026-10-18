@@ -36,8 +36,19 @@ describe('MasiPackageDetail', () => {
   }
 
   it("regenerated in another language, moves to that CV's package's own page", async () => {
-    vi.mocked(api.fetchMasiPackage).mockResolvedValue({ ...prepared, writtenIn: 'en', tunedFromVersion: 2 });
-    vi.mocked(api.regenerateMasiPackage).mockResolvedValue({ ...prepared, id: 12, status: 'NEW', language: 'et', writtenIn: null, tunedFromVersion: null });
+    vi.mocked(api.fetchMasiPackage).mockResolvedValue({
+      ...prepared,
+      writtenIn: 'en',
+      tunedFromVersion: 2,
+    });
+    vi.mocked(api.regenerateMasiPackage).mockResolvedValue({
+      ...prepared,
+      id: 12,
+      status: 'NEW',
+      language: 'et',
+      writtenIn: null,
+      tunedFromVersion: null,
+    });
     renderPackage();
     await userEvent.selectOptions(await screen.findByLabelText('Language of package #11'), 'et');
     await userEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
@@ -45,8 +56,17 @@ describe('MasiPackageDetail', () => {
   });
 
   it('regenerated in its own language, stays on its page', async () => {
-    vi.mocked(api.fetchMasiPackage).mockResolvedValue({ ...prepared, writtenIn: 'en', tunedFromVersion: 2 });
-    vi.mocked(api.regenerateMasiPackage).mockResolvedValue({ ...prepared, status: 'NEW', writtenIn: null, tunedFromVersion: null });
+    vi.mocked(api.fetchMasiPackage).mockResolvedValue({
+      ...prepared,
+      writtenIn: 'en',
+      tunedFromVersion: 2,
+    });
+    vi.mocked(api.regenerateMasiPackage).mockResolvedValue({
+      ...prepared,
+      status: 'NEW',
+      writtenIn: null,
+      tunedFromVersion: null,
+    });
     renderPackage();
     await userEvent.click(await screen.findByRole('button', { name: 'Regenerate' }));
     await waitFor(() => expect(api.regenerateMasiPackage).toHaveBeenCalledWith(11, 'auto'));

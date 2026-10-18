@@ -457,9 +457,11 @@ describe('MasiJobDetail', () => {
     );
   });
 
-  it('regenerated in another language, a package hands over to that CV\'s package: both are listed, the new one first', async () => {
+  it("regenerated in another language, a package hands over to that CV's package: both are listed, the new one first", async () => {
     vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
-    vi.mocked(api.fetchMasiPackages).mockResolvedValue([{ ...prepared, writtenIn: 'en', tunedFromVersion: 2 }]);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([
+      { ...prepared, writtenIn: 'en', tunedFromVersion: 2 },
+    ]);
     vi.mocked(api.regenerateMasiPackage).mockResolvedValue({
       ...prepared,
       id: 12,
