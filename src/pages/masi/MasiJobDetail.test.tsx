@@ -480,6 +480,29 @@ describe('MasiJobDetail', () => {
     expect(languages[1]).toHaveTextContent('written in English from CV v2');
   });
 
+  it("names each active CV's score when there is more than one, and none with one", async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({
+      ...job,
+      scores: [
+        { language: 'en', version: 2, score: 80 },
+        { language: 'et', version: 5, score: null },
+      ],
+    });
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    const { unmount } = renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    expect(await screen.findByLabelText('Score with each active CV')).toHaveTextContent(
+      'by CV: en v2 80 · et v5 —',
+    );
+    unmount();
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({
+      ...job,
+      scores: [{ language: 'en', version: 2, score: 80 }],
+    });
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    await screen.findAllByText(job.title);
+    expect(screen.queryByLabelText('Score with each active CV')).not.toBeInTheDocument();
+  });
+
   it('prepares a package in the language chosen', async () => {
     vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);

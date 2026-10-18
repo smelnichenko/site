@@ -27,7 +27,15 @@ describe('MasiDashboard', () => {
         monthByPurpose: { EXTRACT: 0.5, TUNE: 3, LETTER: 0, SCORE: 0, ENRICH: 0 },
         averagePackageCostMonth: 0.75,
       },
-      cv: { activeVersion: 2, completeness: 86, gaps: ['role 1 has no metric'] },
+      cv: {
+        activeVersion: 2,
+        completeness: 86,
+        gaps: ['role 1 has no metric'],
+        actives: [
+          { language: 'en', version: 2 },
+          { language: 'et', version: 5 },
+        ],
+      },
       sources: [
         {
           id: 1,
@@ -69,10 +77,41 @@ describe('MasiDashboard', () => {
     expect(screen.getByText('86 %')).toBeInTheDocument();
     expect(screen.getByText('CV master v2 completeness')).toBeInTheDocument();
     expect(screen.getByText('1 gap(s)')).toBeInTheDocument();
+    expect(screen.getByTestId('cv-actives')).toHaveTextContent('active: en v2 · et v5');
     expect(screen.getByText('cv.ee')).toBeInTheDocument();
     expect(screen.getByText('running')).toBeInTheDocument(); // a running source shows running, not its health
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveClass('active');
     expect(screen.getByRole('link', { name: 'CV master' })).not.toHaveClass('active');
+  });
+
+  it('names no per-language CVs while there is one active CV', async () => {
+    vi.mocked(api.fetchMasiDashboard).mockResolvedValue({
+      openJobs: 1,
+      newJobs7d: 0,
+      closedJobs7d: 0,
+      companiesHiring: 1,
+      packages: {},
+      llm: {
+        today: 0,
+        dailyBudget: 1,
+        month: 0,
+        monthlyBudget: 20,
+        enabled: true,
+        monthByPurpose: {},
+        averagePackageCostMonth: null,
+      },
+      cv: {
+        activeVersion: 2,
+        completeness: 86,
+        gaps: [],
+        actives: [{ language: 'en', version: 2 }],
+      },
+      sources: [],
+      tuningPausedUntil: null,
+    });
+    renderAt('/masi', '/masi', <MasiDashboard />);
+    expect(await screen.findByText('CV master v2 completeness')).toBeInTheDocument();
+    expect(screen.queryByTestId('cv-actives')).not.toBeInTheDocument();
   });
 
   it('shows the error when the overview cannot load', async () => {

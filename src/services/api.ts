@@ -1368,6 +1368,19 @@ export interface MasiJob {
   matchScore: number | null;
   /** The reasons, on the job's own page only. */
   match: MasiMatch | null;
+  /** Each active CV's score for the job, the primary first; the job's own page only (null or absent elsewhere). */
+  scores?: MasiCvScore[] | null;
+}
+
+/** One active CV: its language and version. */
+export interface MasiActiveCv {
+  language: string;
+  version: number;
+}
+
+/** One active CV against a job: null when it has no score (yet, or not scorable). */
+export interface MasiCvScore extends MasiActiveCv {
+  score: number | null;
 }
 
 /** Why a job has no score: a zero would be a statement about the candidate, and these are not. */
@@ -1668,7 +1681,13 @@ export interface MasiDashboard {
     monthByPurpose: Record<string, number>;
     averagePackageCostMonth: number | null;
   };
-  cv: { activeVersion: number | null; completeness: number | null; gaps: string[] };
+  cv: {
+    activeVersion: number | null;
+    completeness: number | null;
+    gaps: string[];
+    /** Every active CV, one per language, the primary first (absent from a masi before per-language views). */
+    actives?: MasiActiveCv[];
+  };
   sources: Array<{
     id: number;
     key: string;
