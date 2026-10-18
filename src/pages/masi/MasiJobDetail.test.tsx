@@ -457,6 +457,29 @@ describe('MasiJobDetail', () => {
     );
   });
 
+  it("regenerated in another language, a package hands over to that CV's package: both are listed, the new one first", async () => {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([
+      { ...prepared, writtenIn: 'en', tunedFromVersion: 2 },
+    ]);
+    vi.mocked(api.regenerateMasiPackage).mockResolvedValue({
+      ...prepared,
+      id: 12,
+      status: 'NEW',
+      language: 'et',
+      writtenIn: null,
+      tunedFromVersion: null,
+    });
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    await userEvent.selectOptions(await screen.findByLabelText('Language of package #11'), 'et');
+    await userEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
+    await waitFor(() => expect(api.regenerateMasiPackage).toHaveBeenCalledWith(11, 'et'));
+    const languages = await screen.findAllByTestId('package-language');
+    expect(languages).toHaveLength(2);
+    expect(languages[0]).toHaveTextContent('not written yet · Estonian asked');
+    expect(languages[1]).toHaveTextContent('written in English from CV v2');
+  });
+
   it('prepares a package in the language chosen', async () => {
     vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);

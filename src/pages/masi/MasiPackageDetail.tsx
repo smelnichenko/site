@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fetchMasiPackage, MasiPackage } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import PackagePanel from './PackagePanel';
@@ -10,6 +10,15 @@ export default function MasiPackageDetail() {
   const { id } = useParams();
   const [pkg, setPkg] = useState<MasiPackage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  /** Regenerated in another language, a package hands over to that language's CV's package: its own page. */
+  function changed(next: MasiPackage) {
+    if (pkg && next.id !== pkg.id) {
+      void navigate(`/masi/packages/${next.id}`);
+    }
+    setPkg(next);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -36,7 +45,7 @@ export default function MasiPackageDetail() {
             <Link to={`/masi/jobs/${pkg.jobId}`}>{pkg.jobTitle ?? `job ${pkg.jobId}`}</Link>
             {pkg.companyName ? ` · ${pkg.companyName}` : ''}
           </div>
-          <PackagePanel pkg={pkg} onChanged={setPkg} />
+          <PackagePanel pkg={pkg} onChanged={changed} />
         </>
       )}
     </div>
