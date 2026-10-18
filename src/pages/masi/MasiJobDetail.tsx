@@ -234,7 +234,7 @@ export default function MasiJobDetail() {
           <p className="muted" aria-label="Score with each active CV">
             by CV:{' '}
             {job.scores
-              ?.map((s) => `${s.language} v${s.version} ${s.score === null ? '—' : s.score}`)
+              ?.map((s) => `${s.language} v${s.version} ${s.score ?? '—'}`)
               .join(' · ')}
           </p>
         )}
