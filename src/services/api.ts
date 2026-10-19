@@ -2305,6 +2305,163 @@ export async function fetchMasiArtifact(id: number, kind: 'CV_PDF' | 'LETTER_TXT
   return response.blob();
 }
 
+/**
+ * Where a package's mail is: claimed by the press that sends it, then SENT; FAILED (it did not leave), which a new press
+ * claims again; or UNKNOWN (it may have left), which only the operator's explicit confirmation sends again.
+ */
+export type MasiSendStatus = 'CLAIMED' | 'SENT' | 'FAILED' | 'UNKNOWN';
+
+/**
+ * A package's send: who it was for (`toName`, `toAddress`: the person and their own address, as the press saw them; null
+ * on a send made before masi kept them), where it went (`deliveredTo`: their address, or outside production the sink),
+ * and what came of it. For an UNKNOWN send only: `token`, what a press that sends it again carries as the
+ * confirmation, and `note`, what to check first.
+ */
+export interface MasiPackageSend {
+  contactId: number | null;
+  toName: string | null;
+  toAddress: string | null;
+  deliveredTo: string;
+  status: MasiSendStatus;
+  error: string | null;
+  messageId: string | null;
+  claimedAt: string | null;
+  sentAt: string | null;
+  attempt: number;
+  token: string | null;
+  note: string | null;
+}
+
+/** One person a posting of the job named, with the address it published; `postedAt`: the newest such posting. */
+export interface MasiSendRecipient {
+  contactId: number;
+  name: string | null;
+  title: string | null;
+  email: string;
+  postedAt: string | null;
+}
+
+/** The attached CV: the file the operator reviewed. `size` in bytes. */
+export interface MasiSendAttachment {
+  name: string;
+  contentType: string;
+  size: number;
+  sha256: string;
+}
+
+/**
+ * Exactly the mail a press would send. `to`: who may receive it, newest posting first (`defaultContactId` the first; empty
+ * when the postings named nobody with an address). `bcc`: null outside production, where `deliveredTo` is the sink that
+ * takes the mail instead and `note` says so. `applyAt`: where the postings say to apply. `hash`: what the press carries.
+ */
+export interface MasiSendPreview {
+  packageId: number;
+  from: string;
+  replyTo: string;
+  bcc: string | null;
+  to: MasiSendRecipient[];
+  defaultContactId: number | null;
+  subject: string;
+  body: string;
+  attachment: MasiSendAttachment;
+  deliveredTo: string | null;
+  note: string | null;
+  applyAt: string[];
+  lastSend: MasiPackageSend | null;
+  hash: string;
+}
+
+/**
+ * What one press did, when its mail left: `outcome` SENT (200: the send recorded, the package APPLIED), or LEFT_UNRECORDED
+ * (202: the mail left with `messageId` and masi has not recorded it yet - it keeps trying; never send it again).
+ */
+export interface MasiSent {
+  outcome: 'SENT' | 'LEFT_UNRECORDED';
+  messageId: string | null;
+  send: MasiPackageSend;
+  packageStatus: string;
+}
+
+/**
+ * The mail a press on Send would send now, or null when sending is switched off (404 — the page then offers no Send).
+ * A package that cannot be sent (not REVIEWED, its job closed, a file gone) is a 409, and sending switched on but not
+ * configured a 503: both throw with masi's reason.
+ */
+export async function fetchMasiSendPreview(
+  id: number,
+  signal?: AbortSignal,
+): Promise<MasiSendPreview | null> {
+  const response = await apiFetch(`${API_BASE}/masi/packages/${id}/send-preview`, { signal });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || 'Failed to load the mail');
+  }
+  return readJson<MasiSendPreview>(response);
+}
+
+/** A press masi refused, with its status: a 502 may be a mail that left (UNKNOWN), which the press's caller looks up. */
+export class MasiSendRefused extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'MasiSendRefused';
+    this.status = status;
+  }
+}
+
+/** The press as masi reads it; `resendUnknown` with `unknownToken` only to send again a send of UNKNOWN outcome. */
+interface MasiSendRequest {
+  contactId: number;
+  previewHash: string;
+  resendUnknown?: true;
+  unknownToken?: string;
+}
+
+/**
+ * One press: the previewed mail, to the contact chosen among the preview's. `unknownToken` (the UNKNOWN last send's
+ * token) is the operator's explicit confirmation to send again a package whose last send may have left. Every refusal
+ * (409: stale preview, not sendable, another press holds it, an UNKNOWN send not confirmed; 502: it did not leave, or may
+ * have; 503: not configured) throws MasiSendRefused with masi's reason and the status. A mail that left is an answer,
+ * never a refusal: SENT, or LEFT_UNRECORDED. Nothing retries.
+ */
+export async function sendMasiPackage(
+  id: number,
+  contactId: number,
+  previewHash: string,
+  unknownToken?: string,
+): Promise<MasiSent> {
+  const body: MasiSendRequest =
+    unknownToken === undefined
+      ? { contactId, previewHash }
+      : { contactId, previewHash, resendUnknown: true, unknownToken };
+  const response = await apiFetch(`${API_BASE}/masi/packages/${id}/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new MasiSendRefused(response.status, data.error || 'Failed to send the application');
+  }
+  return readJson<MasiSent>(response);
+}
+
+/** The package's send so far, or null when there is none (or sending is switched off: 404 either way). */
+export async function fetchMasiPackageSend(
+  id: number,
+  signal?: AbortSignal,
+): Promise<MasiPackageSend | null> {
+  const response = await apiFetch(`${API_BASE}/masi/packages/${id}/send`, { signal });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || 'Failed to load the send');
+  }
+  return readJson<MasiPackageSend>(response);
+}
+
 /** A period's figures, every one from a timestamp later ticks never rewrite; the funnel is the caller's own. */
 export interface MasiStats {
   from: string;

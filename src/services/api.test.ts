@@ -1182,3 +1182,131 @@ describe('api - masi people and register', () => {
     expect(bodyOf(11)).toEqual({ kind: 'CALL', personId: 20, companyId: 3, summary: 'called' });
   });
 });
+
+describe('api - masi send on click', () => {
+  const calls = () => mockFetch.mock.calls as Array<[string, RequestInit | undefined]>;
+
+  it('reads the preview: the body, nothing for a 404 (sending switched off), and the reason of a 409 or a 503', async () => {
+    const preview = { packageId: 11, hash: 'h1', to: [], applyAt: [] };
+    const controller = new AbortController();
+    mockFetch.mockResolvedValueOnce(mockResponse(preview));
+    await expect(api.fetchMasiSendPreview(11, controller.signal)).resolves.toEqual(preview);
+    expect(calls()[0][0]).toBe('/api/masi/packages/11/send-preview');
+    expect(calls()[0][1]?.signal).toBe(controller.signal);
+
+    // switched off: the paths are not there - no Send, and no error either
+    mockFetch.mockResolvedValueOnce(mockResponse({ error: 'Not found' }, { status: 404 }));
+    await expect(api.fetchMasiSendPreview(11)).resolves.toBeNull();
+
+    mockFetch.mockResolvedValueOnce(
+      mockResponse(
+        { error: 'job 7 is CLOSED: an application goes to an open job only' },
+        { status: 409 },
+      ),
+    );
+    await expect(api.fetchMasiSendPreview(11)).rejects.toThrow('job 7 is CLOSED');
+    mockFetch.mockResolvedValueOnce(
+      mockResponse(
+        {
+          error:
+            'sending is switched on but not configured: masi.apply.from, reply-to and bcc must all be set',
+        },
+        { status: 503 },
+      ),
+    );
+    await expect(api.fetchMasiSendPreview(11)).rejects.toThrow('switched on but not configured');
+  });
+
+  it('posts the press as the backend reads it - the contact and the preview hash - and surfaces 409 and 502 reasons', async () => {
+    const sent = {
+      outcome: 'SENT',
+      messageId: '<m1@pmon.dev>',
+      send: { status: 'SENT', toAddress: 'mari@nortal.com', deliveredTo: 'mari@nortal.com' },
+      packageStatus: 'APPLIED',
+    };
+    mockFetch.mockResolvedValueOnce(mockResponse(sent));
+    await expect(api.sendMasiPackage(11, 40, 'h1')).resolves.toEqual(sent);
+    expect(calls()[0][0]).toBe('/api/masi/packages/11/send');
+    expect(calls()[0][1]?.method).toBe('POST');
+    expect(JSON.parse(calls()[0][1]?.body as string)).toEqual({ contactId: 40, previewHash: 'h1' });
+
+    mockFetch.mockResolvedValueOnce(
+      mockResponse(
+        { error: 'package 11 changed since its preview (...): preview it again' },
+        { status: 409 },
+      ),
+    );
+    const stale = await api.sendMasiPackage(11, 40, 'h1').catch((e: unknown) => e);
+    expect(stale).toBeInstanceOf(api.MasiSendRefused);
+    expect((stale as api.MasiSendRefused).status).toBe(409);
+    expect((stale as Error).message).toContain('changed since its preview');
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({ error: 'the mail did not leave: 550 mailbox unavailable' }, { status: 502 }),
+    );
+    const refused = await api.sendMasiPackage(11, 40, 'h1').catch((e: unknown) => e);
+    // the status rides with the reason: a 502 is what the dialog asks masi about
+    expect((refused as api.MasiSendRefused).status).toBe(502);
+    expect((refused as Error).message).toBe('the mail did not leave: 550 mailbox unavailable');
+    // a press is one request: nothing above retried
+    expect(calls()).toHaveLength(3);
+  });
+
+  it('confirms sending again a send of UNKNOWN outcome only with its token, in the fields masi reads', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ send: {}, packageStatus: 'APPLIED' }));
+    await api.sendMasiPackage(11, 40, 'h1', 'tok-2');
+    expect(JSON.parse(calls()[0][1]?.body as string)).toEqual({
+      contactId: 40,
+      previewHash: 'h1',
+      resendUnknown: true,
+      unknownToken: 'tok-2',
+    });
+    // without a token, no confirmation is carried at all
+    mockFetch.mockResolvedValueOnce(mockResponse({ send: {}, packageStatus: 'APPLIED' }));
+    await api.sendMasiPackage(11, 40, 'h1');
+    expect(JSON.parse(calls()[1][1]?.body as string)).toEqual({ contactId: 40, previewHash: 'h1' });
+  });
+
+  it('a mail that left unrecorded is an answer (202 LEFT_UNRECORDED), and no 500 is taken for one by its words', async () => {
+    const left = {
+      outcome: 'LEFT_UNRECORDED',
+      messageId: '<m9@pmon.dev>',
+      send: {},
+      packageStatus: 'REVIEWED',
+    };
+    mockFetch.mockResolvedValueOnce(mockResponse(left, { status: 202 }));
+    await expect(api.sendMasiPackage(11, 40, 'h1')).resolves.toEqual(left);
+
+    // the words masi once sent with a 500 are now a failure like any other: the typed answer is the only sign of a mail
+    mockFetch.mockResolvedValueOnce(
+      mockResponse(
+        { error: 'the mail LEFT (Message-ID <m9@pmon.dev>) but was not recorded (timeout)' },
+        { status: 500 },
+      ),
+    );
+    const other = await api.sendMasiPackage(11, 40, 'h1').catch((e: unknown) => e);
+    expect(other).toBeInstanceOf(api.MasiSendRefused);
+    expect((other as api.MasiSendRefused).status).toBe(500);
+    mockFetch.mockResolvedValueOnce(mockResponse({}, { status: 500 }));
+    await expect(api.sendMasiPackage(11, 40, 'h1')).rejects.toThrow(
+      'Failed to send the application',
+    );
+  });
+
+  it("reads the package's send: the row, nothing for a 404 (none, or switched off), the reason otherwise", async () => {
+    const row = {
+      status: 'SENT',
+      toName: 'Mari',
+      toAddress: 'mari@nortal.com',
+      deliveredTo: 'mari@nortal.com',
+      sentAt: '2026-10-19T09:00:00Z',
+    };
+    mockFetch.mockResolvedValueOnce(mockResponse(row));
+    await expect(api.fetchMasiPackageSend(11)).resolves.toEqual(row);
+    expect(calls()[0][0]).toBe('/api/masi/packages/11/send');
+    expect(calls()[0][1]?.method).toBeUndefined();
+    mockFetch.mockResolvedValueOnce(mockResponse({ error: 'Not found' }, { status: 404 }));
+    await expect(api.fetchMasiPackageSend(11)).resolves.toBeNull();
+    mockFetch.mockResolvedValueOnce(mockResponse({}, { status: 500 }));
+    await expect(api.fetchMasiPackageSend(11)).rejects.toThrow('Failed to load the send');
+  });
+});

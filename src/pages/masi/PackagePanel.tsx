@@ -8,6 +8,7 @@ import {
 } from '../../services/api';
 import LoadingButton from '../../components/LoadingButton';
 import PackageLanguage from './PackageLanguage';
+import PackageSend from './PackageSend';
 import { languageLine } from './language';
 import { badgeClass, errorMessage, formatDateTime, formatUsd, openBlob } from './format';
 
@@ -16,14 +17,15 @@ const RESPONSES = ['NONE', 'REPLIED', 'INTERVIEW', 'OFFER', 'REJECTED'];
 interface Props {
   pkg: MasiPackage;
   onChanged: (next: MasiPackage) => void;
-  /** False when the job closed: regenerating would only earn a 409. */
+  /** False when the job closed: regenerating or sending would only earn a 409. */
   jobOpen?: boolean;
 }
 
 /**
  * One package as the operator reviews it: the tuned CV over the master's facts, the claims
  * report and the lint next to it, the PDF and the letter, and the transitions masi never takes
- * by itself — Mark reviewed, Mark applied, Skip, Regenerate. Applying is the operator's act.
+ * by itself — Mark reviewed, Mark applied, Skip, Regenerate, Send. Applying is the operator's act:
+ * masi mails a package only on the operator's press on Send, after showing exactly the mail.
  */
 export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonly<Props>) {
   const [notes, setNotes] = useState(pkg.userNotes ?? '');
@@ -274,6 +276,10 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
           </PackageLanguage>
         )}
       </div>
+      {/* below the actions: a Send that arrives with its preview grows the card under them, never moves them */}
+      {(pkg.status === 'REVIEWED' || pkg.status === 'APPLIED') && (
+        <PackageSend pkg={pkg} jobOpen={jobOpen} onChanged={onChanged} />
+      )}
     </div>
   );
 }

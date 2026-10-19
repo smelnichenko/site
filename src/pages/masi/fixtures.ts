@@ -103,3 +103,41 @@ export const prepared = {
     },
   ],
 };
+
+/** The mail a press on Send would send for `prepared` once REVIEWED, in production (no sink): two people to choose from. */
+export const sendPreview = {
+  packageId: 11,
+  from: 'Mari Operaator <apply@pmon.dev>',
+  replyTo: 'operator@example.com',
+  bcc: 'operator@example.com',
+  to: [
+    {
+      contactId: 40,
+      name: 'Kati Karu',
+      title: 'Talent Partner',
+      email: 'kati.karu@nortal.com',
+      postedAt: '2026-10-18T08:00:00Z',
+    },
+    {
+      contactId: 41,
+      name: null,
+      title: null,
+      email: 'jobs@nortal.com',
+      postedAt: '2026-10-01T08:00:00Z',
+    },
+  ],
+  defaultContactId: 40,
+  subject: 'Application: Senior Java Developer - Mari Operaator',
+  body: 'Dear Nortal team,\n\nI build order APIs.\n\nRegards,\nMari token-LETTER',
+  attachment: {
+    name: 'Mari-Operaator-CV.pdf',
+    contentType: 'application/pdf',
+    size: 48_213,
+    sha256: 'ab',
+  },
+  deliveredTo: null,
+  note: null,
+  applyAt: [],
+  lastSend: null,
+  hash: 'h1',
+};

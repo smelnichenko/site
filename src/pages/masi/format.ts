@@ -141,3 +141,10 @@ export function endOfDayIn(date: string, zone: string = MASI_ZONE): string | nul
 export function mapsUrl(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
+
+/** A file's size as a reader takes it in: bytes under a kilobyte, then KB and MB to one decimal (1 KB = 1024 bytes). */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
