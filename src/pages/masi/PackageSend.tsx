@@ -8,6 +8,7 @@ import {
   MasiPackageSend,
   MasiSendPreview,
   MasiSendRecipient,
+  MasiSendRefused,
   MasiSent,
   sendMasiPackage,
 } from '../../services/api';
@@ -249,8 +250,10 @@ function SendDialog({ pkg, preview, onDismiss, onSent, onLeftUnrecorded }: Reado
   );
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // the send so far: the preview's, or - after a 502 in this dialog - masi's word on what came of that press
+  const [lastSend, setLastSend] = useState<MasiPackageSend | null>(preview.lastSend);
   // its last send may have left: only an explicit "Send again anyway", carrying that attempt's token, sends it again
-  const unknown = preview.lastSend?.status === 'UNKNOWN' ? preview.lastSend : null;
+  const unknown = lastSend?.status === 'UNKNOWN' ? lastSend : null;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -289,6 +292,25 @@ function SendDialog({ pkg, preview, onDismiss, onSent, onLeftUnrecorded }: Reado
     onDismiss(error !== null);
   }
 
+  /**
+   * A 502 is a mail that did not leave or one that may have: masi's preview says which, by the send it now holds. Asked
+   * here, the dialog turns to the may-have-left warning and "Send again anyway" without being closed - unless the mail
+   * itself changed since this preview, which then has to be opened again. Nothing is sent by asking.
+   */
+  async function settled(said: string): Promise<string> {
+    try {
+      const fresh = await fetchMasiSendPreview(pkg.id);
+      if (!fresh) return said;
+      if (fresh.hash !== preview.hash) {
+        return `${said}. The mail has changed since this preview: close it and open Send again`;
+      }
+      setLastSend(fresh.lastSend);
+      return said;
+    } catch (e: unknown) {
+      return `${said}. What became of it could not be read: ${errorMessage(e, 'the preview failed')}`;
+    }
+  }
+
   async function press() {
     // one press, one request: a second click before the first answer is not a second send
     if (pressed.current) return;
@@ -308,7 +330,8 @@ function SendDialog({ pkg, preview, onDismiss, onSent, onLeftUnrecorded }: Reado
       if (e instanceof MasiMailLeftUnrecorded) {
         onLeftUnrecorded(e.message, recipient);
       } else {
-        setError(errorMessage(e, 'The application was not sent'));
+        const said = errorMessage(e, 'The application was not sent');
+        setError(e instanceof MasiSendRefused && e.status === 502 ? await settled(said) : said);
       }
     } finally {
       pressed.current = false;

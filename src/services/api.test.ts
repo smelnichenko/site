@@ -1231,13 +1231,17 @@ describe('api - masi send on click', () => {
         { status: 409 },
       ),
     );
-    await expect(api.sendMasiPackage(11, 40, 'h1')).rejects.toThrow('changed since its preview');
+    const stale = await api.sendMasiPackage(11, 40, 'h1').catch((e: unknown) => e);
+    expect(stale).toBeInstanceOf(api.MasiSendRefused);
+    expect((stale as api.MasiSendRefused).status).toBe(409);
+    expect((stale as Error).message).toContain('changed since its preview');
     mockFetch.mockResolvedValueOnce(
       mockResponse({ error: 'the mail did not leave: 550 mailbox unavailable' }, { status: 502 }),
     );
-    await expect(api.sendMasiPackage(11, 40, 'h1')).rejects.toThrow(
-      'the mail did not leave: 550 mailbox unavailable',
-    );
+    const refused = await api.sendMasiPackage(11, 40, 'h1').catch((e: unknown) => e);
+    // the status rides with the reason: a 502 is what the dialog asks masi about
+    expect((refused as api.MasiSendRefused).status).toBe(502);
+    expect((refused as Error).message).toBe('the mail did not leave: 550 mailbox unavailable');
     // a press is one request: nothing above retried
     expect(calls()).toHaveLength(3);
   });

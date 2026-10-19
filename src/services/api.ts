@@ -2407,6 +2407,17 @@ export class MasiMailLeftUnrecorded extends Error {
   }
 }
 
+/** A press masi refused, with its status: a 502 may be a mail that left (UNKNOWN), which the press's caller looks up. */
+export class MasiSendRefused extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'MasiSendRefused';
+    this.status = status;
+  }
+}
+
 /** The press as masi reads it; `resendUnknown` with `unknownToken` only to send again a send of UNKNOWN outcome. */
 interface MasiSendRequest {
   contactId: number;
@@ -2419,7 +2430,7 @@ interface MasiSendRequest {
  * One press: the previewed mail, to the contact chosen among the preview's. `unknownToken` (the UNKNOWN last send's
  * token) is the operator's explicit confirmation to send again a package whose last send may have left. Every refusal
  * (409: stale preview, not sendable, another press holds it, an UNKNOWN send not confirmed; 502: it did not leave, or may
- * have; 503: not configured) throws with masi's reason; a mail that left unrecorded throws MasiMailLeftUnrecorded.
+ * have; 503: not configured) throws MasiSendRefused with masi's reason and the status; a mail that left unrecorded throws MasiMailLeftUnrecorded.
  * Nothing retries.
  */
 export async function sendMasiPackage(
@@ -2442,7 +2453,7 @@ export async function sendMasiPackage(
     if (response.status === 500 && data.error?.startsWith('the mail LEFT')) {
       throw new MasiMailLeftUnrecorded(data.error);
     }
-    throw new Error(data.error || 'Failed to send the application');
+    throw new MasiSendRefused(response.status, data.error || 'Failed to send the application');
   }
   return readJson<MasiSent>(response);
 }

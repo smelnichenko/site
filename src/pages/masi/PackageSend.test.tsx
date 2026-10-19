@@ -4,20 +4,23 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import PackagePanel from './PackagePanel';
 import { prepared, sendPreview } from './testUtils';
-import { MasiMailLeftUnrecorded } from '../../services/api';
+import { MasiMailLeftUnrecorded, MasiSendRefused } from '../../services/api';
 import type { MasiPackage, MasiPackageSend, MasiSendPreview, MasiSent } from '../../services/api';
 
-vi.mock('../../services/api', async (importOriginal) => ({
-  // the real error class: the panel tells a mail that left unrecorded by it
-  MasiMailLeftUnrecorded: (await importOriginal<typeof import('../../services/api')>())
-    .MasiMailLeftUnrecorded,
-  reviewMasiPackage: vi.fn(),
-  regenerateMasiPackage: vi.fn(),
-  fetchMasiArtifact: vi.fn(),
-  fetchMasiSendPreview: vi.fn(),
-  sendMasiPackage: vi.fn(),
-  fetchMasiPackageSend: vi.fn(),
-}));
+vi.mock('../../services/api', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../../services/api')>();
+  return {
+    // the real error classes: the panel tells a mail that left unrecorded, and a refusal's status, by them
+    MasiMailLeftUnrecorded: real.MasiMailLeftUnrecorded,
+    MasiSendRefused: real.MasiSendRefused,
+    reviewMasiPackage: vi.fn(),
+    regenerateMasiPackage: vi.fn(),
+    fetchMasiArtifact: vi.fn(),
+    fetchMasiSendPreview: vi.fn(),
+    sendMasiPackage: vi.fn(),
+    fetchMasiPackageSend: vi.fn(),
+  };
+});
 const api = await import('../../services/api');
 
 const reviewed: MasiPackage = { ...prepared, status: 'REVIEWED' };
@@ -319,18 +322,24 @@ describe('PackageSend — the press', () => {
   it.each([
     [
       '409, a stale preview',
+      409,
       'package 11 changed since its preview (the package, the people it may go to, or the settings): preview it again',
     ],
     [
       '409, another press holds it',
+      409,
       'package 11 is being sent by another press (since 2026-10-19T09:29:00Z)',
     ],
-    ['502, the mail server refused', 'the mail did not leave: 550 5.1.1 mailbox unavailable'],
+    [
+      '502, the mail server refused (the preview asked again finds it FAILED)',
+      502,
+      'the mail did not leave: 550 5.1.1 mailbox unavailable',
+    ],
   ])(
     '%s: the reason in the dialog, nothing retried, and a new press is allowed',
-    async (_case, reason) => {
+    async (_case, status, reason) => {
       vi.mocked(api.fetchMasiSendPreview).mockResolvedValue(preview);
-      vi.mocked(api.sendMasiPackage).mockRejectedValue(new Error(reason));
+      vi.mocked(api.sendMasiPackage).mockRejectedValue(new MasiSendRefused(status, reason));
       render(<Held pkg={reviewed} />);
       const dialog = await openDialog();
       await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
@@ -344,6 +353,8 @@ describe('PackageSend — the press', () => {
       expect(screen.getByText('reviewed', { selector: '.status-badge' })).toBeInTheDocument();
       const again = within(dialog).getByRole('button', { name: 'Send' });
       expect(again).toBeEnabled();
+      // only a 502 asks masi what came of the press (it may have left); a 409 sent nothing to ask about
+      expect(api.fetchMasiSendPreview).toHaveBeenCalledTimes(status === 502 ? 2 : 1);
       await userEvent.click(again);
       await waitFor(() => expect(api.sendMasiPackage).toHaveBeenCalledTimes(2));
     },
@@ -358,7 +369,9 @@ describe('PackageSend — the press', () => {
         hash: 'h2',
       });
     vi.mocked(api.sendMasiPackage)
-      .mockRejectedValueOnce(new Error('package 11 changed since its preview: preview it again'))
+      .mockRejectedValueOnce(
+        new MasiSendRefused(409, 'package 11 changed since its preview: preview it again'),
+      )
       .mockResolvedValueOnce(sentTo('kati.karu@nortal.com'));
     render(<Held pkg={reviewed} />);
     let dialog = await openDialog();
@@ -500,22 +513,64 @@ describe('PackageSend — a send that may have left', () => {
     expect(api.sendMasiPackage).toHaveBeenCalledWith(11, 40, 'h1', undefined);
   });
 
-  it('502 "may have left": the reason in the dialog; closed, the next preview shows it UNKNOWN', async () => {
+  it('502 "may have left": the same dialog turns to the warning and "Send again anyway", with that attempt\'s token', async () => {
     const reason =
       'the mail may have left (Message-ID <m7@pmon.dev>): the connection dropped. Check your Bcc copy; sending it again needs your confirmation';
     vi.mocked(api.fetchMasiSendPreview)
       .mockResolvedValueOnce(preview)
       .mockResolvedValueOnce({ ...preview, lastSend: unknownSend });
-    vi.mocked(api.sendMasiPackage).mockRejectedValueOnce(new Error(reason));
+    vi.mocked(api.sendMasiPackage)
+      .mockRejectedValueOnce(new MasiSendRefused(502, reason))
+      .mockResolvedValueOnce(sentTo('kati.karu@nortal.com'));
     render(<Held pkg={reviewed} />);
-    let dialog = await openDialog();
+    const dialog = await openDialog();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(reason);
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    expect(await screen.findByText(UNKNOWN_LINE)).toBeInTheDocument();
-    dialog = await openDialog();
-    expect(within(dialog).getByRole('button', { name: 'Send again anyway' })).toBeEnabled();
+    expect(await within(dialog).findByText(UNKNOWN_LINE)).toBeInTheDocument();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(reason);
+    // the same dialog, not closed and opened again: the plain Send is gone, the explicit one is offered
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    expect(within(dialog).queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
+    // asking what came of it sent nothing
     expect(api.sendMasiPackage).toHaveBeenCalledTimes(1);
+    expect(api.fetchMasiSendPreview).toHaveBeenLastCalledWith(11);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send again anyway' }));
+    expect(api.sendMasiPackage).toHaveBeenLastCalledWith(11, 40, 'h1', 'tok-2');
+    expect(await screen.findByRole('status')).toHaveTextContent('Sent to Kati Karu');
+  });
+
+  it('a 502 whose mail changed since the preview does not turn the dialog: it says to open Send again', async () => {
+    const reason = 'the mail may have left (Message-ID <m7@pmon.dev>): the connection dropped';
+    vi.mocked(api.fetchMasiSendPreview)
+      .mockResolvedValueOnce(preview)
+      .mockResolvedValueOnce({ ...preview, lastSend: unknownSend, hash: 'h2' });
+    vi.mocked(api.sendMasiPackage).mockRejectedValueOnce(new MasiSendRefused(502, reason));
+    render(<Held pkg={reviewed} />);
+    const dialog = await openDialog();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      `${reason}. The mail has changed since this preview: close it and open Send again`,
+    );
+    expect(within(dialog).queryByText(UNKNOWN_LINE)).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('button', { name: 'Send again anyway' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('a 502 whose outcome cannot be read says so beside the reason, and offers nothing new', async () => {
+    const reason = 'the mail may have left: the connection dropped';
+    vi.mocked(api.fetchMasiSendPreview)
+      .mockResolvedValueOnce(preview)
+      .mockRejectedValueOnce(new Error('the database is down'));
+    vi.mocked(api.sendMasiPackage).mockRejectedValueOnce(new MasiSendRefused(502, reason));
+    render(<Held pkg={reviewed} />);
+    const dialog = await openDialog();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      `${reason}. What became of it could not be read: the database is down`,
+    );
+    expect(
+      within(dialog).queryByRole('button', { name: 'Send again anyway' }),
+    ).not.toBeInTheDocument();
   });
 
   it('the mail LEFT but masi has not recorded it: said as sent, no error, and no Send to press again', async () => {
