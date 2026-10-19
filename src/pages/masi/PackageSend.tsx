@@ -83,7 +83,7 @@ export default function PackageSend({ pkg, jobOpen, onChanged }: Readonly<Props>
   // a refused press may have been refused for a stale preview: the next open shows the mail as it is now
   const [generation, setGeneration] = useState(0);
   const openerRef = useRef<HTMLButtonElement>(null);
-  const doneRef = useRef<HTMLParagraphElement>(null);
+  const doneRef = useRef<HTMLOutputElement>(null);
   const focusNext = useRef<'opener' | 'done' | null>(null);
 
   const sendable = pkg.status === 'REVIEWED' && jobOpen;
@@ -163,9 +163,9 @@ export default function PackageSend({ pkg, jobOpen, onChanged }: Readonly<Props>
       : null);
   if (done) {
     return (
-      <p className="masi-send masi-send-done" role="status" tabIndex={-1} ref={doneRef}>
+      <output className="masi-send masi-send-done" tabIndex={-1} ref={doneRef}>
         {sentLine(done)}
-      </p>
+      </output>
     );
   }
   if (applied) {

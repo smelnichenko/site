@@ -1515,6 +1515,10 @@ a.muted,
   margin-top: 12px;
   overflow-wrap: anywhere;
 }
+/* the sent line is an <output> (a live status for screen readers): a block, as the <p> it replaced */
+.masi-send-done {
+  display: block;
+}
 .masi-send > * + * {
   margin-top: 8px;
 }
