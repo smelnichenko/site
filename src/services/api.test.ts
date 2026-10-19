@@ -1242,6 +1242,47 @@ describe('api - masi send on click', () => {
     expect(calls()).toHaveLength(3);
   });
 
+  it('confirms sending again a send of UNKNOWN outcome only with its token, in the fields masi reads', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ send: {}, packageStatus: 'APPLIED' }));
+    await api.sendMasiPackage(11, 40, 'h1', 'tok-2');
+    expect(JSON.parse(calls()[0][1]?.body as string)).toEqual({
+      contactId: 40,
+      previewHash: 'h1',
+      resendUnknown: true,
+      unknownToken: 'tok-2',
+    });
+    // without a token, no confirmation is carried at all
+    mockFetch.mockResolvedValueOnce(mockResponse({ send: {}, packageStatus: 'APPLIED' }));
+    await api.sendMasiPackage(11, 40, 'h1');
+    expect(JSON.parse(calls()[1][1]?.body as string)).toEqual({ contactId: 40, previewHash: 'h1' });
+  });
+
+  it("tells masi's 500 for a mail that LEFT unrecorded from any other 500", async () => {
+    const said =
+      'the mail LEFT (Message-ID <m9@pmon.dev>) but was not recorded (timeout); masi keeps trying to record it. Do not send it again';
+    mockFetch.mockResolvedValueOnce(mockResponse({ error: said }, { status: 500 }));
+    const left = await api.sendMasiPackage(11, 40, 'h1').catch((e: unknown) => e);
+    expect(left).toBeInstanceOf(api.MasiMailLeftUnrecorded);
+    expect((left as api.MasiMailLeftUnrecorded).message).toBe(said);
+    expect((left as api.MasiMailLeftUnrecorded).messageId).toBe('<m9@pmon.dev>');
+
+    // a 500 of any other cause is a failure: nothing claims a mail left
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({ error: 'NullPointerException' }, { status: 500 }),
+    );
+    const other = await api.sendMasiPackage(11, 40, 'h1').catch((e: unknown) => e);
+    expect(other).not.toBeInstanceOf(api.MasiMailLeftUnrecorded);
+    expect((other as Error).message).toBe('NullPointerException');
+    // and the same words on another status are not taken for it either
+    mockFetch.mockResolvedValueOnce(mockResponse({ error: said }, { status: 502 }));
+    const elsewhere = await api.sendMasiPackage(11, 40, 'h1').catch((e: unknown) => e);
+    expect(elsewhere).not.toBeInstanceOf(api.MasiMailLeftUnrecorded);
+    mockFetch.mockResolvedValueOnce(mockResponse({}, { status: 500 }));
+    await expect(api.sendMasiPackage(11, 40, 'h1')).rejects.toThrow(
+      'Failed to send the application',
+    );
+  });
+
   it("reads the package's send: the row, nothing for a 404 (none, or switched off), the reason otherwise", async () => {
     const row = { status: 'SENT', to: 'mari@nortal.com', sentAt: '2026-10-19T09:00:00Z' };
     mockFetch.mockResolvedValueOnce(mockResponse(row));

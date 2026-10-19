@@ -824,10 +824,12 @@ for (const width of [360, 390, 1366]) {
       'focus is in the dialog',
     ).toBeFocused();
     await expect(dialog).toContainText('test: goes to masi-sink@pmon.dev');
-    // focus on Cancel at the bottom does not scroll the mail's top - its heading and the sink's line - out of view
+    await expect(dialog).toContainText('The mail may have left');
+    await expect(dialog.getByRole('button', { name: 'Send again anyway' })).toBeVisible();
+    // focus on Cancel at the bottom does not scroll the mail's top - its heading, the may-have-left warning - out of view
     const top = await page.evaluate(() => {
       const d = document.querySelector('dialog.masi-send-dialog');
-      const sink = d?.querySelector('.masi-send-sink');
+      const sink = d?.querySelector('.masi-send-warning');
       return d && sink
         ? {
             scrollTop: d.scrollTop,

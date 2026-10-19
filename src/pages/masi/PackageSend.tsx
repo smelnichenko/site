@@ -3,6 +3,7 @@ import type { KeyboardEvent, SyntheticEvent } from 'react';
 import {
   fetchMasiPackageSend,
   fetchMasiSendPreview,
+  MasiMailLeftUnrecorded,
   MasiPackage,
   MasiPackageSend,
   MasiSendPreview,
@@ -27,21 +28,39 @@ interface Loaded<T> {
   error: string | null;
 }
 
-/** A mail that left in this session: masi's row, and the person it was addressed to (its name is not on the row). */
+/**
+ * A mail that left in this session: masi's row, and the person it was addressed to (its name is not on the row) - or,
+ * when masi could not record it yet, masi's word that it left (`unrecorded`), with no row to show.
+ */
 interface Delivered {
-  send: MasiPackageSend;
+  send: MasiPackageSend | null;
   recipient: MasiSendRecipient | null;
+  unrecorded: string | null;
 }
 
 function whom(r: MasiSendRecipient): string {
   return r.name ? `${r.name} <${r.email}>` : r.email;
 }
 
-/** "Sent to Mari <mari@x.ee> at …", and where it was delivered when that was not the person (a test's sink). */
-function sentLine({ send, recipient }: Delivered): string {
+/**
+ * "Sent to Mari <mari@x.ee> at …", and where it was delivered when that was not the person (a test's sink); a mail that
+ * left unrecorded is sent too, in masi's words.
+ */
+function sentLine({ send, recipient, unrecorded }: Delivered): string {
+  if (unrecorded !== null || !send) {
+    const to = recipient ? ' to ' + whom(recipient) : '';
+    return `Sent${to}: ${unrecorded ?? 'the mail left'}`;
+  }
   const to = recipient ? whom(recipient) : send.to;
   const sink = recipient && send.to !== recipient.email ? `, delivered to ${send.to}` : '';
   return `Sent to ${to} at ${formatDateTime(send.sentAt)}${sink}`;
+}
+
+/** A send of unknown outcome: it may have left. What to check before sending again, and which attempt it was. */
+function unknownLine(last: MasiPackageSend): string {
+  const note = last.note ?? 'the mail may have left - check your Bcc copy before sending it again';
+  const id = last.messageId ? `, Message-ID ${last.messageId}` : '';
+  return `${note.charAt(0).toUpperCase()}${note.slice(1)} (attempt ${last.attempt} of ${formatDateTime(last.claimedAt)}${id})`;
 }
 
 /** What became of the last press, when it did not end in a mail that left: the operator presses again or not. */
@@ -124,24 +143,37 @@ export default function PackageSend({ pkg, jobOpen, onChanged }: Readonly<Props>
 
   function sent(result: MasiSent, recipient: MasiSendRecipient | null) {
     focusNext.current = 'done';
-    setDelivered({ send: result.send, recipient });
+    setDelivered({ send: result.send, recipient, unrecorded: null });
     setOpen(false);
+    // the mail left: the package is what masi says it is now (APPLIED, unless that write is still to follow)
     onChanged({
       ...pkg,
       status: result.packageStatus,
-      appliedAt: result.send.sentAt ?? pkg.appliedAt,
+      appliedAt: result.packageStatus === 'APPLIED' ? result.send.sentAt : pkg.appliedAt,
     });
   }
 
+  /** The mail left and masi has not recorded it yet: sent, never offered again - masi applies it once it records it. */
+  function leftUnrecorded(said: string, recipient: MasiSendRecipient | null) {
+    focusNext.current = 'done';
+    setDelivered({ send: null, recipient, unrecorded: said });
+    setOpen(false);
+  }
+
+  // a mail that left in this session is said as sent, whatever the package's status says yet
+  const done =
+    delivered ??
+    (applied && record?.key === String(pkg.id) && record.value?.status === 'SENT'
+      ? { send: record.value, recipient: null, unrecorded: null }
+      : null);
+  if (done) {
+    return (
+      <p className="masi-send masi-send-done" role="status" tabIndex={-1} ref={doneRef}>
+        {sentLine(done)}
+      </p>
+    );
+  }
   if (applied) {
-    const send = delivered?.send ?? (record?.key === String(pkg.id) ? record.value : null);
-    if (send?.status === 'SENT') {
-      return (
-        <p className="masi-send masi-send-done" role="status" tabIndex={-1} ref={doneRef}>
-          {sentLine({ send, recipient: delivered?.recipient ?? null })}
-        </p>
-      );
-    }
     return record?.error ? <p className="masi-send muted">{record.error}</p> : null;
   }
   if (!sendable || loaded?.key !== state) return null;
@@ -173,6 +205,9 @@ export default function PackageSend({ pkg, jobOpen, onChanged }: Readonly<Props>
   return (
     <div className="masi-send">
       {last && <p className="muted">{last}</p>}
+      {preview.lastSend?.status === 'UNKNOWN' && (
+        <p className="masi-send-warning">{unknownLine(preview.lastSend)}</p>
+      )}
       <button
         ref={openerRef}
         type="button"
@@ -182,7 +217,15 @@ export default function PackageSend({ pkg, jobOpen, onChanged }: Readonly<Props>
       >
         Send
       </button>
-      {open && <SendDialog pkg={pkg} preview={preview} onDismiss={close} onSent={sent} />}
+      {open && (
+        <SendDialog
+          pkg={pkg}
+          preview={preview}
+          onDismiss={close}
+          onSent={sent}
+          onLeftUnrecorded={leftUnrecorded}
+        />
+      )}
     </div>
   );
 }
@@ -192,10 +235,11 @@ interface DialogProps {
   preview: MasiSendPreview;
   onDismiss: (refused: boolean) => void;
   onSent: (result: MasiSent, recipient: MasiSendRecipient | null) => void;
+  onLeftUnrecorded: (said: string, recipient: MasiSendRecipient | null) => void;
 }
 
 /** The confirm dialog: exactly the mail a press sends, the recipient to choose, and the press. */
-function SendDialog({ pkg, preview, onDismiss, onSent }: Readonly<DialogProps>) {
+function SendDialog({ pkg, preview, onDismiss, onSent, onLeftUnrecorded }: Readonly<DialogProps>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const pressed = useRef(false);
@@ -205,6 +249,8 @@ function SendDialog({ pkg, preview, onDismiss, onSent }: Readonly<DialogProps>) 
   );
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // its last send may have left: only an explicit "Send again anyway", carrying that attempt's token, sends it again
+  const unknown = preview.lastSend?.status === 'UNKNOWN' ? preview.lastSend : null;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -249,11 +295,21 @@ function SendDialog({ pkg, preview, onDismiss, onSent }: Readonly<DialogProps>) 
     pressed.current = true;
     setSending(true);
     setError(null);
+    const recipient = preview.to.find((r) => r.contactId === contactId) ?? null;
     try {
-      const result = await sendMasiPackage(pkg.id, contactId, preview.hash);
-      onSent(result, preview.to.find((r) => r.contactId === contactId) ?? null);
+      const result = await sendMasiPackage(
+        pkg.id,
+        contactId,
+        preview.hash,
+        unknown?.token ?? undefined,
+      );
+      onSent(result, recipient);
     } catch (e: unknown) {
-      setError(errorMessage(e, 'The application was not sent'));
+      if (e instanceof MasiMailLeftUnrecorded) {
+        onLeftUnrecorded(e.message, recipient);
+      } else {
+        setError(errorMessage(e, 'The application was not sent'));
+      }
     } finally {
       pressed.current = false;
       setSending(false);
@@ -272,6 +328,7 @@ function SendDialog({ pkg, preview, onDismiss, onSent }: Readonly<DialogProps>) 
       <h2 id={titleId} className="card-title">
         Send the application
       </h2>
+      {unknown && <p className="masi-send-warning">{unknownLine(unknown)}</p>}
       {preview.deliveredTo && (
         <p className="masi-send-sink">{preview.note ?? `test: goes to ${preview.deliveredTo}`}</p>
       )}
@@ -335,8 +392,10 @@ function SendDialog({ pkg, preview, onDismiss, onSent }: Readonly<DialogProps>) 
           className="status-badge add"
           onClick={() => void press()}
           loading={sending}
+          // an UNKNOWN send without its token cannot be confirmed: masi would refuse the press
+          disabled={unknown !== null && !unknown.token}
           loadingLabel="Sending…"
-          label="Send"
+          label={unknown ? 'Send again anyway' : 'Send'}
         />
       </div>
     </dialog>

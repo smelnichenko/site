@@ -1509,8 +1509,13 @@ a.muted,
 }
 
 /* Send on the operator's press: the opener, the dialog's buttons, its recipients and an apply link are finger targets */
+/* a Message-ID or an apply link has no break in it: it wraps inside the card, never widens the page */
 .masi-send {
   margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.masi-send > * + * {
+  margin-top: 8px;
 }
 .masi-send .status-badge,
 .masi-send-dialog .status-badge {
@@ -1519,7 +1524,6 @@ a.muted,
 }
 .masi-send-apply {
   list-style: none;
-  overflow-wrap: anywhere;
 }
 .masi-send-apply a {
   display: inline-block;
@@ -1545,7 +1549,8 @@ a.muted,
 .masi-send-dialog > * + * {
   margin-top: 12px;
 }
-.masi-send-sink {
+.masi-send-sink,
+.masi-send-warning {
   padding: 8px 12px;
   border-radius: 4px;
   background: #fff3cd;

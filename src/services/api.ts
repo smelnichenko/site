@@ -2305,10 +2305,17 @@ export async function fetchMasiArtifact(id: number, kind: 'CV_PDF' | 'LETTER_TXT
   return response.blob();
 }
 
-/** Where a package's mail is: claimed by the press that sends it, then sent, or failed (a new press claims it again). */
-export type MasiSendStatus = 'CLAIMED' | 'SENT' | 'FAILED';
+/**
+ * Where a package's mail is: claimed by the press that sends it, then SENT; FAILED (it did not leave), which a new press
+ * claims again; or UNKNOWN (it may have left), which only the operator's explicit confirmation sends again.
+ */
+export type MasiSendStatus = 'CLAIMED' | 'SENT' | 'FAILED' | 'UNKNOWN';
 
-/** A package's send: where it went (`to`: the address it was delivered to — outside production the sink) and what came of it. */
+/**
+ * A package's send: where it went (`to`: the address it was delivered to — outside production the sink) and what came of
+ * it. For an UNKNOWN send only: `token`, what a press that sends it again carries as the confirmation, and `note`, what
+ * to check first.
+ */
 export interface MasiPackageSend {
   contactId: number | null;
   to: string;
@@ -2317,6 +2324,9 @@ export interface MasiPackageSend {
   messageId: string | null;
   claimedAt: string | null;
   sentAt: string | null;
+  attempt: number;
+  token: string | null;
+  note: string | null;
 }
 
 /** One person a posting of the job named, with the address it published; `postedAt`: the newest such posting. */
@@ -2383,20 +2393,58 @@ export async function fetchMasiSendPreview(
 }
 
 /**
- * One press: the previewed mail, to the contact chosen among the preview's. Every refusal (409: stale preview, not
- * sendable, another press holds it; 502: the mail server refused) throws with masi's reason; nothing retries.
+ * masi's 500 for a mail that LEFT and whose SENT is not written yet (masi keeps trying to write it): a sent mail, never a
+ * failure to send again. masi says it only in its message — "the mail LEFT (Message-ID …) but was not recorded …" — so
+ * it is told from any other 500 by that message; `messageId` is the one it names.
  */
-export function sendMasiPackage(
+export class MasiMailLeftUnrecorded extends Error {
+  readonly messageId: string | null;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'MasiMailLeftUnrecorded';
+    this.messageId = /\(Message-ID ([^)]+)\)/.exec(message)?.[1] ?? null;
+  }
+}
+
+/** The press as masi reads it; `resendUnknown` with `unknownToken` only to send again a send of UNKNOWN outcome. */
+interface MasiSendRequest {
+  contactId: number;
+  previewHash: string;
+  resendUnknown?: true;
+  unknownToken?: string;
+}
+
+/**
+ * One press: the previewed mail, to the contact chosen among the preview's. `unknownToken` (the UNKNOWN last send's
+ * token) is the operator's explicit confirmation to send again a package whose last send may have left. Every refusal
+ * (409: stale preview, not sendable, another press holds it, an UNKNOWN send not confirmed; 502: it did not leave, or may
+ * have; 503: not configured) throws with masi's reason; a mail that left unrecorded throws MasiMailLeftUnrecorded.
+ * Nothing retries.
+ */
+export async function sendMasiPackage(
   id: number,
   contactId: number,
   previewHash: string,
+  unknownToken?: string,
 ): Promise<MasiSent> {
-  return masiSend(
-    `/packages/${id}/send`,
-    'POST',
-    { contactId, previewHash },
-    'send the application',
-  );
+  const body: MasiSendRequest =
+    unknownToken === undefined
+      ? { contactId, previewHash }
+      : { contactId, previewHash, resendUnknown: true, unknownToken };
+  const response = await apiFetch(`${API_BASE}/masi/packages/${id}/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    if (response.status === 500 && data.error?.startsWith('the mail LEFT')) {
+      throw new MasiMailLeftUnrecorded(data.error);
+    }
+    throw new Error(data.error || 'Failed to send the application');
+  }
+  return readJson<MasiSent>(response);
 }
 
 /** The package's send so far, or null when there is none (or sending is switched off: 404 either way). */

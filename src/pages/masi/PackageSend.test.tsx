@@ -4,9 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import PackagePanel from './PackagePanel';
 import { prepared, sendPreview } from './testUtils';
-import type { MasiPackage, MasiSendPreview, MasiSent } from '../../services/api';
+import { MasiMailLeftUnrecorded } from '../../services/api';
+import type { MasiPackage, MasiPackageSend, MasiSendPreview, MasiSent } from '../../services/api';
 
-vi.mock('../../services/api', () => ({
+vi.mock('../../services/api', async (importOriginal) => ({
+  // the real error class: the panel tells a mail that left unrecorded by it
+  MasiMailLeftUnrecorded: (await importOriginal<typeof import('../../services/api')>())
+    .MasiMailLeftUnrecorded,
   reviewMasiPackage: vi.fn(),
   regenerateMasiPackage: vi.fn(),
   fetchMasiArtifact: vi.fn(),
@@ -30,6 +34,9 @@ function sentTo(to: string, contactId = 40): MasiSent {
       messageId: '<m1@pmon.dev>',
       claimedAt: SENT_AT,
       sentAt: SENT_AT,
+      attempt: 1,
+      token: null,
+      note: null,
     },
     packageStatus: 'APPLIED',
   };
@@ -167,6 +174,9 @@ describe('PackageSend — who is offered Send', () => {
         messageId: null,
         claimedAt: SENT_AT,
         sentAt: null,
+        attempt: 1,
+        token: null,
+        note: null,
       },
     });
     render(<Held pkg={reviewed} />);
@@ -273,7 +283,7 @@ describe('PackageSend — the press', () => {
     render(<Held pkg={reviewed} />);
     const dialog = await openDialog();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
-    expect(api.sendMasiPackage).toHaveBeenCalledWith(11, 40, 'h1');
+    expect(api.sendMasiPackage).toHaveBeenCalledWith(11, 40, 'h1', undefined);
     const done = await screen.findByRole('status');
     expect(done).toHaveTextContent(
       'Sent to Kati Karu <kati.karu@nortal.com> at 19 Oct 2026, 12:30',
@@ -300,7 +310,7 @@ describe('PackageSend — the press', () => {
     const dialog = await openDialog();
     await userEvent.click(within(dialog).getByRole('radio', { name: /^jobs@nortal\.com/ }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
-    expect(api.sendMasiPackage).toHaveBeenCalledWith(11, 41, 'h1');
+    expect(api.sendMasiPackage).toHaveBeenCalledWith(11, 41, 'h1', undefined);
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Sent to jobs@nortal.com at 19 Oct 2026, 12:30, delivered to sink@pmon.dev',
     );
@@ -363,7 +373,7 @@ describe('PackageSend — the press', () => {
     // a fresh dialog: the old refusal is not shown over the new mail
     expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
-    expect(api.sendMasiPackage).toHaveBeenLastCalledWith(11, 40, 'h2');
+    expect(api.sendMasiPackage).toHaveBeenLastCalledWith(11, 40, 'h2', undefined);
   });
 
   it('a double click sends once: Send is disabled while the press is out, and Escape does not hide its answer', async () => {
@@ -432,5 +442,111 @@ describe('PackageSend — an APPLIED package', () => {
     vi.mocked(api.fetchMasiPackageSend).mockRejectedValue(new Error('the database is down'));
     render(<Held pkg={{ ...prepared, status: 'APPLIED', appliedAt: SENT_AT }} />);
     expect(await screen.findByText('the database is down')).toBeInTheDocument();
+  });
+});
+
+/** A send of unknown outcome, as masi's preview reports it: the attempt, its Message-ID, its token and what to check. */
+const unknownSend: MasiPackageSend = {
+  contactId: 40,
+  to: 'kati.karu@nortal.com',
+  status: 'UNKNOWN',
+  error: 'the connection dropped after the whole mail went',
+  messageId: '<m7@pmon.dev>',
+  claimedAt: '2026-10-19T09:00:00Z',
+  sentAt: null,
+  attempt: 2,
+  token: 'tok-2',
+  note: 'the mail may have left - check your Bcc copy before sending it again',
+};
+const UNKNOWN_LINE =
+  'The mail may have left - check your Bcc copy before sending it again (attempt 2 of 19 Oct 2026, 12:00, Message-ID <m7@pmon.dev>)';
+
+describe('PackageSend — a send that may have left', () => {
+  it('the last send UNKNOWN: a warning beside Send, and in the dialog only an explicit "Send again anyway"', async () => {
+    vi.mocked(api.fetchMasiSendPreview).mockResolvedValue({ ...preview, lastSend: unknownSend });
+    vi.mocked(api.sendMasiPackage).mockResolvedValue(sentTo('kati.karu@nortal.com'));
+    render(<Held pkg={reviewed} />);
+    expect(await screen.findByText(UNKNOWN_LINE)).toBeInTheDocument();
+    const dialog = await openDialog();
+    expect(within(dialog).getByText(UNKNOWN_LINE)).toBeInTheDocument();
+    // a plain Send would only earn masi's 409: the dialog does not offer one
+    expect(within(dialog).queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send again anyway' }));
+    expect(api.sendMasiPackage).toHaveBeenCalledWith(11, 40, 'h1', 'tok-2');
+    expect(await screen.findByRole('status')).toHaveTextContent('Sent to Kati Karu');
+  });
+
+  it('a plain press carries no confirmation; an UNKNOWN send with no token cannot be confirmed', async () => {
+    vi.mocked(api.fetchMasiSendPreview).mockResolvedValue({
+      ...preview,
+      lastSend: { ...unknownSend, token: null },
+    });
+    render(<Held pkg={reviewed} />);
+    const dialog = await openDialog();
+    expect(within(dialog).getByRole('button', { name: 'Send again anyway' })).toBeDisabled();
+    expect(api.sendMasiPackage).not.toHaveBeenCalled();
+  });
+
+  it('a FAILED or SENT-less preview is pressed with no confirmation at all', async () => {
+    vi.mocked(api.fetchMasiSendPreview).mockResolvedValue(preview);
+    vi.mocked(api.sendMasiPackage).mockResolvedValue(sentTo('kati.karu@nortal.com'));
+    render(<Held pkg={reviewed} />);
+    const dialog = await openDialog();
+    expect(
+      within(dialog).queryByRole('button', { name: 'Send again anyway' }),
+    ).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/may have left/)).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
+    expect(api.sendMasiPackage).toHaveBeenCalledWith(11, 40, 'h1', undefined);
+  });
+
+  it('502 "may have left": the reason in the dialog; closed, the next preview shows it UNKNOWN', async () => {
+    const reason =
+      'the mail may have left (Message-ID <m7@pmon.dev>): the connection dropped. Check your Bcc copy; sending it again needs your confirmation';
+    vi.mocked(api.fetchMasiSendPreview)
+      .mockResolvedValueOnce(preview)
+      .mockResolvedValueOnce({ ...preview, lastSend: unknownSend });
+    vi.mocked(api.sendMasiPackage).mockRejectedValueOnce(new Error(reason));
+    render(<Held pkg={reviewed} />);
+    let dialog = await openDialog();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(reason);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByText(UNKNOWN_LINE)).toBeInTheDocument();
+    dialog = await openDialog();
+    expect(within(dialog).getByRole('button', { name: 'Send again anyway' })).toBeEnabled();
+    expect(api.sendMasiPackage).toHaveBeenCalledTimes(1);
+  });
+
+  it('the mail LEFT but masi has not recorded it: said as sent, no error, and no Send to press again', async () => {
+    const said =
+      'the mail LEFT (Message-ID <m9@pmon.dev>) but was not recorded (the database is down); masi keeps trying to record it. Do not send it again';
+    vi.mocked(api.fetchMasiSendPreview).mockResolvedValue(preview);
+    vi.mocked(api.sendMasiPackage).mockRejectedValue(new MasiMailLeftUnrecorded(said));
+    render(<Held pkg={reviewed} />);
+    const dialog = await openDialog();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
+    const done = await screen.findByRole('status');
+    expect(done).toHaveTextContent(`Sent to Kati Karu <kati.karu@nortal.com>: ${said}`);
+    expect(done).toHaveFocus();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
+    expect(api.sendMasiPackage).toHaveBeenCalledTimes(1);
+  });
+
+  it('sent, while masi has still to mark the package APPLIED: said as sent, never offered again', async () => {
+    vi.mocked(api.fetchMasiSendPreview).mockResolvedValue(preview);
+    vi.mocked(api.sendMasiPackage).mockResolvedValue({
+      ...sentTo('kati.karu@nortal.com'),
+      packageStatus: 'REVIEWED',
+    });
+    render(<Held pkg={reviewed} />);
+    const dialog = await openDialog();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Sent to Kati Karu');
+    expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
+    // the preview is not asked again: what was sent stays said
+    expect(api.fetchMasiSendPreview).toHaveBeenCalledTimes(1);
   });
 });

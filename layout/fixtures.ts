@@ -128,6 +128,19 @@ const sendPreviews: Record<string, MasiSendPreview> = {
     bcc: null,
     deliveredTo: 'masi-sink@pmon.dev',
     note: 'test: goes to masi-sink@pmon.dev, not to the contact; no Bcc copy',
+    // its last send may have left: the warning, with a Message-ID that has no break in it, above Send and in the dialog
+    lastSend: {
+      contactId: 40,
+      to: 'masi-sink@pmon.dev',
+      status: 'UNKNOWN',
+      error: 'the connection dropped after the whole mail went',
+      messageId: '<20261019090000.a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6@pmon.dev>',
+      claimedAt: '2026-10-19T09:00:00Z',
+      sentAt: null,
+      attempt: 2,
+      token: 'tok-2',
+      note: 'the mail may have left - check your Bcc copy before sending it again',
+    },
     to: [
       {
         contactId: 40,
