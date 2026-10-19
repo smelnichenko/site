@@ -59,6 +59,19 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       ready: '[data-testid="person-ties"]',
       drawn: { '.masi .badge-group .status-badge': [2, 'Do not contact'] },
     },
+    {
+      name: 'job with a reviewed package to send',
+      path: '/masi/jobs/9',
+      ready: '.masi-send button',
+      drawn: { '.masi-send button': [1, 'Send'] },
+    },
+    {
+      name: 'job whose postings give only where to apply',
+      path: '/masi/jobs/10',
+      ready: '.masi-send-apply',
+      widths: [360, 390, 1366],
+      drawn: { '.masi-send-apply a': [1, UNBROKEN_PART] },
+    },
     { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
     { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
     {
@@ -787,4 +800,113 @@ for (const view of ['week', 'day']) {
       expect(grid.hoursTop, 'the hour labels start level with the grid').toBe(grid.tops[0]);
     });
   }
+}
+
+/**
+ * The Send dialog as the operator meets it: inside the viewport on a phone and on a desktop, nothing in it wider than it
+ * (a long address, an unbroken line in the letter), every button and every recipient a 44 px finger target, the letter
+ * scrolled inside its own box, focus inside the dialog on open, and Escape giving it back to Send.
+ */
+for (const width of [360, 390, 1366]) {
+  test(`the Send dialog, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    const { unanswered } = await open(page, '/masi/jobs/9', '.masi-send button');
+    expect(unanswered, 'every API call the page makes has a fixture').toEqual([]);
+    const opener = page.getByRole('button', { name: 'Send', exact: true });
+    const openerBox = await opener.boundingBox();
+    expect(openerBox?.width, 'Send is a finger wide').toBeGreaterThanOrEqual(44);
+    expect(openerBox?.height, 'and a finger high').toBeGreaterThanOrEqual(44);
+    await opener.click();
+    const dialog = page.getByRole('dialog', { name: 'Send the application' });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Cancel' }),
+      'focus is in the dialog',
+    ).toBeFocused();
+    await expect(dialog).toContainText('test: goes to masi-sink@pmon.dev');
+    // focus on Cancel at the bottom does not scroll the mail's top - its heading and the sink's line - out of view
+    const top = await page.evaluate(() => {
+      const d = document.querySelector('dialog.masi-send-dialog');
+      const sink = d?.querySelector('.masi-send-sink');
+      return d && sink
+        ? {
+            scrollTop: d.scrollTop,
+            sinkVisible: sink.getBoundingClientRect().top >= d.getBoundingClientRect().top,
+          }
+        : null;
+    });
+    expect(top, 'the mail is read from its top').toEqual({ scrollTop: 0, sinkVisible: true });
+
+    const m = await page.evaluate(() => {
+      const d = document.querySelector('dialog.masi-send-dialog');
+      if (!d) throw new Error('no dialog');
+      const r = d.getBoundingClientRect();
+      const owns = (el: Element) =>
+        ['auto', 'scroll', 'hidden', 'clip'].includes(getComputedStyle(el).overflowX);
+      const spilling = [...d.querySelectorAll('*')]
+        .filter((el) => el instanceof HTMLElement && el.tagName !== 'INPUT')
+        .filter((el) => el.getClientRects().length > 0 && !owns(el))
+        .filter((el) => el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0)
+        .map(
+          (el) =>
+            `${el.tagName.toLowerCase()}.${el.className} ${el.scrollWidth} > ${el.clientWidth}`,
+        );
+      const size = (el: Element) => {
+        const b = el.getBoundingClientRect();
+        return `${(el.textContent ?? '').trim().slice(0, 24)} ${b.width.toFixed(0)}×${b.height.toFixed(0)}`;
+      };
+      const small = [...d.querySelectorAll('button, label')]
+        .filter((el) => {
+          const b = el.getBoundingClientRect();
+          return b.width < 44 || b.height < 44;
+        })
+        .map(size);
+      const body = d.querySelector('.masi-send-body');
+      const b = body?.getBoundingClientRect();
+      return {
+        inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
+        box: `${r.left.toFixed(0)},${r.top.toFixed(0)} ${r.width.toFixed(0)}×${r.height.toFixed(0)} in ${innerWidth}×${innerHeight}`,
+        sideways: d.scrollWidth - d.clientWidth,
+        spilling,
+        small,
+        targets: d.querySelectorAll('button, label').length,
+        bodyScrolls: body ? body.scrollHeight > body.clientHeight + 1 : false,
+        bodyOverflow: body ? getComputedStyle(body).overflowY : '',
+        // an unbroken line in the letter wraps in its box: the letter is read down, never sideways
+        bodySideways: body ? body.scrollWidth - body.clientWidth : NaN,
+        bodyWithinHalf: b ? b.height <= innerHeight * 0.4 + 1 : false,
+        pageX: (() => {
+          window.scrollTo(200, 0);
+          return window.scrollX;
+        })(),
+      };
+    });
+    expect(m.inside, `the dialog within the viewport: ${m.box}`).toBe(true);
+    expect(m.sideways, 'the dialog never scrolls sideways').toBeLessThanOrEqual(1);
+    expect(m.spilling, 'nothing in the dialog wider than its box').toEqual([]);
+    expect(m.targets, "the fixture's buttons and recipients are drawn").toBeGreaterThanOrEqual(4);
+    expect(m.small, 'every button and recipient is 44 px either way').toEqual([]);
+    expect(m.bodyOverflow, 'the letter scrolls in its own box').toBe('auto');
+    expect(m.bodyScrolls, "the fixture's letter is longer than its box").toBe(true);
+    expect(m.bodySideways, 'the letter never scrolls sideways').toBeLessThanOrEqual(1);
+    expect(m.bodyWithinHalf, 'the letter box leaves the rest of the mail in view').toBe(true);
+    expect(m.pageX, 'no sideways scroll of the page').toBe(0);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog, 'Escape closes it').toBeHidden();
+    await expect(opener, 'and focus is back on Send').toBeFocused();
+  });
+}
+
+/** Where the postings only say where to apply: each link a finger high, its unbroken URL wrapped inside the card. */
+for (const width of [360, 1366]) {
+  test(`apply links are finger targets, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await open(page, '/masi/jobs/10', '.masi-send-apply');
+    const links = page.getByRole('list', { name: 'Where to apply' }).getByRole('link');
+    await expect(links).toHaveCount(1);
+    const box = await links.first().boundingBox();
+    expect(box?.height, 'a finger high').toBeGreaterThanOrEqual(44);
+    expect(box && box.x + box.width, 'inside the viewport').toBeLessThanOrEqual(width);
+  });
 }

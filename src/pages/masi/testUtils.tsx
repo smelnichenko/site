@@ -14,4 +14,4 @@ export function renderAt(path: string, route: string, element: ReactElement) {
   );
 }
 
-export { job, prepared } from './fixtures';
+export { job, prepared, sendPreview } from './fixtures';

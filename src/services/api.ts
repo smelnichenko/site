@@ -2305,6 +2305,114 @@ export async function fetchMasiArtifact(id: number, kind: 'CV_PDF' | 'LETTER_TXT
   return response.blob();
 }
 
+/** Where a package's mail is: claimed by the press that sends it, then sent, or failed (a new press claims it again). */
+export type MasiSendStatus = 'CLAIMED' | 'SENT' | 'FAILED';
+
+/** A package's send: where it went (`to`: the address it was delivered to — outside production the sink) and what came of it. */
+export interface MasiPackageSend {
+  contactId: number | null;
+  to: string;
+  status: MasiSendStatus;
+  error: string | null;
+  messageId: string | null;
+  claimedAt: string | null;
+  sentAt: string | null;
+}
+
+/** One person a posting of the job named, with the address it published; `postedAt`: the newest such posting. */
+export interface MasiSendRecipient {
+  contactId: number;
+  name: string | null;
+  title: string | null;
+  email: string;
+  postedAt: string | null;
+}
+
+/** The attached CV: the file the operator reviewed. `size` in bytes. */
+export interface MasiSendAttachment {
+  name: string;
+  contentType: string;
+  size: number;
+  sha256: string;
+}
+
+/**
+ * Exactly the mail a press would send. `to`: who may receive it, newest posting first (`defaultContactId` the first; empty
+ * when the postings named nobody with an address). `bcc`: null outside production, where `deliveredTo` is the sink that
+ * takes the mail instead and `note` says so. `applyAt`: where the postings say to apply. `hash`: what the press carries.
+ */
+export interface MasiSendPreview {
+  packageId: number;
+  from: string;
+  replyTo: string;
+  bcc: string | null;
+  to: MasiSendRecipient[];
+  defaultContactId: number | null;
+  subject: string;
+  body: string;
+  attachment: MasiSendAttachment;
+  deliveredTo: string | null;
+  note: string | null;
+  applyAt: string[];
+  lastSend: MasiPackageSend | null;
+  hash: string;
+}
+
+/** What one press did: the send as it now is, and the package's status (APPLIED). */
+export interface MasiSent {
+  send: MasiPackageSend;
+  packageStatus: string;
+}
+
+/**
+ * The mail a press on Send would send now, or null when sending is switched off (404 — the page then offers no Send).
+ * A package that cannot be sent (not REVIEWED, its job closed, a file gone) is a 409, and sending switched on but not
+ * configured a 503: both throw with masi's reason.
+ */
+export async function fetchMasiSendPreview(
+  id: number,
+  signal?: AbortSignal,
+): Promise<MasiSendPreview | null> {
+  const response = await apiFetch(`${API_BASE}/masi/packages/${id}/send-preview`, { signal });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || 'Failed to load the mail');
+  }
+  return readJson<MasiSendPreview>(response);
+}
+
+/**
+ * One press: the previewed mail, to the contact chosen among the preview's. Every refusal (409: stale preview, not
+ * sendable, another press holds it; 502: the mail server refused) throws with masi's reason; nothing retries.
+ */
+export function sendMasiPackage(
+  id: number,
+  contactId: number,
+  previewHash: string,
+): Promise<MasiSent> {
+  return masiSend(
+    `/packages/${id}/send`,
+    'POST',
+    { contactId, previewHash },
+    'send the application',
+  );
+}
+
+/** The package's send so far, or null when there is none (or sending is switched off: 404 either way). */
+export async function fetchMasiPackageSend(
+  id: number,
+  signal?: AbortSignal,
+): Promise<MasiPackageSend | null> {
+  const response = await apiFetch(`${API_BASE}/masi/packages/${id}/send`, { signal });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || 'Failed to load the send');
+  }
+  return readJson<MasiPackageSend>(response);
+}
+
 /** A period's figures, every one from a timestamp later ticks never rewrite; the funnel is the caller's own. */
 export interface MasiStats {
   from: string;

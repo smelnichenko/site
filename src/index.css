@@ -1507,6 +1507,97 @@ a.muted,
   max-height: 24rem;
   overflow: auto;
 }
+
+/* Send on the operator's press: the opener, the dialog's buttons, its recipients and an apply link are finger targets */
+.masi-send {
+  margin-top: 12px;
+}
+.masi-send .status-badge,
+.masi-send-dialog .status-badge {
+  min-height: 44px;
+  min-width: 44px;
+}
+.masi-send-apply {
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+.masi-send-apply a {
+  display: inline-block;
+  padding: 12px 0;
+}
+
+/* the confirm dialog: a sheet within the viewport, its addresses and an unbroken subject wrapped inside it */
+.masi-send-dialog {
+  width: min(40rem, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 20px;
+  border: none;
+  border-radius: 8px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+.masi-send-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+.masi-send-dialog > * + * {
+  margin-top: 12px;
+}
+.masi-send-sink {
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: #fff3cd;
+  color: #664d03;
+}
+.masi-send-fields {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 12px;
+}
+.masi-send-fields dt {
+  color: #666;
+}
+.masi-send-to {
+  border: none;
+  min-width: 0;
+}
+.masi-send-to legend {
+  color: #666;
+}
+.masi-send-recipient {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.masi-send-recipient input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+.masi-send-recipient span {
+  min-width: 0;
+}
+/* the letter as plain text, its own line breaks; long ones scroll inside the dialog, never the page */
+.masi-send-body {
+  white-space: pre-wrap;
+  font-family: inherit;
+  max-height: 40vh;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fafafa;
+}
+.masi-send-dialog .error {
+  margin: 12px 0 0;
+}
+.masi-send-actions {
+  justify-content: flex-end;
+}
 .masi-listings {
   padding-left: 1.2rem;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { endOfDayIn, mapsUrl } from './format';
+import { endOfDayIn, formatBytes, mapsUrl } from './format';
 
 describe('endOfDayIn', () => {
   it('is the last second of that day in Tallinn, in winter and in summer time', () => {
@@ -26,5 +26,17 @@ describe('mapsUrl', () => {
     expect(mapsUrl('Tööstuse 5 & Co, Tallinn')).toBe(
       'https://www.google.com/maps/search/?api=1&query=T%C3%B6%C3%B6stuse%205%20%26%20Co%2C%20Tallinn',
     );
+  });
+});
+
+describe('formatBytes', () => {
+  it('reads bytes, then KB and MB at their 1024 boundaries', () => {
+    expect(formatBytes(0)).toBe('0 B');
+    expect(formatBytes(1023)).toBe('1023 B');
+    expect(formatBytes(1024)).toBe('1.0 KB');
+    expect(formatBytes(48_213)).toBe('47.1 KB');
+    expect(formatBytes(1024 * 1024 - 1)).toBe('1024.0 KB');
+    expect(formatBytes(1024 * 1024)).toBe('1.0 MB');
+    expect(formatBytes(3_500_000)).toBe('3.3 MB');
   });
 });

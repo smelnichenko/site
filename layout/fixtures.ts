@@ -17,6 +17,7 @@ import type {
   MasiJob,
   MasiMatch,
   MasiPackage,
+  MasiSendPreview,
   Paged,
   PagedResponse,
   RssFeedMonitorConfig,
@@ -24,7 +25,7 @@ import type {
   RssOptions,
 } from '../src/services/api';
 import { readFileSync } from 'node:fs';
-import { job, prepared } from '../src/pages/masi/fixtures';
+import { job, prepared, sendPreview } from '../src/pages/masi/fixtures';
 
 /** The real masi answer the Match card's unit test uses (a JSON file: read, not imported, in Node). */
 const aiMatch: unknown = JSON.parse(
@@ -106,6 +107,54 @@ const packages: MasiPackage[] = [
     claims: [{ rule: 'metric', detail: `role 1 dropped '40 teenust': ${LONG_TITLE} ${UNBROKEN}` }],
   },
 ];
+
+/** Job 9: a REVIEWED package to Send; job 10: one whose postings named nobody to mail, only where to apply. */
+const reviewed: MasiPackage = {
+  ...(prepared as MasiPackage),
+  id: 21,
+  jobId: 9,
+  status: 'REVIEWED',
+};
+const reviewedNoMail: MasiPackage = { ...reviewed, id: 22, jobId: 10 };
+
+/**
+ * The mail of package 21 on test, made hard for the dialog: a long name and title, an address with no break in it, a
+ * subject as long as a board's title, and a letter longer than the dialog, so its body scrolls inside it.
+ */
+const sendPreviews: Record<string, MasiSendPreview> = {
+  '21': {
+    ...sendPreview,
+    packageId: 21,
+    bcc: null,
+    deliveredTo: 'masi-sink@pmon.dev',
+    note: 'test: goes to masi-sink@pmon.dev, not to the contact; no Bcc copy',
+    to: [
+      {
+        contactId: 40,
+        name: 'Kati-Liisa Karu-Kaasik',
+        title: 'Senior Talent Acquisition Partner, Engineering and Product',
+        email: 'kati-liisa.karu-kaasik.talent.acquisition@nortal-recruitment-services.example.com',
+        postedAt: '2026-10-18T08:00:00Z',
+      },
+      ...sendPreview.to.slice(1),
+    ],
+    subject: `Application: ${LONG_TITLE} - Mari Operaator`,
+    body: [
+      'Dear Nortal team,',
+      '',
+      ...Array.from(
+        { length: 30 },
+        (_, i) =>
+          `Paragraph ${i + 1}: I cut p99 latency from 800 ms to 120 ms on an order API that took 4 000 orders a minute.`,
+      ),
+      UNBROKEN,
+      '',
+      'Regards,',
+      'Mari Operaator',
+    ].join('\n'),
+  },
+  '22': { ...sendPreview, packageId: 22, to: [], defaultContactId: null, applyAt: [UNBROKEN] },
+};
 
 /** Every day from `from` to `to`, both ends, as YYYY-MM-DD. */
 function daysBetween(from: string, to: string): string[] {
@@ -595,7 +644,20 @@ export function answer(url: URL): Answer | undefined {
     [/^\/jobs\/\d+$/, () => ({ status: 200, body: detail })],
     [/^\/jobs\/\d+\/history$/, () => ({ status: 200, body: [] })],
     [/^\/jobs\/\d+\/similar$/, () => ({ status: 200, body: [] })],
-    [/^\/packages$/, () => ({ status: 200, body: packages })],
+    [
+      /^\/packages$/,
+      () => {
+        const byJob: Record<string, MasiPackage[]> = { '9': [reviewed], '10': [reviewedNoMail] };
+        return { status: 200, body: byJob[q.get('job') ?? ''] ?? packages };
+      },
+    ],
+    [
+      /^\/packages\/\d+\/send-preview$/,
+      () => {
+        const p = sendPreviews[path.split('/')[2]];
+        return p ? { status: 200, body: p } : { status: 404, body: { error: 'Not found' } };
+      },
+    ],
     [/^\/companies\/\d+$/, () => ({ status: 200, body: byId[path.split('/')[2]] ?? company })],
     [/^\/companies\/\d+\/register-match$/, () => ({ status: 204 })],
     [

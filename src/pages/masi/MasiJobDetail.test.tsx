@@ -36,6 +36,10 @@ vi.mock('../../services/api', () => ({
   regenerateMasiPackage: vi.fn(),
   fetchMasiArtifact: vi.fn(),
   fetchMasiJobBookings: vi.fn().mockResolvedValue([]),
+  // sending switched off in masi (404): the panels offer no Send, as before it existed
+  fetchMasiSendPreview: vi.fn().mockResolvedValue(null),
+  fetchMasiPackageSend: vi.fn().mockResolvedValue(null),
+  sendMasiPackage: vi.fn(),
 }));
 const api = await import('../../services/api');
 
