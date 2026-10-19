@@ -72,6 +72,13 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       widths: [360, 390, 1366],
       drawn: { '.masi-send-apply a': [1, UNBROKEN_PART] },
     },
+    {
+      name: 'job whose package masi mailed, on test',
+      path: '/masi/jobs/11',
+      ready: '.masi-send-done',
+      widths: [360, 390, 1366],
+      drawn: { '.masi-send-done': [1, 'delivered to masi-sink@pmon.dev'] },
+    },
     { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
     { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
     {

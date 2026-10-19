@@ -3,11 +3,9 @@ import type { KeyboardEvent, SyntheticEvent } from 'react';
 import {
   fetchMasiPackageSend,
   fetchMasiSendPreview,
-  MasiMailLeftUnrecorded,
   MasiPackage,
   MasiPackageSend,
   MasiSendPreview,
-  MasiSendRecipient,
   MasiSendRefused,
   MasiSent,
   sendMasiPackage,
@@ -30,30 +28,30 @@ interface Loaded<T> {
 }
 
 /**
- * A mail that left in this session: masi's row, and the person it was addressed to (its name is not on the row) - or,
- * when masi could not record it yet, masi's word that it left (`unrecorded`), with no row to show.
+ * A mail that left: masi's row of it, and - when masi has not recorded it yet (LEFT_UNRECORDED) - the Message-ID it left
+ * with, which the row does not carry until it is recorded.
  */
 interface Delivered {
-  send: MasiPackageSend | null;
-  recipient: MasiSendRecipient | null;
-  unrecorded: string | null;
+  send: MasiPackageSend;
+  unrecorded: { messageId: string | null } | null;
 }
 
-function whom(r: MasiSendRecipient): string {
-  return r.name ? `${r.name} <${r.email}>` : r.email;
+function whom(name: string | null, address: string): string {
+  return name ? `${name} <${address}>` : address;
 }
 
 /**
- * "Sent to Mari <mari@x.ee> at …", and where it was delivered when that was not the person (a test's sink); a mail that
- * left unrecorded is sent too, in masi's words.
+ * "Sent to Mari <mari@x.ee> at …" from the row - who it was for, and where it was delivered when that was not them (a
+ * test's sink). A mail that left unrecorded is sent too: it says so, and that it must not be sent again.
  */
-function sentLine({ send, recipient, unrecorded }: Delivered): string {
-  if (unrecorded !== null || !send) {
-    const to = recipient ? ' to ' + whom(recipient) : '';
-    return `Sent${to}: ${unrecorded ?? 'the mail left'}`;
+function sentLine({ send, unrecorded }: Delivered): string {
+  const address = send.toAddress ?? send.deliveredTo;
+  const sink = send.deliveredTo === address ? '' : `, delivered to ${send.deliveredTo}`;
+  const to = whom(send.toName, address);
+  if (unrecorded) {
+    const id = unrecorded.messageId ? ` (Message-ID ${unrecorded.messageId})` : '';
+    return `Sent to ${to}${sink}: the mail left${id} but masi has not recorded it yet - it keeps trying. Do not send it again.`;
   }
-  const to = recipient ? whom(recipient) : send.to;
-  const sink = recipient && send.to !== recipient.email ? `, delivered to ${send.to}` : '';
   return `Sent to ${to} at ${formatDateTime(send.sentAt)}${sink}`;
 }
 
@@ -142,11 +140,14 @@ export default function PackageSend({ pkg, jobOpen, onChanged }: Readonly<Props>
     if (refused) setGeneration((g) => g + 1);
   }
 
-  function sent(result: MasiSent, recipient: MasiSendRecipient | null) {
+  function sent(result: MasiSent) {
     focusNext.current = 'done';
-    setDelivered({ send: result.send, recipient, unrecorded: null });
+    const unrecorded =
+      result.outcome === 'LEFT_UNRECORDED' ? { messageId: result.messageId } : null;
+    setDelivered({ send: result.send, unrecorded });
     setOpen(false);
-    // the mail left: the package is what masi says it is now (APPLIED, unless that write is still to follow)
+    // the mail left: the package is what masi says it is now - APPLIED, or still REVIEWED while masi has the send (or
+    // the APPLIED write after it) still to record
     onChanged({
       ...pkg,
       status: result.packageStatus,
@@ -154,18 +155,11 @@ export default function PackageSend({ pkg, jobOpen, onChanged }: Readonly<Props>
     });
   }
 
-  /** The mail left and masi has not recorded it yet: sent, never offered again - masi applies it once it records it. */
-  function leftUnrecorded(said: string, recipient: MasiSendRecipient | null) {
-    focusNext.current = 'done';
-    setDelivered({ send: null, recipient, unrecorded: said });
-    setOpen(false);
-  }
-
   // a mail that left in this session is said as sent, whatever the package's status says yet
   const done =
     delivered ??
     (applied && record?.key === String(pkg.id) && record.value?.status === 'SENT'
-      ? { send: record.value, recipient: null, unrecorded: null }
+      ? { send: record.value, unrecorded: null }
       : null);
   if (done) {
     return (
@@ -218,15 +212,7 @@ export default function PackageSend({ pkg, jobOpen, onChanged }: Readonly<Props>
       >
         Send
       </button>
-      {open && (
-        <SendDialog
-          pkg={pkg}
-          preview={preview}
-          onDismiss={close}
-          onSent={sent}
-          onLeftUnrecorded={leftUnrecorded}
-        />
-      )}
+      {open && <SendDialog pkg={pkg} preview={preview} onDismiss={close} onSent={sent} />}
     </div>
   );
 }
@@ -235,12 +221,11 @@ interface DialogProps {
   pkg: MasiPackage;
   preview: MasiSendPreview;
   onDismiss: (refused: boolean) => void;
-  onSent: (result: MasiSent, recipient: MasiSendRecipient | null) => void;
-  onLeftUnrecorded: (said: string, recipient: MasiSendRecipient | null) => void;
+  onSent: (result: MasiSent) => void;
 }
 
 /** The confirm dialog: exactly the mail a press sends, the recipient to choose, and the press. */
-function SendDialog({ pkg, preview, onDismiss, onSent, onLeftUnrecorded }: Readonly<DialogProps>) {
+function SendDialog({ pkg, preview, onDismiss, onSent }: Readonly<DialogProps>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const pressed = useRef(false);
@@ -317,7 +302,6 @@ function SendDialog({ pkg, preview, onDismiss, onSent, onLeftUnrecorded }: Reado
     pressed.current = true;
     setSending(true);
     setError(null);
-    const recipient = preview.to.find((r) => r.contactId === contactId) ?? null;
     try {
       const result = await sendMasiPackage(
         pkg.id,
@@ -325,14 +309,11 @@ function SendDialog({ pkg, preview, onDismiss, onSent, onLeftUnrecorded }: Reado
         preview.hash,
         unknown?.token ?? undefined,
       );
-      onSent(result, recipient);
+      // SENT or LEFT_UNRECORDED: either way the mail left
+      onSent(result);
     } catch (e: unknown) {
-      if (e instanceof MasiMailLeftUnrecorded) {
-        onLeftUnrecorded(e.message, recipient);
-      } else {
-        const said = errorMessage(e, 'The application was not sent');
-        setError(e instanceof MasiSendRefused && e.status === 502 ? await settled(said) : said);
-      }
+      const said = errorMessage(e, 'The application was not sent');
+      setError(e instanceof MasiSendRefused && e.status === 502 ? await settled(said) : said);
     } finally {
       pressed.current = false;
       setSending(false);
@@ -375,7 +356,7 @@ function SendDialog({ pkg, preview, onDismiss, onSent, onLeftUnrecorded }: Reado
               onChange={() => setContactId(r.contactId)}
             />
             <span>
-              {whom(r)}
+              {whom(r.name, r.email)}
               {r.title ? ` · ${r.title}` : ''}
               {r.postedAt ? ` · posted ${formatDate(r.postedAt)}` : ''}
             </span>

@@ -4,14 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import PackagePanel from './PackagePanel';
 import { prepared, sendPreview } from './testUtils';
-import { MasiMailLeftUnrecorded, MasiSendRefused } from '../../services/api';
+import { MasiSendRefused } from '../../services/api';
 import type { MasiPackage, MasiPackageSend, MasiSendPreview, MasiSent } from '../../services/api';
 
 vi.mock('../../services/api', async (importOriginal) => {
   const real = await importOriginal<typeof import('../../services/api')>();
   return {
-    // the real error classes: the panel tells a mail that left unrecorded, and a refusal's status, by them
-    MasiMailLeftUnrecorded: real.MasiMailLeftUnrecorded,
+    // the real error class: the panel tells a refusal's status by it
     MasiSendRefused: real.MasiSendRefused,
     reviewMasiPackage: vi.fn(),
     regenerateMasiPackage: vi.fn(),
@@ -27,11 +26,21 @@ const reviewed: MasiPackage = { ...prepared, status: 'REVIEWED' };
 const preview: MasiSendPreview = sendPreview;
 const SENT_AT = '2026-10-19T09:30:00Z';
 
-function sentTo(to: string, contactId = 40): MasiSent {
+/** masi's answer to a press whose mail left and is recorded: delivered to `deliveredTo`, for Kati unless said otherwise. */
+function sentTo(
+  deliveredTo: string,
+  contactId = 40,
+  toName: string | null = 'Kati Karu',
+  toAddress: string | null = 'kati.karu@nortal.com',
+): MasiSent {
   return {
+    outcome: 'SENT',
+    messageId: '<m1@pmon.dev>',
     send: {
       contactId,
-      to,
+      toName,
+      toAddress,
+      deliveredTo,
       status: 'SENT',
       error: null,
       messageId: '<m1@pmon.dev>',
@@ -171,7 +180,9 @@ describe('PackageSend — who is offered Send', () => {
       ...preview,
       lastSend: {
         contactId: 40,
-        to: 'kati.karu@nortal.com',
+        toName: 'Kati Karu',
+        toAddress: 'kati.karu@nortal.com',
+        deliveredTo: 'kati.karu@nortal.com',
         status: 'FAILED',
         error: '550 mailbox unavailable',
         messageId: null,
@@ -308,7 +319,9 @@ describe('PackageSend — the press', () => {
       bcc: null,
       deliveredTo: 'sink@pmon.dev',
     });
-    vi.mocked(api.sendMasiPackage).mockResolvedValue(sentTo('sink@pmon.dev', 41));
+    vi.mocked(api.sendMasiPackage).mockResolvedValue(
+      sentTo('sink@pmon.dev', 41, null, 'jobs@nortal.com'),
+    );
     render(<Held pkg={reviewed} />);
     const dialog = await openDialog();
     await userEvent.click(within(dialog).getByRole('radio', { name: /^jobs@nortal\.com/ }));
@@ -419,14 +432,34 @@ describe('PackageSend — the press', () => {
 });
 
 describe('PackageSend — an APPLIED package', () => {
-  it('mailed by masi: says to whom and when, from the send record', async () => {
+  it('mailed by masi: says to whom - name and address - and when, from the send record', async () => {
     vi.mocked(api.fetchMasiPackageSend).mockResolvedValue(sentTo('kati.karu@nortal.com').send);
     render(<Held pkg={{ ...prepared, status: 'APPLIED', appliedAt: SENT_AT }} />);
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Sent to kati.karu@nortal.com at 19 Oct 2026, 12:30',
+    const done = await screen.findByRole('status');
+    expect(done).toHaveTextContent(
+      'Sent to Kati Karu <kati.karu@nortal.com> at 19 Oct 2026, 12:30',
     );
+    expect(done).not.toHaveTextContent('delivered to');
     expect(api.fetchMasiPackageSend).toHaveBeenCalledWith(11, expect.any(AbortSignal));
     expect(api.fetchMasiSendPreview).not.toHaveBeenCalled();
+  });
+
+  it('mailed outside production: who it was for, and the sink it was delivered to', async () => {
+    vi.mocked(api.fetchMasiPackageSend).mockResolvedValue(sentTo('sink@pmon.dev').send);
+    render(<Held pkg={{ ...prepared, status: 'APPLIED', appliedAt: SENT_AT }} />);
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Sent to Kati Karu <kati.karu@nortal.com> at 19 Oct 2026, 12:30, delivered to sink@pmon.dev',
+    );
+  });
+
+  it('a send from before masi kept who it was for: where it went, and nothing made up', async () => {
+    vi.mocked(api.fetchMasiPackageSend).mockResolvedValue(
+      sentTo('kati.karu@nortal.com', 40, null, null).send,
+    );
+    render(<Held pkg={{ ...prepared, status: 'APPLIED', appliedAt: SENT_AT }} />);
+    const done = await screen.findByRole('status');
+    expect(done).toHaveTextContent('Sent to kati.karu@nortal.com at 19 Oct 2026, 12:30');
+    expect(done).not.toHaveTextContent(/delivered to|</);
   });
 
   it('applied by hand (no send: 404), or a send that failed before: says nothing of a mail', async () => {
@@ -461,7 +494,9 @@ describe('PackageSend — an APPLIED package', () => {
 /** A send of unknown outcome, as masi's preview reports it: the attempt, its Message-ID, its token and what to check. */
 const unknownSend: MasiPackageSend = {
   contactId: 40,
-  to: 'kati.karu@nortal.com',
+  toName: 'Kati Karu',
+  toAddress: 'kati.karu@nortal.com',
+  deliveredTo: 'kati.karu@nortal.com',
   status: 'UNKNOWN',
   error: 'the connection dropped after the whole mail went',
   messageId: '<m7@pmon.dev>',
@@ -573,17 +608,26 @@ describe('PackageSend — a send that may have left', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('the mail LEFT but masi has not recorded it: said as sent, no error, and no Send to press again', async () => {
-    const said =
-      'the mail LEFT (Message-ID <m9@pmon.dev>) but was not recorded (the database is down); masi keeps trying to record it. Do not send it again';
+  it('LEFT_UNRECORDED: said as sent with its Message-ID, no error, the package as masi holds it, and no Send again', async () => {
+    const left = sentTo('kati.karu@nortal.com');
     vi.mocked(api.fetchMasiSendPreview).mockResolvedValue(preview);
-    vi.mocked(api.sendMasiPackage).mockRejectedValue(new MasiMailLeftUnrecorded(said));
+    vi.mocked(api.sendMasiPackage).mockResolvedValue({
+      outcome: 'LEFT_UNRECORDED',
+      messageId: '<m9@pmon.dev>',
+      // the row as it stands: masi has not written SENT yet
+      send: { ...left.send, status: 'CLAIMED', messageId: null, sentAt: null },
+      packageStatus: 'REVIEWED',
+    });
     render(<Held pkg={reviewed} />);
     const dialog = await openDialog();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }));
     const done = await screen.findByRole('status');
-    expect(done).toHaveTextContent(`Sent to Kati Karu <kati.karu@nortal.com>: ${said}`);
+    expect(done).toHaveTextContent(
+      'Sent to Kati Karu <kati.karu@nortal.com>: the mail left (Message-ID <m9@pmon.dev>) but masi has not recorded it yet - it keeps trying. Do not send it again.',
+    );
     expect(done).toHaveFocus();
+    // masi has not applied it yet: the page does not say it has
+    expect(screen.getByText('reviewed', { selector: '.status-badge' })).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();

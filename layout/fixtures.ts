@@ -17,6 +17,7 @@ import type {
   MasiJob,
   MasiMatch,
   MasiPackage,
+  MasiPackageSend,
   MasiSendPreview,
   Paged,
   PagedResponse,
@@ -116,6 +117,28 @@ const reviewed: MasiPackage = {
   status: 'REVIEWED',
 };
 const reviewedNoMail: MasiPackage = { ...reviewed, id: 22, jobId: 10 };
+/** Job 11: a package masi mailed, on test - who it was for (a long name and address) and the sink it went to. */
+const mailed: MasiPackage = {
+  ...reviewed,
+  id: 23,
+  jobId: 11,
+  status: 'APPLIED',
+  appliedAt: '2026-10-19T09:30:00Z',
+};
+const mailedSend: MasiPackageSend = {
+  contactId: 40,
+  toName: 'Kati-Liisa Karu-Kaasik',
+  toAddress: 'kati-liisa.karu-kaasik.talent.acquisition@nortal-recruitment-services.example.com',
+  deliveredTo: 'masi-sink@pmon.dev',
+  status: 'SENT',
+  error: null,
+  messageId: '<20261019093000.a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6@pmon.dev>',
+  claimedAt: '2026-10-19T09:29:58Z',
+  sentAt: '2026-10-19T09:30:00Z',
+  attempt: 1,
+  token: null,
+  note: null,
+};
 
 /**
  * The mail of package 21 on test, made hard for the dialog: a long name and title, an address with no break in it, a
@@ -131,7 +154,10 @@ const sendPreviews: Record<string, MasiSendPreview> = {
     // its last send may have left: the warning, with a Message-ID that has no break in it, above Send and in the dialog
     lastSend: {
       contactId: 40,
-      to: 'masi-sink@pmon.dev',
+      toName: 'Kati-Liisa Karu-Kaasik',
+      toAddress:
+        'kati-liisa.karu-kaasik.talent.acquisition@nortal-recruitment-services.example.com',
+      deliveredTo: 'masi-sink@pmon.dev',
       status: 'UNKNOWN',
       error: 'the connection dropped after the whole mail went',
       messageId: '<20261019090000.a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6@pmon.dev>',
@@ -660,9 +686,20 @@ export function answer(url: URL): Answer | undefined {
     [
       /^\/packages$/,
       () => {
-        const byJob: Record<string, MasiPackage[]> = { '9': [reviewed], '10': [reviewedNoMail] };
+        const byJob: Record<string, MasiPackage[]> = {
+          '9': [reviewed],
+          '10': [reviewedNoMail],
+          '11': [mailed],
+        };
         return { status: 200, body: byJob[q.get('job') ?? ''] ?? packages };
       },
+    ],
+    [
+      /^\/packages\/\d+\/send$/,
+      () =>
+        path.split('/')[2] === '23'
+          ? { status: 200, body: mailedSend }
+          : { status: 404, body: { error: 'Not found' } },
     ],
     [
       /^\/packages\/\d+\/send-preview$/,
