@@ -214,7 +214,7 @@ describe('MasiCompanyDetail', () => {
       '/masi/persons/5',
     );
     // what she is HERE, not at her agency: two listings say so, and her address is not the company's
-    expect(within(people).getByText('posted for ×2')).toBeInTheDocument();
+    expect(within(people).getByText('posted for (2 postings)')).toBeInTheDocument();
     expect(within(people).queryByText(/works at/)).not.toBeInTheDocument();
     expect(within(people).getByText('writes from elsewhere')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'in the people list' })).toHaveAttribute(
@@ -811,7 +811,7 @@ describe('MasiCompanyDetail', () => {
     vi.mocked(api.patchMasiPerson).mockRejectedValue(new Error('saving refused'));
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
     const people = await screen.findByTestId('company-people');
-    expect(within(people).getByText('posted for ×2')).toBeInTheDocument();
+    expect(within(people).getByText('posted for (2 postings)')).toBeInTheDocument();
     expect(within(people).getByText('writes from elsewhere')).toBeInTheDocument();
     expect(within(people).queryByText(/works at/)).not.toBeInTheDocument();
     expect(within(people).queryByText("the company's own address")).not.toBeInTheDocument();
