@@ -36,8 +36,22 @@ describe('people', () => {
       tie({ companyId: 2, companyName: 'SEB', role: 'REPRESENTS', until: '2026-09-20T00:00:00Z' }),
     ]);
     expect(grouped.map((c) => c.companyName)).toEqual(['SEB', 'EY Estonia']);
-    expect(rolesText(grouped[1].roles)).toBe('posted for ×2, talked to');
+    expect(rolesText(grouped[1].roles)).toBe('posted for (2 postings), talked to');
     expect(rolesText(grouped[0].roles)).toBe('posted for, represents (ended)');
+  });
+
+  it('says what a count counts: postings, register records, times - never a bare ×n', () => {
+    const roles = [
+      { role: 'POSTED_FOR', count: 7, ended: false },
+      { role: 'REPRESENTS', count: 2, ended: true },
+      { role: 'TALKED_TO', count: 3, ended: false },
+      { role: 'WORKS_AT', count: 2, ended: false },
+    ];
+    expect(rolesText(roles)).toBe(
+      'posted for (7 postings), represents (2 register records, ended), talked to (3 times), works at (2 ties)',
+    );
+    expect(rolesText([{ role: 'POSTED_FOR', count: 1, ended: false }])).toBe('posted for');
+    expect(rolesText(roles)).not.toContain('×');
   });
 
   it('calls a role ended only when every tie that says it has ended', () => {

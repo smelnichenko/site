@@ -47,7 +47,7 @@ export interface CompanyTies {
 
 /**
  * The ties grouped by company, in the order the companies first appear: a recruiter who posted ten listings for one
- * employer is one line "posted for ×10", not ten rows. A role is ended only when every tie that says it has ended.
+ * employer is one line "posted for (10 postings)", not ten rows. A role is ended only when every tie that says it has ended.
  */
 export function byCompany(ties: MasiPersonTie[]): CompanyTies[] {
   const out = new Map<number, CompanyTies>();
@@ -73,13 +73,20 @@ export function byCompany(ties: MasiPersonTie[]): CompanyTies[] {
   return [...out.values()];
 }
 
-/** "posted for ×2", "represents (ended)". */
+/** What the ties of a role are, so a count says what it counts: a bare "×7" read as nothing (2026-10-19). */
+const COUNTED: Record<string, string> = {
+  POSTED_FOR: 'postings',
+  REPRESENTS: 'register records',
+  TALKED_TO: 'times',
+};
+
+/** "posted for (2 postings)", "represents (ended)", "posted for (7 postings, ended)". */
 export function rolesText(roles: CompanyTies['roles']): string {
   return roles
     .map((r) => {
-      const times = r.count > 1 ? ` ×${r.count}` : '';
-      const ended = r.ended ? ' (ended)' : '';
-      return `${roleLabel(r.role)}${times}${ended}`;
+      const many = COUNTED[r.role] ?? 'ties';
+      const notes = [...(r.count > 1 ? [`${r.count} ${many}`] : []), ...(r.ended ? ['ended'] : [])];
+      return notes.length ? `${roleLabel(r.role)} (${notes.join(', ')})` : roleLabel(r.role);
     })
     .join(', ');
 }

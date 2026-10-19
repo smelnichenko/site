@@ -77,7 +77,7 @@ describe('MasiPersons', () => {
     expect(link).toHaveAttribute('href', '/masi/persons/20');
     const row = screen.getByRole('row', { name: /Taima-Riin Uutma/ });
     expect(within(row).getAllByRole('link', { name: 'EY Estonia' })).toHaveLength(1);
-    expect(within(row).getByText('posted for ×2')).toBeInTheDocument();
+    expect(within(row).getByText('posted for (2 postings)')).toBeInTheDocument();
     expect(within(row).getByRole('link', { name: 'Grafton Estonia OÜ' })).toHaveAttribute(
       'href',
       '/masi/companies/9',
