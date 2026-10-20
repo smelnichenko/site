@@ -235,8 +235,10 @@ describe('MasiCv', () => {
       });
       renderAt('/masi/cv', '/masi/cv', <MasiCv />);
       const card = await screen.findByTestId('cv-translations');
-      expect(await screen.findByRole('status')).toHaveTextContent(
-        'v3 made in Estonian: read it, then approve it below.',
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent(
+          'v3 made in Estonian: read it, then approve it below.',
+        ),
       );
       expect(card).toHaveTextContent('the master is in English');
       expect(screen.getByTestId('translation-2')).toHaveTextContent('1 problem');
@@ -507,7 +509,9 @@ describe('MasiCv', () => {
             expect(vi.mocked(api.fetchCvTranslationStatus).mock.calls).toHaveLength(i + 1),
           );
         }
-        expect(await screen.findByRole('status')).toHaveTextContent('v2 made in Estonian');
+        await waitFor(() =>
+          expect(screen.getByRole('status')).toHaveTextContent('v2 made in Estonian'),
+        );
         await userEvent.click(screen.getByRole('button', { name: 'Translate into Estonian' }));
         const before = vi.mocked(api.fetchCvTranslationStatus).mock.calls.length;
         await vi.advanceTimersByTimeAsync(5_000);
@@ -541,7 +545,7 @@ describe('MasiCv', () => {
         await userEvent.click(
           within(screen.getByTestId('translation-3')).getByRole('button', { name: 'Approve' }),
         );
-        expect(await screen.findByRole('status')).toHaveTextContent(/^v3 approved$/);
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/^v3 approved$/));
         await vi.advanceTimersByTimeAsync(5_000);
         await waitFor(() =>
           expect(screen.getByRole('status')).toHaveTextContent(
