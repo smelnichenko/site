@@ -1015,3 +1015,41 @@ for (const width of [360, 1366]) {
     expect(box && box.x + box.width, 'inside the viewport').toBeLessThanOrEqual(width);
   });
 }
+
+/**
+ * A report's figures at a phone's width and a desktop's: each link underlined - in a tile the number is the accent colour
+ * whether it links or is a plain zero, so colour alone would not say which - and with a visible focus ring when tabbed to.
+ */
+for (const width of [390, 1366]) {
+  test(`report figures read as links, and show where focus is, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/reports/6', '.masi-figure-link');
+    const links = await page.evaluate(() =>
+      [...document.querySelectorAll('.masi-figure-link')].map((a) => ({
+        text: (a.textContent ?? '').trim(),
+        underlined: getComputedStyle(a).textDecorationLine.includes('underline'),
+      })),
+    );
+    expect(links.length, "the fixture's figures are drawn").toBeGreaterThanOrEqual(25);
+    expect(
+      links.filter((l) => !l.underlined).map((l) => l.text),
+      'every figure link is underlined',
+    ).toEqual([]);
+    const zero = await page.evaluate(() => {
+      const cell = [...document.querySelectorAll('td')].find(
+        (td) => (td.textContent ?? '').trim() === '0',
+      );
+      return cell ? getComputedStyle(cell).textDecorationLine : 'no zero cell';
+    });
+    expect(zero, 'a zero is not underlined').toBe('none');
+    const first = page.getByRole('link', { name: '1284 new jobs' });
+    await first.focus();
+    const ring = await first.evaluate((a) => {
+      const s = getComputedStyle(a);
+      return s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0;
+    });
+    expect(ring, 'a focused figure shows its focus ring').toBe(true);
+  });
+}
