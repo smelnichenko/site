@@ -1844,6 +1844,29 @@ a.muted,
   font-variant-numeric: tabular-nums;
 }
 
+/* A report figure that leads to the rows it counts. Underlined: in a tile the number is the accent colour whether it is
+   a link or a plain-text zero, and colour alone would not tell them apart. */
+.masi-figure-link {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+/* What a list is narrowed to, and the way back: one line where it fits, the button under the words where not */
+.masi-figure-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.masi-figure-filter > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* a board's own title may be one unbroken token: it wraps in its cell, never widens the table past the card */
+.masi-listing-url {
+  overflow-wrap: anywhere;
+}
+
 /* ---- masi calendar ---- */
 .masi-calendar-header {
   flex-wrap: wrap;

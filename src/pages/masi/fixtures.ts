@@ -141,3 +141,33 @@ export const sendPreview = {
   lastSend: null,
   hash: 'h1',
 };
+
+/** Two boards' cards: one still up, one that closed in the DST week of the report fixtures. */
+export const listings = [
+  {
+    id: 41,
+    url: 'https://cv.ee/vacancy/41',
+    title: 'Senior Java Developer (Spring)',
+    sourceKey: 'cvee',
+    sourceName: 'cv.ee',
+    jobId: 7,
+    jobTitle: 'Senior Java Developer',
+    companyId: 3,
+    companyName: 'Nortal AS',
+    firstSeenAt: '2026-03-20T10:00:00Z',
+    closedAt: '2026-03-25T10:00:00Z',
+  },
+  {
+    id: 42,
+    url: 'https://www.linkedin.com/jobs/view/4200000000000000000000-an-unbroken-reference-that-must-wrap',
+    title: 'Backend Engineer',
+    sourceKey: 'linkedin',
+    sourceName: 'LinkedIn',
+    jobId: 8,
+    jobTitle: 'Backend Engineer',
+    companyId: null,
+    companyName: null,
+    firstSeenAt: '2026-03-23T08:00:00Z',
+    closedAt: null,
+  },
+];

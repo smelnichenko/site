@@ -92,6 +92,45 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
     { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
     { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
     {
+      name: 'a weekly report, every figure a link',
+      path: '/masi/reports/5',
+      ready: '.masi-figure-link',
+      // eleven: the bolt source's zeros are text, and this fixture's salary is an old masi's (no list holds its rows)
+      drawn: { '.masi-figure-link': [11, '1 reposted'] },
+    },
+    {
+      name: "a monthly report at the registry's size, every figure a link",
+      path: '/masi/reports/6',
+      ready: '.masi-figure-link',
+      widths: [360, 390, 768, 1366],
+      drawn: { '.masi-figure-link': [16, '312 postings in other currencies'] },
+    },
+    {
+      name: 'the jobs a report figure leads to',
+      path: '/masi/jobs?event=CLOSED&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z&salary=EXCLUDED&company=3',
+      ready: '.masi-figure-filter',
+      widths: [360, 390, 1366],
+      drawn: {
+        '.masi-figure-filter': [1, 'closed 23 Mar 2026 – 29 Mar 2026 · salary not counted'],
+      },
+    },
+    {
+      name: 'the packages a report figure leads to',
+      path: '/masi/packages?event=APPLIED&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+      ready: '.masi-figure-filter',
+      drawn: { '.masi-figure-filter': [1, 'applied 23 Mar 2026 – 29 Mar 2026'], 'tbody tr': [2] },
+    },
+    {
+      name: 'the listings a report figure leads to',
+      path: '/masi/listings?event=CLOSED&source=cvee&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+      ready: 'table',
+      widths: [360, 390, 1366],
+      drawn: {
+        '.masi-figure-filter': [1, 'closed 23 Mar 2026 – 29 Mar 2026 · on cvee'],
+        'tbody tr': [3, UNBROKEN_PART],
+      },
+    },
+    {
       name: 'calendar month',
       path: '/masi/calendar?view=month&day=2026-09-22',
       ready: '.masi-month',

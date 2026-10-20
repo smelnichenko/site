@@ -15,9 +15,11 @@ import type {
   MasiCompanyVisits,
   MasiPerson,
   MasiJob,
+  MasiListingRow,
   MasiMatch,
   MasiPackage,
   MasiPackageSend,
+  MasiReport,
   MasiSendPreview,
   Paged,
   PagedResponse,
@@ -26,7 +28,8 @@ import type {
   RssOptions,
 } from '../src/services/api';
 import { readFileSync } from 'node:fs';
-import { job, prepared, sendPreview } from '../src/pages/masi/fixtures';
+import { job, listings as listingRows, prepared, sendPreview } from '../src/pages/masi/fixtures';
+import { report } from '../src/pages/masi/statsFixture';
 
 /** The real masi answer the Match card's unit test uses (a JSON file: read, not imported, in Node). */
 const aiMatch: unknown = JSON.parse(
@@ -297,6 +300,59 @@ function calendar(from: string, to: string): MasiCalendar {
     },
   };
 }
+
+/**
+ * A month's report at the registry's real size: four-digit figures in the tiles, a source and a company with long names,
+ * every figure a link (none zero but one source's), and salaries left out - every link a report can draw, at once.
+ */
+const bigReport: MasiReport = {
+  ...report,
+  id: 6,
+  kind: 'MONTHLY',
+  stats: {
+    ...report.stats,
+    registry: {
+      newJobs: 1284,
+      closedJobs: 1107,
+      repostedJobs: 96,
+      newListings: 2391,
+      closedListings: 2210,
+      medianListingLifetimeHours: 412.5,
+    },
+    sources: [
+      ...report.stats.sources,
+      {
+        key: 'tootukassa',
+        name: 'Eesti Töötukassa töövahenduse portaal (töökohad ja praktikakohad)',
+        newListings: 1318,
+        closedListings: 1206,
+        runs: { OK: 30, ERROR: 1 },
+      },
+    ],
+    topCompanies: [
+      { id: 3, name: `${LONG_TITLE} AS`, newJobs: 112 },
+      { id: 4, name: null, newJobs: 9 },
+      { id: 5, name: 'Bolt Operations OÜ', newJobs: 87 },
+    ],
+    salary: {
+      posted: 734,
+      lowest: 1100,
+      medianMin: 3200,
+      medianMax: 4800,
+      highest: 14000,
+      excluded: 312,
+    },
+    funnel: { requested: 1024, applied: 381, averagePackageCostUsd: 0.21 },
+  },
+};
+
+/** The listings a report's figure leads to: one with a board title as long as a URL, unbroken. */
+const listingPage: Paged<MasiListingRow> = {
+  content: [...listingRows, { ...listingRows[1], id: 43, title: UNBROKEN }],
+  page: 0,
+  size: 50,
+  totalElements: 3,
+};
 
 const jobs: Paged<MasiJob> = {
   content: [
@@ -753,6 +809,9 @@ export function answer(url: URL): Answer | undefined {
     [/^\/persons\/\d+$/, () => ({ status: 200, body: person })],
     [/^\/activity$/, () => ({ status: 200, body: { ...none, size: 20 } })],
     [/^\/packages\/retune$/, () => ({ status: 200, body: { count: 12, estimatedUsd: 3.42 } })],
+    [/^\/reports\/5$/, () => ({ status: 200, body: report })],
+    [/^\/reports\/6$/, () => ({ status: 200, body: bigReport })],
+    [/^\/listings$/, () => ({ status: 200, body: listingPage })],
   ];
   const hit = routes.find(([re]) => re.test(path));
   return hit ? hit[1]() : undefined;

@@ -5,6 +5,8 @@ import MasiNav from '../../components/MasiNav';
 import { badgeClass, errorMessage, formatDate, PACKAGE_STATES, pageParam } from './format';
 import MasiTable from '../../components/MasiTable';
 import SourceMarks from './SourceMarks';
+import FigureFilterNote from './FigureFilterNote';
+import { figureParams, JOB_EVENTS, SALARY_FIGURES, windowLabel } from './figureLinks';
 
 const PAGE_SIZE = 50;
 /** The forms of work masi tells apart, as the filter offers them; anything else in the URL is not passed on. */
@@ -24,12 +26,22 @@ function employmentParam(value: string | null): MasiEmploymentType | '' {
 /** The orders the page offers; anything else in the URL is not passed on. Newest first is the server's default: no parameter. */
 const BY_MATCH = 'match,desc';
 
+/** How the report filter reads: "closed 12 Oct 2026 – 18 Oct 2026". */
+const EVENT_WORDS = { NEW: 'first seen', CLOSED: 'closed', REPOSTED: 'reposted' } as const;
+const SALARY_WORDS = { COUNTED: 'salary counted', EXCLUDED: 'salary not counted' } as const;
+/** The report filter's parameters: clearing it drops them all, and nothing else. */
+const FIGURE_KEYS = ['event', 'from', 'to', 'salary'];
+
 /** The registry: filters live in the URL so a view can be shared and comes back after a reload. */
 export default function MasiJobs() {
   const [params, setParams] = useSearchParams();
   const [page, setPage] = useState<Paged<MasiJob> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const status = params.get('status') ?? 'OPEN';
+  // a report figure's jobs: what happened to them in the report's period, as masi counted them
+  const figure = figureParams(params, JOB_EVENTS);
+  const salary = SALARY_FIGURES.find((f) => f === params.get('salary'));
+  // a figure counts jobs of every status (a job closed in the week is mostly closed now): so does its list, unless asked
+  const status = params.get('status') ?? (figure ? 'ALL' : 'OPEN');
   const q = params.get('q') ?? '';
   const remote = params.get('remote') ?? '';
   const packageStatus = params.get('packageStatus') ?? '';
@@ -51,6 +63,10 @@ export default function MasiJobs() {
         country: country || undefined,
         company: company ? Number(company) : undefined,
         sort: sort || undefined,
+        event: figure?.event,
+        from: figure?.from,
+        to: figure?.to,
+        salary,
         page: pageNo,
         size: PAGE_SIZE,
       },
@@ -64,7 +80,22 @@ export default function MasiJobs() {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load jobs'));
       });
     return () => controller.abort();
-  }, [status, q, remote, packageStatus, employmentType, country, company, sort, pageNo]);
+    // the figure's three parts are primitives: an object would be new on every render and refetch for ever
+  }, [
+    status,
+    q,
+    remote,
+    packageStatus,
+    employmentType,
+    country,
+    company,
+    sort,
+    figure?.event,
+    figure?.from,
+    figure?.to,
+    salary,
+    pageNo,
+  ]);
 
   function set(key: string, value: string) {
     setAll({ [key]: value });
@@ -184,6 +215,17 @@ export default function MasiJobs() {
             </button>
           )}
         </form>
+        {(figure || salary) && (
+          <FigureFilterNote
+            parts={[
+              ...(figure
+                ? [`${EVENT_WORDS[figure.event]} ${windowLabel(figure.from, figure.to)}`]
+                : []),
+              ...(salary ? [SALARY_WORDS[salary]] : []),
+            ]}
+            onClear={() => setAll(Object.fromEntries(FIGURE_KEYS.map((k) => [k, ''])))}
+          />
+        )}
         {error && (
           <div className="error" role="alert">
             {error}

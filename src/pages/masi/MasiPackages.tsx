@@ -10,11 +10,17 @@ import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDateTime, formatUsd, PACKAGE_STATES } from './format';
 import MasiTable from '../../components/MasiTable';
+import FigureFilterNote from './FigureFilterNote';
+import { figureParams, PACKAGE_EVENTS, windowLabel } from './figureLinks';
+
+const EVENT_WORDS = { REQUESTED: 'requested', APPLIED: 'applied' } as const;
 
 /** The review queue: every package of the caller by state, and the explicit backlog re-tune with its estimate first. */
 export default function MasiPackages() {
   const [params, setParams] = useSearchParams();
-  const status = params.get('status') ?? 'PREPARED';
+  // a report's funnel figure: the packages requested or applied in its period, in whatever state they are now
+  const figure = figureParams(params, PACKAGE_EVENTS);
+  const status = params.get('status') ?? (figure ? 'ALL' : 'PREPARED');
   const [list, setList] = useState<MasiPackage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<{ count: number; estimatedUsd: number } | null>(null);
@@ -23,7 +29,15 @@ export default function MasiPackages() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchMasiPackages({ status: status === 'ALL' ? undefined : status }, controller.signal)
+    fetchMasiPackages(
+      {
+        status: status === 'ALL' ? undefined : status,
+        event: figure?.event,
+        from: figure?.from,
+        to: figure?.to,
+      },
+      controller.signal,
+    )
       .then((l) => {
         setList(l);
         setError(null);
@@ -32,7 +46,18 @@ export default function MasiPackages() {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load packages'));
       });
     return () => controller.abort();
-  }, [status]);
+    // the figure's parts, not the object: a new one each render would refetch for ever
+  }, [status, figure?.event, figure?.from, figure?.to]);
+
+  /** Sets (or, with '', drops) parameters and keeps the rest: a state chosen keeps the report's period. */
+  function setAll(values: Record<string, string>) {
+    const next = new URLSearchParams(params);
+    for (const [key, value] of Object.entries(values)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    setParams(next);
+  }
 
   async function onEstimate() {
     setBusy(true);
@@ -71,7 +96,7 @@ export default function MasiPackages() {
           <select
             aria-label="State"
             value={status}
-            onChange={(e) => setParams({ status: e.target.value })}
+            onChange={(e) => setAll({ status: e.target.value })}
           >
             {PACKAGE_STATES.map((s) => (
               <option key={s} value={s}>
@@ -81,13 +106,23 @@ export default function MasiPackages() {
             <option value="ALL">all</option>
           </select>
         </div>
+        {figure && (
+          <FigureFilterNote
+            parts={[`${EVENT_WORDS[figure.event]} ${windowLabel(figure.from, figure.to)}`]}
+            onClear={() => setAll({ event: '', from: '', to: '' })}
+          />
+        )}
         {error && (
           <div className="error" role="alert">
             {error}
           </div>
         )}
         {!list && !error && <div className="loading">Loading packages...</div>}
-        {list?.length === 0 && <div className="empty-state">Nothing in this state.</div>}
+        {list?.length === 0 && (
+          <div className="empty-state">
+            {figure ? 'No package of yours matches.' : 'Nothing in this state.'}
+          </div>
+        )}
         {list && list.length > 0 && (
           <MasiTable label="Packages">
             <thead>
