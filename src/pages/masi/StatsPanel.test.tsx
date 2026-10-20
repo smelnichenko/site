@@ -95,6 +95,14 @@ describe('StatsPanel salary', () => {
     expect(card).toHaveTextContent('2 postings in other currencies or with no period, not counted');
   });
 
+  it('reads a report stored before masi read the unit (excluded: null) as the old figures, with no EUR', () => {
+    render(<StatsPanel stats={{ ...stats, salary: { ...salary, excluded: null } }} />);
+    const card = region(/^Salary \(posted on 2 new jobs\)$/);
+    expect(card).toHaveTextContent('2500 – 12000 · median 2750 to 4500');
+    expect(card).not.toHaveTextContent('EUR');
+    expect(card).not.toHaveTextContent('not counted');
+  });
+
   it("keeps today's line for the old masi, whose figures are no full-time euros and which counts none out", () => {
     render(<StatsPanel stats={{ ...stats, salary }} />);
     const card = region(/^Salary \(posted on 2 new jobs\)$/);

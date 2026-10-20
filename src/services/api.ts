@@ -2515,7 +2515,8 @@ export interface MasiStats {
   techTags: Record<string, number>;
   /**
    * Over the new jobs that posted a figure in euros of a stated period, as euros a full-time month. A masi from before
-   * it read the unit sends no `excluded`, and its figures are the sources' own numbers in whatever unit they had.
+   * it read the unit sends no `excluded`, and a report stored before then has `excluded: null`: in both the figures are
+   * the sources' own numbers in whatever unit they had.
    */
   salary: {
     posted: number;
@@ -2524,7 +2525,7 @@ export interface MasiStats {
     medianMax: number | null;
     highest: number | null;
     /** New jobs whose figure is in another currency or of no stated period: counted and left out. */
-    excluded?: number;
+    excluded?: number | null;
   };
   funnel: { requested: number; applied: number; averagePackageCostUsd: number | null };
   llm: {

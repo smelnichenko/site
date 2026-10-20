@@ -62,12 +62,14 @@ function excludedLine(n: number): string {
 
 /**
  * The period's salary figures. A masi that reads the unit sends `excluded` and its figures are euros a full-time month
- * (the postings in another currency or of no stated period counted apart); an older one sends no `excluded`, and its
- * figures are the sources' own numbers in whatever unit they had: shown as they always were, with no unit.
+ * (the postings in another currency or of no stated period counted apart). An older one sends no `excluded`, and a
+ * report stored before the unit was read has `excluded: null`: in both the figures are the sources' own numbers in
+ * whatever unit they had, shown as they always were, with no unit.
  */
 function SalaryCard({ salary }: Readonly<{ salary: MasiStats['salary'] }>) {
   const titleId = useId();
-  const fullTime = salary.excluded !== undefined;
+  // != null: a live answer of the old masi has no `excluded`, a report it stored has `excluded: null`
+  const fullTime = salary.excluded != null;
   return (
     <section className="card" aria-labelledby={titleId}>
       <div className="card-title" id={titleId}>
