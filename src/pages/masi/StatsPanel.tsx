@@ -156,6 +156,8 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
   }));
   const w = { from: stats.from, to: stats.to };
   const r = stats.registry;
+  // closes and reposts of a report stored before they were counted as rows: a list would hold fewer, so no link
+  const exact = r.rowsExact === true;
   return (
     <div className="masi-stats">
       <div className="muted">
@@ -174,7 +176,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
           <span className="muted">
             <FigureLink
               value={r.closedJobs}
-              to={jobsLink(w, 'CLOSED')}
+              to={exact ? jobsLink(w, 'CLOSED') : null}
               name={counted(r.closedJobs, 'closed job', 'closed jobs')}
             >
               {r.closedJobs} closed
@@ -184,7 +186,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
                 {' · '}
                 <FigureLink
                   value={r.repostedJobs}
-                  to={jobsLink(w, 'REPOSTED')}
+                  to={exact ? jobsLink(w, 'REPOSTED') : null}
                   name={counted(r.repostedJobs, 'reposted job', 'reposted jobs')}
                 >
                   {r.repostedJobs} reposted
@@ -205,7 +207,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
           <span className="muted">
             <FigureLink
               value={r.closedListings}
-              to={listingsLink(w, 'CLOSED')}
+              to={exact ? listingsLink(w, 'CLOSED') : null}
               name={counted(r.closedListings, 'closed listing', 'closed listings')}
             >
               {r.closedListings} closed
@@ -322,7 +324,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
                 <td>
                   <FigureLink
                     value={s.closedListings}
-                    to={listingsLink(w, 'CLOSED', s.key)}
+                    to={exact ? listingsLink(w, 'CLOSED', s.key) : null}
                     name={`${counted(s.closedListings, 'closed listing', 'closed listings')} on ${s.name}`}
                   />
                 </td>

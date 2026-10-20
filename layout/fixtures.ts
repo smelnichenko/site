@@ -318,6 +318,7 @@ const bigReport: MasiReport = {
       newListings: 2391,
       closedListings: 2210,
       medianListingLifetimeHours: 412.5,
+      rowsExact: true,
     },
     sources: [
       ...report.stats.sources,

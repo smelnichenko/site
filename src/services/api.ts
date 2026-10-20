@@ -2552,6 +2552,11 @@ export interface MasiStats {
     newListings: number;
     closedListings: number;
     medianListingLifetimeHours: number | null;
+    /**
+     * True when the counts are of rows, as the lists they link to count them. A report stored before has none: its
+     * closed and reposted jobs and closed listings were log entries (a job closed twice was two).
+     */
+    rowsExact?: boolean | null;
   };
   sources: Array<{
     key: string;

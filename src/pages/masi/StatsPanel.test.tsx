@@ -245,6 +245,19 @@ describe('StatsPanel figures are links to their rows', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('does not link the closes and reposts of a report stored before they were counted as rows: their lists are shorter', () => {
+    // no rowsExact: masi counted those three figures as log entries then (a job closed twice was two)
+    const old = { ...stats.registry, rowsExact: undefined };
+    render(<StatsPanel stats={{ ...stats, registry: old }} />);
+    expect(screen.getByTestId('jobs-tile')).toHaveTextContent('1 closed · 1 reposted');
+    expect(
+      screen.queryByRole('link', { name: /closed job|reposted job|closed listing/ }),
+    ).not.toBeInTheDocument();
+    // the counts of rows it always had still lead to their lists
+    expect(screen.getByRole('link', { name: '2 new jobs' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '2 new listings on cv.ee' })).toBeInTheDocument();
+  });
+
   it('leaves a zero as plain text: a link to an empty list leads nowhere', () => {
     render(
       <StatsPanel

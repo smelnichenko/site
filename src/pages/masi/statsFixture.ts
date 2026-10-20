@@ -11,6 +11,7 @@ export const stats: MasiStats = {
     newListings: 2,
     closedListings: 1,
     medianListingLifetimeHours: 120,
+    rowsExact: true,
   },
   sources: [
     {
