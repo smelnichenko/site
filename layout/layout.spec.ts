@@ -95,15 +95,16 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       name: 'a weekly report, every figure a link',
       path: '/masi/reports/5',
       ready: '.masi-figure-link',
-      // twenty: the bolt source's zeros are text, and this fixture's salary is an old masi's (no list holds its rows)
-      drawn: { '.masi-figure-link': [20, '1 reposted'] },
+      // twenty-seven: the bolt source's zeros are text, and this fixture's salary is an old masi's (no list holds its
+      // rows); seven of them the outcomes'
+      drawn: { '.masi-figure-link': [27, '3 refused'] },
     },
     {
       name: "a monthly report at the registry's size, every figure a link",
       path: '/masi/reports/6',
       ready: '.masi-figure-link',
       widths: [360, 390, 768, 1366],
-      drawn: { '.masi-figure-link': [25, '312 postings in other currencies'] },
+      drawn: { '.masi-figure-link': [33, '312 postings in other currencies'] },
     },
     {
       name: 'the jobs a report figure leads to',
@@ -119,6 +120,23 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       path: '/masi/packages?event=APPLIED&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
       ready: '.masi-figure-filter',
       drawn: { '.masi-figure-filter': [1, 'applied 23 Mar 2026 – 29 Mar 2026'], 'tbody tr': [2] },
+    },
+    {
+      name: 'the interviews a report figure leads to',
+      path: '/masi/bookings?event=INTERVIEW_HELD&language=et&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+      ready: 'table',
+      widths: [360, 390, 1366],
+      drawn: {
+        '.masi-figure-filter': [1, 'interviews held 23 Mar 2026 – 29 Mar 2026 · applied in et'],
+        'tbody tr': [2, 'some-very-long-unbroken-reference'],
+      },
+    },
+    {
+      name: 'the responses a report figure leads to',
+      path: '/masi/activity?response=REJECTED&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+      ready: '.masi-figure-filter',
+      widths: [360, 1366],
+      drawn: { '.masi-figure-filter': [1, 'refused 23 Mar 2026 – 29 Mar 2026'] },
     },
     {
       name: 'the listings a report figure leads to',
@@ -1073,4 +1091,28 @@ test('the listings table fits a desktop card, a long board title wrapped', async
   });
   expect(m.cells, "the fixture's listings are drawn").toBe(3);
   expect(m.sideways, 'the table never scrolls sideways at 1366 px').toBeLessThanOrEqual(1);
+});
+
+/** A booking's title wraps between its words: no word of the fixture's is broken across two lines, at a phone's width. */
+test('booking titles wrap at words, at 390 px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await open(
+    page,
+    '/masi/bookings?event=INTERVIEW_HELD&language=et&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+    'table',
+  );
+  const broken = await page.evaluate(() =>
+    [...document.querySelectorAll('td.masi-booking-title')].flatMap((td) => {
+      const range = document.createRange();
+      const text = td.firstChild;
+      if (!text?.textContent) return [];
+      // a word broken across lines has its first and last letters on different lines
+      return [...text.textContent.matchAll(/[A-Za-z]{4,}/g)].flatMap((m) => {
+        range.setStart(text, m.index);
+        range.setEnd(text, m.index + m[0].length);
+        return range.getClientRects().length > 1 ? [m[0]] : [];
+      });
+    }),
+  );
+  expect(broken, 'no word is broken across lines').toEqual([]);
 });

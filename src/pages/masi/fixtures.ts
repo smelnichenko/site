@@ -171,3 +171,42 @@ export const listings = [
     closedAt: null,
   },
 ];
+
+/** Interviews the operator held, as masi's test data has them: DONE, on jobs applied to in Estonian. */
+export const bookings = [
+  {
+    id: 51,
+    kind: 'INTERVIEW' as const,
+    startsAt: '2026-03-25T10:00:00Z',
+    endsAt: '2026-03-25T11:00:00Z',
+    allDay: false,
+    title: 'TEST DATA interview',
+    jobId: 7,
+    jobTitle: 'Senior Java Developer',
+    companyId: 3,
+    companyName: 'Nortal AS',
+    contactId: null,
+    contactName: null,
+    location: null,
+    notes: null,
+    outcome: 'DONE' as const,
+  },
+  {
+    id: 52,
+    kind: 'INTERVIEW' as const,
+    startsAt: '2026-03-23T08:00:00Z',
+    endsAt: '2026-03-23T09:00:00Z',
+    allDay: false,
+    title:
+      'TEST DATA interview, a title as long as a calendar lets one be, with no break in some-very-long-unbroken-reference-0123456789',
+    jobId: 8,
+    jobTitle: 'Backend Engineer',
+    companyId: null,
+    companyName: null,
+    contactId: null,
+    contactName: null,
+    location: null,
+    notes: null,
+    outcome: 'DONE' as const,
+  },
+];

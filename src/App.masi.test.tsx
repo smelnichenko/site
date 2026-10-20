@@ -23,6 +23,9 @@ vi.mock('./services/api', async (importOriginal) => ({
   fetchMasiListings: vi
     .fn()
     .mockResolvedValue({ content: [], page: 0, size: 50, totalElements: 0 }),
+  fetchMasiBookings: vi
+    .fn()
+    .mockResolvedValue({ content: [], page: 0, size: 50, totalElements: 0 }),
   fetchMasiStats: vi.fn().mockRejectedValue(new Error('no stats in this test')),
   fetchMasiPersons: vi.fn().mockResolvedValue({ content: [], page: 0, size: 50, totalElements: 0 }),
   fetchMasiPerson: vi.fn().mockResolvedValue({
@@ -154,6 +157,27 @@ describe('masi routes and nav', () => {
     });
     renderApp('/masi/listings?event=NEW&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z');
     expect(await screen.findByText('No listings match.')).toBeInTheDocument();
+  });
+
+  it("renders /masi/bookings, where a report's interviews lead, for a JOBS holder only", async () => {
+    vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
+      email: 'me@example.com',
+      uuid: 'u1',
+      permissions: ['JOBS'],
+    });
+    const view = renderApp(
+      '/masi/bookings?event=INTERVIEW_HELD&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+    );
+    expect(await screen.findByText('No bookings match.')).toBeInTheDocument();
+    view.unmount();
+    vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
+      email: 'me@example.com',
+      uuid: 'u1',
+      permissions: ['METRICS'],
+    });
+    renderApp('/masi/bookings');
+    await screen.findByRole('navigation');
+    expect(screen.queryByText('No bookings match.')).not.toBeInTheDocument();
   });
 
   it('keeps /masi/listings from a holder without JOBS', async () => {

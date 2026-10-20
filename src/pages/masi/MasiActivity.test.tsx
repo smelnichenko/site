@@ -266,4 +266,35 @@ describe('MasiActivity', () => {
     renderAt('/masi/activity', '/masi/activity', <MasiActivity />);
     expect(await screen.findByText(/boom/)).toBeInTheDocument();
   });
+
+  it("shows a report's responses: the caller's rows of one kind in the period, named, and clears back to the log", async () => {
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: rows,
+      page: 0,
+      size: 50,
+      totalElements: 2,
+    });
+    const from = '2026-03-22T22:00:00Z';
+    const to = '2026-03-29T21:00:00Z';
+    renderAt(
+      `/masi/activity?response=REJECTED&from=${from}&to=${to}`,
+      '/masi/activity',
+      <MasiActivity />,
+    );
+    const note = await screen.findByRole('region', { name: 'Report filter' });
+    expect(note).toHaveTextContent('refused 23 Mar 2026 – 29 Mar 2026');
+    expect(vi.mocked(api.fetchMasiActivity).mock.calls[0][0]).toMatchObject({
+      response: 'REJECTED',
+      from,
+      to,
+    });
+    await userEvent.click(within(note).getByRole('button', { name: 'clear the report filter' }));
+    await waitFor(() =>
+      expect(api.fetchMasiActivity).toHaveBeenLastCalledWith(
+        expect.objectContaining({ response: undefined, from: undefined, to: undefined }),
+        expect.anything(),
+      ),
+    );
+    expect(screen.queryByRole('region', { name: 'Report filter' })).not.toBeInTheDocument();
+  });
 });

@@ -1,4 +1,5 @@
 import type {
+  MasiResponse,
   MasiJobEvent,
   MasiListingEvent,
   MasiPackageEvent,
@@ -46,12 +47,23 @@ export function packagesLink(w: FigureWindow, event: MasiPackageEvent): string {
   return link('/masi/packages', { event, from: w.from, to: w.to });
 }
 
+/** The interviews held in the period, of one language applied in if given. */
+export function interviewsLink(w: FigureWindow, language?: string): string {
+  return link('/masi/bookings', { event: 'INTERVIEW_HELD', from: w.from, to: w.to, language });
+}
+
+/** The caller's log rows of one response in the period. */
+export function responsesLink(w: FigureWindow, response: MasiResponse): string {
+  return link('/masi/activity', { response, from: w.from, to: w.to });
+}
+
 /** A figure filter read back from a list page's URL: all three parts and a known event, or nothing at all. */
 export function figureParams<E extends string>(
   params: URLSearchParams,
   events: readonly E[],
+  key = 'event',
 ): { event: E; from: string; to: string } | null {
-  const event = events.find((e) => e === params.get('event'));
+  const event = events.find((e) => e === params.get(key));
   const from = params.get('from');
   const to = params.get('to');
   if (!event || !from || !to) return null;
@@ -62,6 +74,17 @@ export const JOB_EVENTS: readonly MasiJobEvent[] = ['NEW', 'CLOSED', 'REPOSTED']
 export const LISTING_EVENTS: readonly MasiListingEvent[] = ['NEW', 'CLOSED'];
 export const PACKAGE_EVENTS: readonly MasiPackageEvent[] = ['REQUESTED', 'APPLIED'];
 export const SALARY_FIGURES: readonly MasiSalaryFigure[] = ['COUNTED', 'EXCLUDED'];
+export const BOOKING_EVENTS: readonly 'INTERVIEW_HELD'[] = ['INTERVIEW_HELD'];
+export const RESPONSES: readonly MasiResponse[] = ['REPLIED', 'INTERVIEW', 'OFFER', 'REJECTED'];
+/** A response as the report and the log's filter name it: "3 refused". */
+export const RESPONSE_WORDS: Record<MasiResponse, [string, string]> = {
+  REPLIED: ['replied', 'replied'],
+  INTERVIEW: ['invited to interview', 'invited to interview'],
+  OFFER: ['offer', 'offers'],
+  REJECTED: ['refused', 'refused'],
+};
+/** The language key masi gives the interviews whose application's language is not known. */
+export const NO_LANGUAGE = 'none';
 
 const DAY = new Intl.DateTimeFormat('en-GB', {
   timeZone: MASI_ZONE,

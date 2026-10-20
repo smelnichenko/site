@@ -6,6 +6,13 @@ import { MemoryRouter } from 'react-router-dom';
 import StatsPanel, { Bars } from './StatsPanel';
 import { stats } from './statsFixture';
 
+/** Where a link leads: its path and its query, as one object. */
+function target(name: string) {
+  const href = screen.getByRole('link', { name }).getAttribute('href') ?? '';
+  const url = new URL(href, 'https://pmon.dev');
+  return { path: url.pathname, ...Object.fromEntries(url.searchParams) };
+}
+
 /** The panel's figures are links: it renders under a router, as every page that shows it does. */
 function render(ui: ReactElement) {
   return renderBare(<MemoryRouter>{ui}</MemoryRouter>);
@@ -139,13 +146,6 @@ describe('periodLabel', () => {
 describe('StatsPanel figures are links to their rows', () => {
   const salary = { posted: 2, lowest: 2500, medianMin: 2750, medianMax: 4500, highest: 12000 };
   const window = { from: stats.from, to: stats.to };
-  /** Where a link leads: its path and its query, as one object. */
-  function target(name: string) {
-    const href = screen.getByRole('link', { name }).getAttribute('href') ?? '';
-    const url = new URL(href, 'https://pmon.dev');
-    return { path: url.pathname, ...Object.fromEntries(url.searchParams) };
-  }
-
   it('leads every count to the list of exactly its rows, with the report period in the URL', () => {
     render(<StatsPanel stats={{ ...stats, salary: { ...salary, excluded: 3 } }} />);
     expect(target('2 new jobs')).toEqual({ path: '/masi/jobs', event: 'NEW', ...window });
@@ -298,5 +298,74 @@ describe('StatsPanel figures are links to their rows', () => {
     expect(screen.getByRole('link', { name: '1 reposted job' })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole('link', { name: '2 new listings' })).toHaveFocus();
+  });
+});
+
+describe('StatsPanel outcomes', () => {
+  const window = { from: stats.from, to: stats.to };
+  it("shows the caller's interviews by language and the responses, each count a link to its rows", () => {
+    render(<StatsPanel stats={stats} />);
+    const section = screen.getByRole('region', { name: 'Outcomes' });
+    expect(section).toHaveTextContent(
+      '5 interviews held (et 3 · en 1 · language not known 1) · 1 replied · 2 invited to interview · 3 refused',
+    );
+    expect(target('5 interviews held')).toEqual({
+      path: '/masi/bookings',
+      event: 'INTERVIEW_HELD',
+      ...window,
+    });
+    expect(target('3 interviews applied in et')).toEqual({
+      path: '/masi/bookings',
+      event: 'INTERVIEW_HELD',
+      language: 'et',
+      ...window,
+    });
+    expect(target('1 interview, language not known')).toEqual({
+      path: '/masi/bookings',
+      event: 'INTERVIEW_HELD',
+      language: 'none',
+      ...window,
+    });
+    expect(target('3 refused')).toEqual({
+      path: '/masi/activity',
+      response: 'REJECTED',
+      ...window,
+    });
+    expect(target('2 invited to interview')).toEqual({
+      path: '/masi/activity',
+      response: 'INTERVIEW',
+      ...window,
+    });
+    expect(target('1 replied')).toEqual({ path: '/masi/activity', response: 'REPLIED', ...window });
+    // no offer in the period: not shown, and no link to an empty list
+    expect(within(section).queryByText(/offer/)).not.toBeInTheDocument();
+  });
+
+  it('says so when the caller had no interview and no response, with no links', () => {
+    render(
+      <StatsPanel
+        stats={{
+          ...stats,
+          outcomes: {
+            interviews: 0,
+            interviewsByLanguage: {},
+            responses: { REPLIED: 0, INTERVIEW: 0, OFFER: 0, REJECTED: 0 },
+          },
+        }}
+      />,
+    );
+    const section = screen.getByRole('region', { name: 'Outcomes' });
+    expect(section).toHaveTextContent('No interview held and no response logged in this period.');
+    expect(within(section).queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('hides the section on a report stored before masi counted outcomes', () => {
+    render(<StatsPanel stats={{ ...stats, outcomes: null }} />);
+    expect(screen.queryByRole('region', { name: 'Outcomes' })).not.toBeInTheDocument();
+    // a masi from before the outcomes sends no field at all
+    const older = { ...stats };
+    delete older.outcomes;
+    render(<StatsPanel stats={older} />);
+    expect(screen.queryByRole('region', { name: 'Outcomes' })).not.toBeInTheDocument();
   });
 });

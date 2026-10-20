@@ -1912,6 +1912,8 @@ export interface MasiActivityFilter {
   contact?: number;
   /** Everything with this person, at whichever company: their contacts' rows. */
   person?: number;
+  /** The caller's own rows of one employer response, as a report's outcomes count them. */
+  response?: MasiResponse;
   page?: number;
   size?: number;
 }
@@ -1964,6 +1966,25 @@ export interface MasiCalendarEvent {
   location: string | null;
   notes: string | null;
   outcome: 'NONE' | 'DONE' | 'CANCELLED' | 'NO_SHOW';
+}
+
+export interface MasiBookingFilter {
+  /** A report's interviews: the ones held (marked done) that started in [from, to). */
+  event?: 'INTERVIEW_HELD';
+  from?: string;
+  to?: string;
+  /** The language applied in; 'none' for the interviews whose language is not known. */
+  language?: string;
+  page?: number;
+  size?: number;
+}
+
+/** The caller's bookings, newest first. */
+export function fetchMasiBookings(
+  filter: MasiBookingFilter,
+  signal?: AbortSignal,
+): Promise<Paged<MasiCalendarEvent>> {
+  return masiGet(`/calendar/events${query({ ...filter })}`, signal, 'load the bookings');
 }
 
 /**
@@ -2585,6 +2606,11 @@ export interface MasiStats {
     excluded?: number | null;
   };
   funnel: { requested: number; applied: number; averagePackageCostUsd: number | null };
+  /**
+   * The caller's outcomes in the period: interviews held by the language applied in ('none': not known), and the
+   * responses their log holds by kind. Absent (or null) on a report stored before masi counted them.
+   */
+  outcomes?: MasiOutcomes | null;
   llm: {
     totalUsd: number;
     byPurpose: Record<string, number>;
@@ -2592,6 +2618,14 @@ export interface MasiStats {
     calls: Record<string, number>;
     tokens: { input: number; cacheRead: number; cacheWrite: number; output: number };
   };
+}
+
+export type MasiResponse = 'REPLIED' | 'INTERVIEW' | 'OFFER' | 'REJECTED';
+
+export interface MasiOutcomes {
+  interviews: number;
+  interviewsByLanguage: Record<string, number>;
+  responses: Record<MasiResponse, number>;
 }
 
 export interface MasiReportSummary {
