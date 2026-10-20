@@ -1473,9 +1473,27 @@ export interface MasiJobFilter {
   country?: string;
   /** "match,desc" orders by the caller's score, unscored jobs last; absent = newest first. */
   sort?: string;
+  /**
+   * A report figure's jobs: what happened to them in [from, to) - the period's instants, from in, to out. masi
+   * answers 400 for an event without both ends or ends without an event; with an event and no status, every status.
+   */
+  event?: MasiJobEvent;
+  from?: string;
+  to?: string;
+  /** The new jobs whose posted salary the stats read (COUNTED) or left out (EXCLUDED). */
+  salary?: MasiSalaryFigure;
+  /** A report bar's value: the normalised title, the seniority, one tech tag. */
+  titleNorm?: string;
+  seniority?: string;
+  tag?: string;
   page?: number;
   size?: number;
 }
+
+export type MasiJobEvent = 'NEW' | 'CLOSED' | 'REPOSTED';
+export type MasiListingEvent = 'NEW' | 'CLOSED';
+export type MasiPackageEvent = 'REQUESTED' | 'APPLIED';
+export type MasiSalaryFigure = 'COUNTED' | 'EXCLUDED';
 
 export interface MasiCompany {
   id: number;
@@ -1776,6 +1794,39 @@ export function fetchMasiJobs(
   signal?: AbortSignal,
 ): Promise<Paged<MasiJob>> {
   return masiGet(`/jobs${query({ ...filter })}`, signal, 'load jobs');
+}
+
+/** One board's card for a job, as the listings page shows it: its own title and URL, from when, and until when if it closed. */
+export interface MasiListingRow {
+  id: number;
+  url: string;
+  title: string;
+  sourceKey: string | null;
+  sourceName: string | null;
+  jobId: number;
+  jobTitle: string | null;
+  companyId: number | null;
+  companyName: string | null;
+  firstSeenAt: string;
+  closedAt: string | null;
+}
+
+export interface MasiListingFilter {
+  source?: string;
+  /** A report figure's listings in [from, to): first seen there, or closed there. */
+  event?: MasiListingEvent;
+  from?: string;
+  to?: string;
+  page?: number;
+  size?: number;
+}
+
+/** The listings, newest first. */
+export function fetchMasiListings(
+  filter: MasiListingFilter,
+  signal?: AbortSignal,
+): Promise<Paged<MasiListingRow>> {
+  return masiGet(`/listings${query({ ...filter })}`, signal, 'load listings');
 }
 
 export function fetchMasiJob(id: number, signal?: AbortSignal): Promise<MasiJob> {
@@ -2258,8 +2309,9 @@ export function fetchMasiSourceRuns(
   return masiGet(`/sources/${id}/runs?size=20`, signal, 'load runs');
 }
 
+/** The caller's packages; with an event and the period's from/to, exactly the ones a report's funnel figure counts. */
 export function fetchMasiPackages(
-  filter: { status?: string; job?: number },
+  filter: { status?: string; job?: number; event?: MasiPackageEvent; from?: string; to?: string },
   signal?: AbortSignal,
 ): Promise<MasiPackage[]> {
   return masiGet(`/packages${query({ ...filter })}`, signal, 'load packages');

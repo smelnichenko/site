@@ -46,4 +46,40 @@ describe('MasiPackages', () => {
       expect(vi.mocked(api.fetchMasiPackages).mock.calls[1][0]).toEqual({ status: 'APPLIED' }),
     );
   });
+
+  it("shows a report's funnel figure: the packages applied in the period, of every state, and clears back to the queue", async () => {
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([prepared]);
+    const from = '2026-03-22T22:00:00Z';
+    const to = '2026-03-29T21:00:00Z';
+    renderAt(
+      `/masi/packages?event=APPLIED&from=${from}&to=${to}`,
+      '/masi/packages',
+      <MasiPackages />,
+    );
+    expect(await screen.findByRole('link', { name: 'Senior Java Developer' })).toBeInTheDocument();
+    expect(vi.mocked(api.fetchMasiPackages).mock.calls[0][0]).toEqual({
+      event: 'APPLIED',
+      from,
+      to,
+    });
+    expect(screen.getByLabelText('State')).toHaveValue('ALL');
+    const note = screen.getByRole('region', { name: 'Report filter' });
+    expect(note).toHaveTextContent('applied 23 Mar 2026 – 29 Mar 2026');
+    // a state narrows the figure's packages and keeps the period
+    await userEvent.selectOptions(screen.getByLabelText('State'), 'PREPARED');
+    await waitFor(() =>
+      expect(api.fetchMasiPackages).toHaveBeenLastCalledWith(
+        { status: 'PREPARED', event: 'APPLIED', from, to },
+        expect.anything(),
+      ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'clear the report filter' }));
+    await waitFor(() =>
+      expect(api.fetchMasiPackages).toHaveBeenLastCalledWith(
+        { status: 'PREPARED' },
+        expect.anything(),
+      ),
+    );
+    expect(screen.queryByRole('region', { name: 'Report filter' })).not.toBeInTheDocument();
+  });
 });

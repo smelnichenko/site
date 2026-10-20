@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render as renderBare, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import StatsPanel, { Bars } from './StatsPanel';
 import { stats } from './statsFixture';
+
+/** The panel's figures are links: it renders under a router, as every page that shows it does. */
+function render(ui: ReactElement) {
+  return renderBare(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 describe('StatsPanel', () => {
   it('says nothing about reposts in a week without one', () => {
@@ -13,7 +21,9 @@ describe('StatsPanel', () => {
   it('shows the tiles, the bars scaled to the largest, the salary line and the sources', () => {
     render(<StatsPanel stats={stats} />);
     expect(screen.getByTestId('jobs-tile')).toHaveTextContent('2new jobs1 closed · 1 reposted');
-    expect(screen.getByText('1 closed · median lifetime 5.0 days')).toBeInTheDocument();
+    expect(screen.getByTestId('listings-tile')).toHaveTextContent(
+      '2new listings1 closed · median lifetime 5.0 days',
+    );
     const funnel = screen.getByTestId('funnel-tile');
     expect(funnel).toHaveTextContent('2 packages requested · $0.20 per package');
     expect(screen.getByTestId('llm-tile')).toHaveTextContent('$0.60');
@@ -49,7 +59,9 @@ describe('StatsPanel', () => {
         }}
       />,
     );
-    expect(screen.getByText('1 closed · median lifetime 36 h')).toBeInTheDocument();
+    expect(screen.getByTestId('listings-tile')).toHaveTextContent(
+      '1 closed · median lifetime 36 h',
+    );
     expect(
       within(screen.getByTestId('bars-Top hiring companies')).getByText('Nothing in this period.'),
     ).toBeInTheDocument();
@@ -121,5 +133,157 @@ describe('periodLabel', () => {
     expect(periodLabel('2026-09-30T21:00:00Z', '2026-10-31T22:00:00Z')).toBe(
       '1 Oct 2026 – 31 Oct 2026',
     );
+  });
+});
+
+describe('StatsPanel figures are links to their rows', () => {
+  const salary = { posted: 2, lowest: 2500, medianMin: 2750, medianMax: 4500, highest: 12000 };
+  const window = { from: stats.from, to: stats.to };
+  /** Where a link leads: its path and its query, as one object. */
+  function target(name: string) {
+    const href = screen.getByRole('link', { name }).getAttribute('href') ?? '';
+    const url = new URL(href, 'https://pmon.dev');
+    return { path: url.pathname, ...Object.fromEntries(url.searchParams) };
+  }
+
+  it('leads every count to the list of exactly its rows, with the report period in the URL', () => {
+    render(<StatsPanel stats={{ ...stats, salary: { ...salary, excluded: 3 } }} />);
+    expect(target('2 new jobs')).toEqual({ path: '/masi/jobs', event: 'NEW', ...window });
+    expect(target('1 closed job')).toEqual({ path: '/masi/jobs', event: 'CLOSED', ...window });
+    expect(target('1 reposted job')).toEqual({ path: '/masi/jobs', event: 'REPOSTED', ...window });
+    expect(target('2 new listings')).toEqual({ path: '/masi/listings', event: 'NEW', ...window });
+    expect(target('1 closed listing')).toEqual({
+      path: '/masi/listings',
+      event: 'CLOSED',
+      ...window,
+    });
+    expect(target('1 applied package')).toEqual({
+      path: '/masi/packages',
+      event: 'APPLIED',
+      ...window,
+    });
+    expect(target('2 packages requested')).toEqual({
+      path: '/masi/packages',
+      event: 'REQUESTED',
+      ...window,
+    });
+    expect(target('2 new listings on cv.ee')).toEqual({
+      path: '/masi/listings',
+      event: 'NEW',
+      source: 'cvee',
+      ...window,
+    });
+    expect(target('1 closed listing on cv.ee')).toEqual({
+      path: '/masi/listings',
+      event: 'CLOSED',
+      source: 'cvee',
+      ...window,
+    });
+    expect(target('2 new jobs at Nortal AS')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      company: '3',
+      ...window,
+    });
+    expect(target('1 new job at company 4')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      company: '4',
+      ...window,
+    });
+    const card = screen.getByRole('region', { name: /^Salary in full-time monthly EUR/ });
+    const posted = within(card).getByRole('link', { name: '2 new jobs with a salary counted' });
+    expect(new URL(posted.getAttribute('href') ?? '', 'https://pmon.dev').search).toBe(
+      `?event=NEW&from=${encodeURIComponent(stats.from)}&to=${encodeURIComponent(stats.to)}&salary=COUNTED`,
+    );
+    expect(target('3 postings in other currencies or with no period, not counted')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      salary: 'EXCLUDED',
+      ...window,
+    });
+  });
+
+  it("leads each bar of the period's new jobs to those jobs: by title, tag, remote and seniority", () => {
+    render(<StatsPanel stats={{ ...stats, remote: { UNKNOWN: 3, HYBRID: 1 } }} />);
+    expect(target('2 new jobs titled java developer')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      titleNorm: 'java developer',
+      ...window,
+    });
+    expect(target('2 new jobs tagged java')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      tag: 'java',
+      ...window,
+    });
+    expect(target('3 new jobs, remote not stated')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      remote: 'UNKNOWN',
+      ...window,
+    });
+    expect(target('1 new job, remote HYBRID')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      remote: 'HYBRID',
+      ...window,
+    });
+    expect(target('1 new job of seniority senior')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      seniority: 'senior',
+      ...window,
+    });
+    // money is no count of rows: the cost bars stay text
+    expect(
+      within(screen.getByTestId('bars-LLM cost by purpose')).queryByRole('link'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('bars-Runs per source')).queryByRole('link'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('leaves a zero as plain text: a link to an empty list leads nowhere', () => {
+    render(
+      <StatsPanel
+        stats={{
+          ...stats,
+          registry: { ...stats.registry, closedJobs: 0, repostedJobs: 0 },
+          funnel: { requested: 0, applied: 0, averagePackageCostUsd: null },
+          salary: { ...salary, excluded: 0 },
+        }}
+      />,
+    );
+    // the source with no listings in the period: its two zeros are text in its row, not links
+    const bolt = screen.getByRole('row', { name: /Bolt careers/ });
+    expect(within(bolt).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(bolt).getAllByRole('cell', { name: '0' })).toHaveLength(2);
+    expect(screen.getByTestId('jobs-tile')).toHaveTextContent('0 closed');
+    expect(screen.queryByRole('link', { name: /closed job/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /package/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId('funnel-tile')).toHaveTextContent('0applied0 packages requested');
+    // the counts that are not zero still lead somewhere
+    expect(screen.getByRole('link', { name: '2 new jobs at Nortal AS' })).toBeInTheDocument();
+  });
+
+  it("does not link the salary count of a report stored before masi read the unit: no list holds that count's rows", () => {
+    render(<StatsPanel stats={{ ...stats, salary: { ...salary, excluded: null } }} />);
+    const card = screen.getByRole('region', { name: /^Salary \(posted on 2 new jobs\)$/ });
+    expect(within(card).queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('reaches the figures from the keyboard, in the order they are read', async () => {
+    render(<StatsPanel stats={stats} />);
+    const user = userEvent.setup();
+    await user.tab();
+    expect(screen.getByRole('link', { name: '2 new jobs' })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('link', { name: '1 closed job' })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('link', { name: '1 reposted job' })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('link', { name: '2 new listings' })).toHaveFocus();
   });
 });

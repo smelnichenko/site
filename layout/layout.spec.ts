@@ -92,6 +92,45 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
     { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
     { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
     {
+      name: 'a weekly report, every figure a link',
+      path: '/masi/reports/5',
+      ready: '.masi-figure-link',
+      // twenty: the bolt source's zeros are text, and this fixture's salary is an old masi's (no list holds its rows)
+      drawn: { '.masi-figure-link': [20, '1 reposted'] },
+    },
+    {
+      name: "a monthly report at the registry's size, every figure a link",
+      path: '/masi/reports/6',
+      ready: '.masi-figure-link',
+      widths: [360, 390, 768, 1366],
+      drawn: { '.masi-figure-link': [25, '312 postings in other currencies'] },
+    },
+    {
+      name: 'the jobs a report figure leads to',
+      path: '/masi/jobs?event=CLOSED&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z&salary=EXCLUDED&company=3',
+      ready: '.masi-figure-filter',
+      widths: [360, 390, 1366],
+      drawn: {
+        '.masi-figure-filter': [1, 'closed 23 Mar 2026 – 29 Mar 2026 · salary not counted'],
+      },
+    },
+    {
+      name: 'the packages a report figure leads to',
+      path: '/masi/packages?event=APPLIED&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+      ready: '.masi-figure-filter',
+      drawn: { '.masi-figure-filter': [1, 'applied 23 Mar 2026 – 29 Mar 2026'], 'tbody tr': [2] },
+    },
+    {
+      name: 'the listings a report figure leads to',
+      path: '/masi/listings?event=CLOSED&source=cvee&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+      ready: 'table',
+      widths: [360, 390, 1366],
+      drawn: {
+        '.masi-figure-filter': [1, 'closed 23 Mar 2026 – 29 Mar 2026 · on cvee'],
+        'tbody tr': [3, UNBROKEN_PART],
+      },
+    },
+    {
       name: 'calendar month',
       path: '/masi/calendar?view=month&day=2026-09-22',
       ready: '.masi-month',
@@ -976,3 +1015,62 @@ for (const width of [360, 1366]) {
     expect(box && box.x + box.width, 'inside the viewport').toBeLessThanOrEqual(width);
   });
 }
+
+/**
+ * A report's figures at a phone's width and a desktop's: each link underlined - in a tile the number is the accent colour
+ * whether it links or is a plain zero, so colour alone would not say which - and with a visible focus ring when tabbed to.
+ */
+for (const width of [390, 1366]) {
+  test(`report figures read as links, and show where focus is, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/reports/6', '.masi-figure-link');
+    const links = await page.evaluate(() =>
+      [...document.querySelectorAll('.masi-figure-link')].map((a) => ({
+        text: (a.textContent ?? '').trim(),
+        underlined: getComputedStyle(a).textDecorationLine.includes('underline'),
+      })),
+    );
+    expect(links.length, "the fixture's figures are drawn").toBeGreaterThanOrEqual(25);
+    expect(
+      links.filter((l) => !l.underlined).map((l) => l.text),
+      'every figure link is underlined',
+    ).toEqual([]);
+    const zero = await page.evaluate(() => {
+      const cell = [...document.querySelectorAll('td')].find(
+        (td) => (td.textContent ?? '').trim() === '0',
+      );
+      return cell ? getComputedStyle(cell).textDecorationLine : 'no zero cell';
+    });
+    expect(zero, 'a zero is not underlined').toBe('none');
+    const first = page.getByRole('link', { name: '1284 new jobs' });
+    await first.focus();
+    const ring = await first.evaluate((a) => {
+      const s = getComputedStyle(a);
+      return s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0;
+    });
+    expect(ring, 'a focused figure shows its focus ring').toBe(true);
+  });
+}
+
+/** The listings at a desktop's width: a board title as long as a URL wraps in its cell, the table fits its card. */
+test('the listings table fits a desktop card, a long board title wrapped', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await open(
+    page,
+    '/masi/listings?event=CLOSED&source=cvee&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+    'table',
+  );
+  const m = await page.evaluate(() => {
+    const scroller = document.querySelector('.masi-table-scroll');
+    const cells = [...document.querySelectorAll('td.masi-listing-url')];
+    return {
+      sideways: scroller ? scroller.scrollWidth - scroller.clientWidth : NaN,
+      tallest: Math.max(...cells.map((c) => c.getBoundingClientRect().height)),
+      cells: cells.length,
+    };
+  });
+  expect(m.cells, "the fixture's listings are drawn").toBe(3);
+  expect(m.sideways, 'the table never scrolls sideways at 1366 px').toBeLessThanOrEqual(1);
+});

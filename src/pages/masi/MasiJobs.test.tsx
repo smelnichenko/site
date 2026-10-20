@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import MasiJobs from './MasiJobs';
 import { job, renderAt } from './testUtils';
 
@@ -301,5 +301,149 @@ describe('MasiJobs', () => {
     renderAt('/masi/jobs?sort=salary,asc', '/masi/jobs', <MasiJobs />);
     await screen.findByText('No jobs match.');
     expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0].sort).toBeUndefined();
+  });
+
+  describe("a report figure's jobs", () => {
+    const from = '2026-03-22T22:00:00Z';
+    const to = '2026-03-29T21:00:00Z';
+    const page = { content: [job], page: 0, size: 50, totalElements: 1 };
+
+    it('asks for every status, names the period, and clears back to the open registry', async () => {
+      vi.mocked(api.fetchMasiJobs).mockResolvedValue(page);
+      /** The page's URL, as the address bar would show it after a clear. */
+      function Search() {
+        return <output data-testid="search">{useLocation().search}</output>;
+      }
+      render(
+        <MemoryRouter initialEntries={[`/masi/jobs?event=CLOSED&from=${from}&to=${to}&q=java`]}>
+          <Routes>
+            <Route
+              path="/masi/jobs"
+              element={
+                <>
+                  <MasiJobs />
+                  <Search />
+                </>
+              }
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+      expect(await screen.findByText('1 matching')).toBeInTheDocument();
+      expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0]).toMatchObject({
+        status: 'ALL',
+        event: 'CLOSED',
+        from,
+        to,
+      });
+      expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('ALL');
+      const note = screen.getByRole('region', { name: 'Report filter' });
+      expect(note).toHaveTextContent('closed 23 Mar 2026 – 29 Mar 2026');
+      await userEvent.click(within(note).getByRole('button', { name: 'clear the report filter' }));
+      await waitFor(() =>
+        expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            status: 'OPEN',
+            event: undefined,
+            from: undefined,
+            to: undefined,
+          }),
+          expect.anything(),
+        ),
+      );
+      expect(screen.queryByRole('region', { name: 'Report filter' })).not.toBeInTheDocument();
+      // the figure's parameters are gone from the URL, every one; the operator's own search stays
+      expect(screen.getByTestId('search')).toHaveTextContent(/^\?q=java$/);
+    });
+
+    it("keeps a status the URL names, and names a top company's or the salary's figure", async () => {
+      vi.mocked(api.fetchMasiJobs).mockResolvedValue(page);
+      renderAt(
+        `/masi/jobs?event=NEW&from=${from}&to=${to}&salary=EXCLUDED&company=3&status=CLOSED`,
+        '/masi/jobs',
+        <MasiJobs />,
+      );
+      expect(await screen.findByText('1 matching')).toBeInTheDocument();
+      expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0]).toMatchObject({
+        status: 'CLOSED',
+        event: 'NEW',
+        salary: 'EXCLUDED',
+        company: 3,
+        from,
+        to,
+      });
+      expect(screen.getByRole('region', { name: 'Report filter' })).toHaveTextContent(
+        'first seen 23 Mar 2026 – 29 Mar 2026 · salary not counted',
+      );
+    });
+
+    it('sends no half a figure: an event without its period is not passed on, nor is an unknown one', async () => {
+      vi.mocked(api.fetchMasiJobs).mockResolvedValue(page);
+      const view = renderAt(`/masi/jobs?event=CLOSED&from=${from}`, '/masi/jobs', <MasiJobs />);
+      expect(await screen.findByText('1 matching')).toBeInTheDocument();
+      expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0]).toMatchObject({
+        status: 'OPEN',
+        event: undefined,
+        from: undefined,
+        to: undefined,
+      });
+      expect(screen.queryByRole('region', { name: 'Report filter' })).not.toBeInTheDocument();
+      view.unmount();
+      renderAt(
+        `/masi/jobs?event=GONE&from=${from}&to=${to}&salary=SOME`,
+        '/masi/jobs',
+        <MasiJobs />,
+      );
+      expect(await screen.findByText('1 matching')).toBeInTheDocument();
+      expect(vi.mocked(api.fetchMasiJobs).mock.calls[1][0]).toMatchObject({
+        event: undefined,
+        salary: undefined,
+      });
+    });
+
+    it("reads a bar's value - title, tag, seniority, remote not stated - and names it", async () => {
+      vi.mocked(api.fetchMasiJobs).mockResolvedValue(page);
+      renderAt(
+        `/masi/jobs?event=NEW&from=${from}&to=${to}&titleNorm=java%20developer&tag=java&seniority=senior&remote=UNKNOWN`,
+        '/masi/jobs',
+        <MasiJobs />,
+      );
+      expect(await screen.findByText('1 matching')).toBeInTheDocument();
+      expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0]).toMatchObject({
+        event: 'NEW',
+        titleNorm: 'java developer',
+        tag: 'java',
+        seniority: 'senior',
+        remote: 'UNKNOWN',
+      });
+      // "not stated" is a choice the control shows, not a value it cannot display
+      expect(screen.getByRole('combobox', { name: 'Remote' })).toHaveDisplayValue(
+        'location not stated',
+      );
+      const note = screen.getByRole('region', { name: 'Report filter' });
+      expect(note).toHaveTextContent(
+        'first seen 23 Mar 2026 – 29 Mar 2026 · titled "java developer" · tagged java · seniority senior',
+      );
+      await userEvent.click(within(note).getByRole('button', { name: 'clear the report filter' }));
+      await waitFor(() =>
+        expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(
+          expect.objectContaining({ titleNorm: undefined, tag: undefined, seniority: undefined }),
+          expect.anything(),
+        ),
+      );
+    });
+
+    it('names a salary filter given without a period too: nothing narrows the list unseen', async () => {
+      vi.mocked(api.fetchMasiJobs).mockResolvedValue(page);
+      renderAt('/masi/jobs?salary=COUNTED', '/masi/jobs', <MasiJobs />);
+      expect(await screen.findByText('1 matching')).toBeInTheDocument();
+      expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0]).toMatchObject({
+        salary: 'COUNTED',
+        status: 'OPEN',
+      });
+      expect(screen.getByRole('region', { name: 'Report filter' })).toHaveTextContent(
+        'salary counted',
+      );
+    });
   });
 });
