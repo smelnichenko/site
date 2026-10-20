@@ -204,6 +204,47 @@ describe('StatsPanel figures are links to their rows', () => {
     });
   });
 
+  it("leads each bar of the period's new jobs to those jobs: by title, tag, remote and seniority", () => {
+    render(<StatsPanel stats={{ ...stats, remote: { UNKNOWN: 3, HYBRID: 1 } }} />);
+    expect(target('2 new jobs titled java developer')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      titleNorm: 'java developer',
+      ...window,
+    });
+    expect(target('2 new jobs tagged java')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      tag: 'java',
+      ...window,
+    });
+    expect(target('3 new jobs, remote not stated')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      remote: 'UNKNOWN',
+      ...window,
+    });
+    expect(target('1 new job, remote HYBRID')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      remote: 'HYBRID',
+      ...window,
+    });
+    expect(target('1 new job of seniority senior')).toEqual({
+      path: '/masi/jobs',
+      event: 'NEW',
+      seniority: 'senior',
+      ...window,
+    });
+    // money is no count of rows: the cost bars stay text
+    expect(
+      within(screen.getByTestId('bars-LLM cost by purpose')).queryByRole('link'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('bars-Runs per source')).queryByRole('link'),
+    ).not.toBeInTheDocument();
+  });
+
   it('leaves a zero as plain text: a link to an empty list leads nowhere', () => {
     render(
       <StatsPanel

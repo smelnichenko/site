@@ -50,10 +50,18 @@ export function Bars({
   );
 }
 
-function entries(record: Record<string, number>, dropZero = true): BarRow[] {
+/** `link`: where a row's value leads and what its link is called, or nothing for a bar of money. */
+function entries(
+  record: Record<string, number>,
+  link?: (label: string, value: number) => BarRow['link'],
+): BarRow[] {
   return Object.entries(record)
-    .filter(([, v]) => !dropZero || v > 0)
-    .map(([label, value]) => ({ label, value }));
+    .filter(([, v]) => v > 0)
+    .map(([label, value]) => ({ label, value, link: link?.(label, value) }));
+}
+
+function newJobs(n: number): string {
+  return counted(n, 'new job', 'new jobs');
 }
 
 function hours(h: number | null): string {
@@ -252,10 +260,38 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
             };
           })}
         />
-        <Bars title="Titles" rows={stats.titles.map((t) => ({ label: t.value, value: t.count }))} />
-        <Bars title="Tech tags" rows={entries(stats.techTags)} />
-        <Bars title="Remote" rows={entries(stats.remote)} />
-        <Bars title="Seniority" rows={entries(stats.seniority)} />
+        <Bars
+          title="Titles"
+          rows={stats.titles.map((t) => ({
+            label: t.value,
+            value: t.count,
+            link: {
+              to: jobsLink(w, 'NEW', { titleNorm: t.value }),
+              name: `${newJobs(t.count)} titled ${t.value}`,
+            },
+          }))}
+        />
+        <Bars
+          title="Tech tags"
+          rows={entries(stats.techTags, (tag, n) => ({
+            to: jobsLink(w, 'NEW', { tag }),
+            name: `${newJobs(n)} tagged ${tag}`,
+          }))}
+        />
+        <Bars
+          title="Remote"
+          rows={entries(stats.remote, (remote, n) => ({
+            to: jobsLink(w, 'NEW', { remote }),
+            name: `${newJobs(n)}, remote ${remote === 'UNKNOWN' ? 'not stated' : remote}`,
+          }))}
+        />
+        <Bars
+          title="Seniority"
+          rows={entries(stats.seniority, (seniority, n) => ({
+            to: jobsLink(w, 'NEW', { seniority }),
+            name: `${newJobs(n)} of seniority ${seniority}`,
+          }))}
+        />
         <Bars title="LLM cost by purpose" rows={entries(stats.llm.byPurpose)} unit="usd" />
         <Bars title="LLM cost by model" rows={entries(stats.llm.byModel)} unit="usd" />
         <Bars title="Runs per source" rows={runs} />

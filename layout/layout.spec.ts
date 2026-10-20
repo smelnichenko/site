@@ -95,15 +95,15 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       name: 'a weekly report, every figure a link',
       path: '/masi/reports/5',
       ready: '.masi-figure-link',
-      // eleven: the bolt source's zeros are text, and this fixture's salary is an old masi's (no list holds its rows)
-      drawn: { '.masi-figure-link': [11, '1 reposted'] },
+      // twenty: the bolt source's zeros are text, and this fixture's salary is an old masi's (no list holds its rows)
+      drawn: { '.masi-figure-link': [20, '1 reposted'] },
     },
     {
       name: "a monthly report at the registry's size, every figure a link",
       path: '/masi/reports/6',
       ready: '.masi-figure-link',
       widths: [360, 390, 768, 1366],
-      drawn: { '.masi-figure-link': [16, '312 postings in other currencies'] },
+      drawn: { '.masi-figure-link': [25, '312 postings in other currencies'] },
     },
     {
       name: 'the jobs a report figure leads to',

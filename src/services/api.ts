@@ -1482,6 +1482,10 @@ export interface MasiJobFilter {
   to?: string;
   /** The new jobs whose posted salary the stats read (COUNTED) or left out (EXCLUDED). */
   salary?: MasiSalaryFigure;
+  /** A report bar's value: the normalised title, the seniority, one tech tag. */
+  titleNorm?: string;
+  seniority?: string;
+  tag?: string;
   page?: number;
   size?: number;
 }

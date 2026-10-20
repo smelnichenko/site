@@ -30,7 +30,7 @@ const BY_MATCH = 'match,desc';
 const EVENT_WORDS = { NEW: 'first seen', CLOSED: 'closed', REPOSTED: 'reposted' } as const;
 const SALARY_WORDS = { COUNTED: 'salary counted', EXCLUDED: 'salary not counted' } as const;
 /** The report filter's parameters: clearing it drops them all, and nothing else. */
-const FIGURE_KEYS = ['event', 'from', 'to', 'salary'];
+const FIGURE_KEYS = ['event', 'from', 'to', 'salary', 'titleNorm', 'tag', 'seniority'];
 
 /** The registry: filters live in the URL so a view can be shared and comes back after a reload. */
 export default function MasiJobs() {
@@ -40,6 +40,10 @@ export default function MasiJobs() {
   // a report figure's jobs: what happened to them in the report's period, as masi counted them
   const figure = figureParams(params, JOB_EVENTS);
   const salary = SALARY_FIGURES.find((f) => f === params.get('salary'));
+  // a bar's value: the jobs of one title, tag or seniority
+  const titleNorm = params.get('titleNorm') ?? '';
+  const tag = params.get('tag') ?? '';
+  const seniority = params.get('seniority') ?? '';
   // a figure counts jobs of every status (a job closed in the week is mostly closed now): so does its list, unless asked
   const status = params.get('status') ?? (figure ? 'ALL' : 'OPEN');
   const q = params.get('q') ?? '';
@@ -67,6 +71,9 @@ export default function MasiJobs() {
         from: figure?.from,
         to: figure?.to,
         salary,
+        titleNorm: titleNorm || undefined,
+        tag: tag || undefined,
+        seniority: seniority || undefined,
         page: pageNo,
         size: PAGE_SIZE,
       },
@@ -94,6 +101,9 @@ export default function MasiJobs() {
     figure?.from,
     figure?.to,
     salary,
+    titleNorm,
+    tag,
+    seniority,
     pageNo,
   ]);
 
@@ -163,6 +173,7 @@ export default function MasiJobs() {
             <option value="REMOTE">remote</option>
             <option value="HYBRID">hybrid</option>
             <option value="ON_SITE">on-site</option>
+            <option value="UNKNOWN">location not stated</option>
           </select>
           <select
             aria-label="Employment type"
@@ -215,13 +226,16 @@ export default function MasiJobs() {
             </button>
           )}
         </form>
-        {(figure || salary) && (
+        {(figure || salary || titleNorm || tag || seniority) && (
           <FigureFilterNote
             parts={[
               ...(figure
                 ? [`${EVENT_WORDS[figure.event]} ${windowLabel(figure.from, figure.to)}`]
                 : []),
               ...(salary ? [SALARY_WORDS[salary]] : []),
+              ...(titleNorm ? [`titled "${titleNorm}"`] : []),
+              ...(tag ? [`tagged ${tag}`] : []),
+              ...(seniority ? [`seniority ${seniority}`] : []),
             ]}
             onClear={() => setAll(Object.fromEntries(FIGURE_KEYS.map((k) => [k, ''])))}
           />

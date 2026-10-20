@@ -381,6 +381,38 @@ describe('MasiJobs', () => {
       });
     });
 
+    it("reads a bar's value - title, tag, seniority, remote not stated - and names it", async () => {
+      vi.mocked(api.fetchMasiJobs).mockResolvedValue(page);
+      renderAt(
+        `/masi/jobs?event=NEW&from=${from}&to=${to}&titleNorm=java%20developer&tag=java&seniority=senior&remote=UNKNOWN`,
+        '/masi/jobs',
+        <MasiJobs />,
+      );
+      expect(await screen.findByText('1 matching')).toBeInTheDocument();
+      expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0]).toMatchObject({
+        event: 'NEW',
+        titleNorm: 'java developer',
+        tag: 'java',
+        seniority: 'senior',
+        remote: 'UNKNOWN',
+      });
+      // "not stated" is a choice the control shows, not a value it cannot display
+      expect(screen.getByRole('combobox', { name: 'Remote' })).toHaveDisplayValue(
+        'location not stated',
+      );
+      const note = screen.getByRole('region', { name: 'Report filter' });
+      expect(note).toHaveTextContent(
+        'first seen 23 Mar 2026 – 29 Mar 2026 · titled "java developer" · tagged java · seniority senior',
+      );
+      await userEvent.click(within(note).getByRole('button', { name: 'clear the report filter' }));
+      await waitFor(() =>
+        expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(
+          expect.objectContaining({ titleNorm: undefined, tag: undefined, seniority: undefined }),
+          expect.anything(),
+        ),
+      );
+    });
+
     it('names a salary filter given without a period too: nothing narrows the list unseen', async () => {
       vi.mocked(api.fetchMasiJobs).mockResolvedValue(page);
       renderAt('/masi/jobs?salary=COUNTED', '/masi/jobs', <MasiJobs />);

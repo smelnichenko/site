@@ -26,7 +26,14 @@ function link(path: string, params: Record<string, string | number | undefined>)
 export function jobsLink(
   w: FigureWindow,
   event: MasiJobEvent,
-  extra: { company?: number; salary?: MasiSalaryFigure } = {},
+  extra: {
+    company?: number;
+    salary?: MasiSalaryFigure;
+    titleNorm?: string;
+    tag?: string;
+    remote?: string;
+    seniority?: string;
+  } = {},
 ): string {
   return link('/masi/jobs', { event, from: w.from, to: w.to, ...extra });
 }
