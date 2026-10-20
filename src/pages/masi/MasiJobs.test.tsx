@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import MasiJobs from './MasiJobs';
 import { job, renderAt } from './testUtils';
 
@@ -310,7 +310,25 @@ describe('MasiJobs', () => {
 
     it('asks for every status, names the period, and clears back to the open registry', async () => {
       vi.mocked(api.fetchMasiJobs).mockResolvedValue(page);
-      renderAt(`/masi/jobs?event=CLOSED&from=${from}&to=${to}`, '/masi/jobs', <MasiJobs />);
+      /** The page's URL, as the address bar would show it after a clear. */
+      function Search() {
+        return <output data-testid="search">{useLocation().search}</output>;
+      }
+      render(
+        <MemoryRouter initialEntries={[`/masi/jobs?event=CLOSED&from=${from}&to=${to}&q=java`]}>
+          <Routes>
+            <Route
+              path="/masi/jobs"
+              element={
+                <>
+                  <MasiJobs />
+                  <Search />
+                </>
+              }
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
       expect(await screen.findByText('1 matching')).toBeInTheDocument();
       expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0]).toMatchObject({
         status: 'ALL',
@@ -334,6 +352,8 @@ describe('MasiJobs', () => {
         ),
       );
       expect(screen.queryByRole('region', { name: 'Report filter' })).not.toBeInTheDocument();
+      // the figure's parameters are gone from the URL, every one; the operator's own search stays
+      expect(screen.getByTestId('search')).toHaveTextContent(/^\?q=java$/);
     });
 
     it("keeps a status the URL names, and names a top company's or the salary's figure", async () => {

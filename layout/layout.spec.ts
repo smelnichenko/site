@@ -1053,3 +1053,24 @@ for (const width of [390, 1366]) {
     expect(ring, 'a focused figure shows its focus ring').toBe(true);
   });
 }
+
+/** The listings at a desktop's width: a board title as long as a URL wraps in its cell, the table fits its card. */
+test('the listings table fits a desktop card, a long board title wrapped', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await open(
+    page,
+    '/masi/listings?event=CLOSED&source=cvee&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+    'table',
+  );
+  const m = await page.evaluate(() => {
+    const scroller = document.querySelector('.masi-table-scroll');
+    const cells = [...document.querySelectorAll('td.masi-listing-url')];
+    return {
+      sideways: scroller ? scroller.scrollWidth - scroller.clientWidth : NaN,
+      tallest: Math.max(...cells.map((c) => c.getBoundingClientRect().height)),
+      cells: cells.length,
+    };
+  });
+  expect(m.cells, "the fixture's listings are drawn").toBe(3);
+  expect(m.sideways, 'the table never scrolls sideways at 1366 px').toBeLessThanOrEqual(1);
+});
