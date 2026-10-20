@@ -25,6 +25,7 @@ import { errorMessage, formatDateTime } from './format';
 import SourceMarks from './SourceMarks';
 import JobHistory from './JobHistory';
 import JobBookings from './JobBookings';
+import JobTerms from './JobTerms';
 
 /** 18 × 10 s, then 57 × 60 s: an hour of polling at most. */
 const MAX_POLLS = 75;
@@ -194,11 +195,9 @@ export default function MasiJobDetail() {
           {job.remote && job.remote !== 'UNKNOWN'
             ? ` · ${job.remote.toLowerCase().replace('_', '-')}`
             : ''}
-          {job.salaryMin || job.salaryMax
-            ? ` · ${job.salaryMin ?? '?'}–${job.salaryMax ?? '?'} EUR`
-            : ''}
           {` · first seen ${formatDateTime(job.firstSeenAt)}`}
         </div>
+        <JobTerms job={job} />
         {merged && (
           <div className="muted masi-hint" role="note" aria-label="merged">
             Merged: the same posting under another spelling of the title or the employer. Its

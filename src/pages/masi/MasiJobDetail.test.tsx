@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import MasiJobDetail from './MasiJobDetail';
 import { job, prepared, renderAt } from './testUtils';
-import type { MasiCalendarEvent } from '../../services/api';
+import type { MasiCalendarEvent, MasiJob } from '../../services/api';
 
 const booking: MasiCalendarEvent = {
   id: 1,
@@ -693,5 +693,126 @@ describe('MasiJobDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'next job' }));
     expect(await screen.findByText(/For job eight/)).toBeInTheDocument();
     expect(api.fetchMasiJobBookings).toHaveBeenLastCalledWith(8, expect.anything());
+  });
+});
+
+/** The posting's terms as masi sends them since it reads them: every field present, null where the source said nothing. */
+const unstated = {
+  salaryMin: null,
+  salaryMax: null,
+  salaryCurrency: null,
+  salaryPeriod: null,
+  salaryMonthlyEurFteMin: null,
+  salaryMonthlyEurFteMax: null,
+  employmentType: null,
+  country: null,
+  remoteScope: null,
+};
+
+describe("MasiJobDetail: the posting's terms", () => {
+  async function open(over: Partial<MasiJob>) {
+    vi.mocked(api.fetchMasiJob).mockResolvedValue({ ...job, ...over });
+    vi.mocked(api.fetchMasiPackages).mockResolvedValue([]);
+    renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
+    await screen.findByRole('link', { name: 'Nortal AS' });
+  }
+  const salary = () => screen.getByRole('definition', { name: 'Salary' });
+  const fullTime = () => screen.queryByRole('definition', { name: 'Full-time monthly equivalent' });
+
+  it('shows a monthly euro salary in its own unit, with no full-time line: it is one already', async () => {
+    await open({
+      ...unstated,
+      salaryMin: 3000,
+      salaryMax: 4000,
+      salaryCurrency: 'EUR',
+      salaryPeriod: 'MONTH',
+      salaryMonthlyEurFteMin: 3000,
+      salaryMonthlyEurFteMax: 4000,
+    });
+    expect(salary()).toHaveTextContent(/^3,000–4,000 EUR \/ month$/);
+    expect(fullTime()).not.toBeInTheDocument();
+  });
+
+  it('shows a yearly euro salary per year, and its full-time month on a second line', async () => {
+    await open({
+      ...unstated,
+      salaryMin: 80000,
+      salaryMax: 110000,
+      salaryCurrency: 'EUR',
+      salaryPeriod: 'YEAR',
+      salaryMonthlyEurFteMin: 6667,
+      salaryMonthlyEurFteMax: 9167,
+    });
+    expect(salary()).toHaveTextContent(/^80,000–110,000 EUR \/ year$/);
+    expect(fullTime()).toHaveTextContent(/^≈ 6,667–9,167 EUR \/ month full-time$/);
+  });
+
+  it('shows hourly dollars to the cent, with no euro figure: masi converts no currency', async () => {
+    await open({
+      ...unstated,
+      salaryMin: 60.5,
+      salaryMax: 75,
+      salaryCurrency: 'USD',
+      salaryPeriod: 'HOUR',
+    });
+    expect(salary()).toHaveTextContent(/^60\.50–75 USD \/ hour$/);
+    expect(salary()).not.toHaveTextContent('EUR');
+    expect(fullTime()).not.toBeInTheDocument();
+  });
+
+  it('shows one end of a range as from / up to', async () => {
+    await open({ ...unstated, salaryMin: 3000, salaryCurrency: 'EUR', salaryPeriod: 'MONTH' });
+    expect(salary()).toHaveTextContent(/^from 3,000 EUR \/ month$/);
+  });
+
+  it('says the unit is not stated, and never EUR, when the currency is missing', async () => {
+    await open({ ...unstated, salaryMin: 3000, salaryMax: 4000, salaryPeriod: 'MONTH' });
+    expect(salary()).toHaveTextContent(/^3,000–4,000 \(unit not stated\)$/);
+    expect(salary()).not.toHaveTextContent('EUR');
+    expect(fullTime()).not.toBeInTheDocument();
+  });
+
+  it('says the unit is not stated, and never EUR, when the period is missing', async () => {
+    await open({ ...unstated, salaryMin: 3000, salaryMax: 4000, salaryCurrency: 'EUR' });
+    expect(salary()).toHaveTextContent(/^3,000–4,000 \(unit not stated\)$/);
+    expect(salary()).not.toHaveTextContent('EUR');
+    expect(fullTime()).not.toBeInTheDocument();
+  });
+
+  it('shows the form of work, the country and where remote work may be done from', async () => {
+    await open({
+      ...unstated,
+      employmentType: 'FIXED_TERM',
+      country: 'EE',
+      remoteScope: 'Remote EMEA',
+    });
+    expect(screen.getByRole('definition', { name: 'Employment' })).toHaveTextContent(
+      /^fixed-term$/,
+    );
+    expect(screen.getByRole('definition', { name: 'Country' })).toHaveTextContent(/^Estonia$/);
+    expect(screen.getByRole('definition', { name: 'Remote from' })).toHaveTextContent(
+      /^Remote EMEA$/,
+    );
+    expect(screen.queryByRole('definition', { name: 'Salary' })).not.toBeInTheDocument();
+  });
+
+  it('shows none of the terms a posting did not state', async () => {
+    await open(unstated);
+    expect(screen.queryAllByRole('definition')).toEqual([]);
+  });
+
+  it("keeps today's figures in EUR for the old masi, which sends none of the new fields", async () => {
+    await open({ salaryMin: 3000, salaryMax: 4000 });
+    expect(salary()).toHaveTextContent(/^3000–4000 EUR$/);
+    expect(fullTime()).not.toBeInTheDocument();
+    expect(screen.queryByRole('definition', { name: 'Employment' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('definition', { name: 'Country' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('definition', { name: 'Remote from' })).not.toBeInTheDocument();
+  });
+
+  it('shows no salary for the old masi when it has none, and still draws the page', async () => {
+    await open({ salaryMin: null, salaryMax: null });
+    expect(screen.queryAllByRole('definition')).toEqual([]);
+    expect(screen.getByRole('link', { name: 'cvee' })).toHaveAttribute('href', 'https://cv.ee/x');
   });
 });

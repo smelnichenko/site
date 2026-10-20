@@ -1336,6 +1336,13 @@ export interface MasiListing {
   closedAt: string | null;
 }
 
+/** What a salary figure is paid for, as the source states it. */
+export type MasiSalaryPeriod = 'HOUR' | 'DAY' | 'MONTH' | 'YEAR';
+
+/** The form of the work as the posting states it. */
+export type MasiEmploymentType =
+  'PERMANENT' | 'FIXED_TERM' | 'CONTRACT' | 'FREELANCE' | 'INTERNSHIP' | 'PART_TIME';
+
 export interface MasiJob {
   id: number;
   title: string;
@@ -1343,8 +1350,23 @@ export interface MasiJob {
   companyName: string | null;
   location: string | null;
   remote: string | null;
+  /**
+   * The source's own amounts in salaryCurrency per salaryPeriod (hourly and daily pay to the cent). A masi from before
+   * it read the unit sends whole numbers and none of the fields below: undefined is that masi, null is "not stated".
+   */
   salaryMin: number | null;
   salaryMax: number | null;
+  /** ISO 4217. */
+  salaryCurrency?: string | null;
+  salaryPeriod?: MasiSalaryPeriod | null;
+  /** The figures as euros a full-time month (40-hour weeks); null unless the currency is EUR and the period is stated. */
+  salaryMonthlyEurFteMin?: number | null;
+  salaryMonthlyEurFteMax?: number | null;
+  employmentType?: MasiEmploymentType | null;
+  /** ISO 3166-1 alpha-2. */
+  country?: string | null;
+  /** The source's own words on where remote work may be done from: "Remote EMEA". */
+  remoteScope?: string | null;
   /** MERGED: found to be another job's duplicate; its listings live there, see mergedIntoId. */
   status: 'OPEN' | 'CLOSED' | 'MERGED';
   firstSeenAt: string;
@@ -1445,6 +1467,10 @@ export interface MasiJobFilter {
   company?: number;
   remote?: string;
   packageStatus?: string;
+  /** Jobs whose posting states this form of work; a job nobody said it of is not among them. */
+  employmentType?: MasiEmploymentType;
+  /** An ISO 3166-1 alpha-2 code; masi answers 400 for one that names no country. */
+  country?: string;
   /** "match,desc" orders by the caller's score, unscored jobs last; absent = newest first. */
   sort?: string;
   page?: number;
@@ -2487,12 +2513,18 @@ export interface MasiStats {
   seniority: Record<string, number>;
   remote: Record<string, number>;
   techTags: Record<string, number>;
+  /**
+   * Over the new jobs that posted a figure in euros of a stated period, as euros a full-time month. A masi from before
+   * it read the unit sends no `excluded`, and its figures are the sources' own numbers in whatever unit they had.
+   */
   salary: {
     posted: number;
     lowest: number | null;
     medianMin: number | null;
     medianMax: number | null;
     highest: number | null;
+    /** New jobs whose figure is in another currency or of no stated period: counted and left out. */
+    excluded?: number;
   };
   funnel: { requested: number; applied: number; averagePackageCostUsd: number | null };
   llm: {

@@ -1,12 +1,26 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { fetchMasiJobs, MasiJob, Paged } from '../../services/api';
+import { fetchMasiJobs, MasiEmploymentType, MasiJob, Paged } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import { badgeClass, errorMessage, formatDate, PACKAGE_STATES, pageParam } from './format';
 import MasiTable from '../../components/MasiTable';
 import SourceMarks from './SourceMarks';
 
 const PAGE_SIZE = 50;
+/** The forms of work masi tells apart, as the filter offers them; anything else in the URL is not passed on. */
+const EMPLOYMENT_TYPES: Array<[MasiEmploymentType, string]> = [
+  ['PERMANENT', 'permanent'],
+  ['FIXED_TERM', 'fixed-term'],
+  ['CONTRACT', 'contract'],
+  ['FREELANCE', 'freelance'],
+  ['INTERNSHIP', 'internship'],
+  ['PART_TIME', 'part-time'],
+];
+
+function employmentParam(value: string | null): MasiEmploymentType | '' {
+  return EMPLOYMENT_TYPES.find(([t]) => t === value)?.[0] ?? '';
+}
+
 /** The orders the page offers; anything else in the URL is not passed on. Newest first is the server's default: no parameter. */
 const BY_MATCH = 'match,desc';
 
@@ -19,6 +33,8 @@ export default function MasiJobs() {
   const q = params.get('q') ?? '';
   const remote = params.get('remote') ?? '';
   const packageStatus = params.get('packageStatus') ?? '';
+  const employmentType = employmentParam(params.get('employmentType'));
+  const country = (params.get('country') ?? '').toUpperCase();
   const company = params.get('company');
   const sort = params.get('sort') === BY_MATCH ? BY_MATCH : '';
   const pageNo = pageParam(params.get('page'));
@@ -31,6 +47,8 @@ export default function MasiJobs() {
         q: q || undefined,
         remote: remote || undefined,
         packageStatus: packageStatus || undefined,
+        employmentType: employmentType || undefined,
+        country: country || undefined,
         company: company ? Number(company) : undefined,
         sort: sort || undefined,
         page: pageNo,
@@ -46,13 +64,20 @@ export default function MasiJobs() {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load jobs'));
       });
     return () => controller.abort();
-  }, [status, q, remote, packageStatus, company, sort, pageNo]);
+  }, [status, q, remote, packageStatus, employmentType, country, company, sort, pageNo]);
 
   function set(key: string, value: string) {
+    setAll({ [key]: value });
+  }
+
+  function setAll(values: Record<string, string>) {
     const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page'); // a new filter starts at the first page; a page change keeps it
+    for (const [key, value] of Object.entries(values)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    // a new filter starts at the first page; a page change keeps it
+    if (!('page' in values)) next.delete('page');
     setParams(next);
   }
 
@@ -73,8 +98,12 @@ export default function MasiJobs() {
           className="form-row masi-filters"
           onSubmit={(e) => {
             e.preventDefault();
-            const typed = new FormData(e.currentTarget).get('q');
-            set('q', typeof typed === 'string' ? typed.trim() : '');
+            const form = new FormData(e.currentTarget);
+            const typed = (name: string) => {
+              const v = form.get(name);
+              return typeof v === 'string' ? v.trim() : '';
+            };
+            setAll({ q: typed('q'), country: typed('country').toUpperCase() });
           }}
         >
           <input
@@ -104,6 +133,31 @@ export default function MasiJobs() {
             <option value="HYBRID">hybrid</option>
             <option value="ON_SITE">on-site</option>
           </select>
+          <select
+            aria-label="Employment type"
+            value={employmentType}
+            onChange={(e) => set('employmentType', e.target.value)}
+          >
+            <option value="">any form of work</option>
+            {EMPLOYMENT_TYPES.map(([t, label]) => (
+              <option key={t} value={t}>
+                {label}
+              </option>
+            ))}
+          </select>
+          {/* a country is a code masi checks (an unknown one is its 400, shown above the list); the search sends it */}
+          <input
+            key={`country-${country}`}
+            type="text"
+            name="country"
+            className="masi-country"
+            aria-label="Country"
+            placeholder="country (EE)"
+            maxLength={2}
+            pattern="[A-Za-z]{2}"
+            autoCapitalize="characters"
+            defaultValue={country}
+          />
           <select
             aria-label="Package"
             value={packageStatus}

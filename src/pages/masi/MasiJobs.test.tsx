@@ -57,6 +57,63 @@ describe('MasiJobs', () => {
     );
   });
 
+  it("filters by the posting's form of work and country, from the URL and from the controls", async () => {
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [job],
+      page: 0,
+      size: 50,
+      totalElements: 1,
+    });
+    renderAt('/masi/jobs?employmentType=PERMANENT&country=FI', '/masi/jobs', <MasiJobs />);
+    expect(await screen.findByText('1 matching')).toBeInTheDocument();
+    expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0]).toMatchObject({
+      employmentType: 'PERMANENT',
+      country: 'FI',
+    });
+    const form = screen.getByRole('combobox', { name: 'Employment type' });
+    expect(form).toHaveValue('PERMANENT');
+    const country = screen.getByRole('textbox', { name: 'Country' });
+    expect(country).toHaveValue('FI');
+    await userEvent.selectOptions(form, 'CONTRACT');
+    await waitFor(() =>
+      expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(
+        expect.objectContaining({ employmentType: 'CONTRACT', country: 'FI' }),
+        expect.anything(),
+      ),
+    );
+    await userEvent.clear(screen.getByRole('textbox', { name: 'Country' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Country' }), 'ee{enter}');
+    await waitFor(() =>
+      expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(
+        expect.objectContaining({ employmentType: 'CONTRACT', country: 'EE' }),
+        expect.anything(),
+      ),
+    );
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Employment type' }), '');
+    await userEvent.clear(screen.getByRole('textbox', { name: 'Country' }));
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search title' }), '{enter}');
+    await waitFor(() => {
+      const last = vi.mocked(api.fetchMasiJobs).mock.lastCall?.[0];
+      expect(last?.employmentType).toBeUndefined();
+      expect(last?.country).toBeUndefined();
+    });
+  });
+
+  it('sends no form-of-work or country filter when none is chosen', async () => {
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [job],
+      page: 0,
+      size: 50,
+      totalElements: 1,
+    });
+    renderAt('/masi/jobs', '/masi/jobs', <MasiJobs />);
+    expect(await screen.findByText('1 matching')).toBeInTheDocument();
+    const first = vi.mocked(api.fetchMasiJobs).mock.calls[0][0];
+    expect(first.employmentType).toBeUndefined();
+    expect(first.country).toBeUndefined();
+    expect(screen.getByRole('combobox', { name: 'Employment type' })).toHaveValue('');
+  });
+
   it('pages through a long registry', async () => {
     vi.mocked(api.fetchMasiJobs).mockResolvedValue({
       content: [job],
