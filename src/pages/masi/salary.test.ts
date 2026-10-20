@@ -46,9 +46,22 @@ describe('jobSalary', () => {
     ).toBeNull();
   });
 
-  it('names no currency when the unit is half stated', () => {
-    expect(jobSalary({ ...stated, salaryCurrency: null })?.figures).toBe('50–70 (unit not stated)');
-    expect(jobSalary({ ...stated, salaryPeriod: null })?.figures).toBe('50–70 (unit not stated)');
+  it('names what is missing of the unit, and a currency only where masi stated one', () => {
+    expect(jobSalary({ ...stated, salaryCurrency: null })?.figures).toBe(
+      '50–70 (currency not stated)',
+    );
+    expect(jobSalary({ ...stated, salaryPeriod: null })?.figures).toBe(
+      '50–70 EUR (period not stated)',
+    );
+    expect(jobSalary({ ...stated, salaryCurrency: 'GBP', salaryPeriod: null })?.figures).toBe(
+      '50–70 GBP (period not stated)',
+    );
+    expect(jobSalary({ ...stated, salaryCurrency: null, salaryPeriod: null })?.figures).toBe(
+      '50–70 (unit not stated)',
+    );
+    for (const half of [{ salaryCurrency: null }, { salaryPeriod: null }]) {
+      expect(jobSalary({ ...stated, ...half })?.fullTime).toBeNull();
+    }
   });
 
   it('keeps the old figures in EUR when masi sends no unit field at all, and has nothing for no figure', () => {

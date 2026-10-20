@@ -67,9 +67,14 @@ export function jobSalary(job: SalaryFields): JobSalary | null {
   }
   const range = formatRange(job.salaryMin, job.salaryMax);
   if (range === null) return null;
-  // half a unit is no unit: "3,000 EUR" with no period may be a year, and a figure with no currency is not euros
-  if (!job.salaryCurrency || !job.salaryPeriod) {
-    return { figures: `${range} (unit not stated)`, fullTime: null };
+  // a currency is printed only as masi states it (a figure with none is not euros); with no period there is no
+  // full-time month either, as "3,000 EUR" may be a month or a year
+  if (!job.salaryCurrency) {
+    const missing = job.salaryPeriod ? 'currency' : 'unit';
+    return { figures: `${range} (${missing} not stated)`, fullTime: null };
+  }
+  if (!job.salaryPeriod) {
+    return { figures: `${range} ${job.salaryCurrency} (period not stated)`, fullTime: null };
   }
   const figures = `${range} ${job.salaryCurrency} / ${PERIOD[job.salaryPeriod]}`;
   const monthly = formatRange(job.salaryMonthlyEurFteMin, job.salaryMonthlyEurFteMax);

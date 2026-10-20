@@ -765,15 +765,27 @@ describe("MasiJobDetail: the posting's terms", () => {
     expect(salary()).toHaveTextContent(/^from 3,000 EUR \/ month$/);
   });
 
-  it('says the unit is not stated, and never EUR, when the currency is missing', async () => {
+  it('says the currency is not stated, and never EUR, when only the currency is missing', async () => {
     await open({ ...unstated, salaryMin: 3000, salaryMax: 4000, salaryPeriod: 'MONTH' });
-    expect(salary()).toHaveTextContent(/^3,000–4,000 \(unit not stated\)$/);
+    expect(salary()).toHaveTextContent(/^3,000–4,000 \(currency not stated\)$/);
     expect(salary()).not.toHaveTextContent('EUR');
     expect(fullTime()).not.toBeInTheDocument();
   });
 
-  it('says the unit is not stated, and never EUR, when the period is missing', async () => {
+  it('keeps a stated euro currency and says the period is not stated, with no full-time line', async () => {
     await open({ ...unstated, salaryMin: 3000, salaryMax: 4000, salaryCurrency: 'EUR' });
+    expect(salary()).toHaveTextContent(/^3,000–4,000 EUR \(period not stated\)$/);
+    expect(fullTime()).not.toBeInTheDocument();
+  });
+
+  it('shows the stated currency, not EUR, when only the period is missing', async () => {
+    await open({ ...unstated, salaryMin: 3000, salaryMax: 4000, salaryCurrency: 'USD' });
+    expect(salary()).toHaveTextContent(/^3,000–4,000 USD \(period not stated\)$/);
+    expect(salary()).not.toHaveTextContent('EUR');
+  });
+
+  it('says the unit is not stated, and never EUR, when both currency and period are missing', async () => {
+    await open({ ...unstated, salaryMin: 3000, salaryMax: 4000 });
     expect(salary()).toHaveTextContent(/^3,000–4,000 \(unit not stated\)$/);
     expect(salary()).not.toHaveTextContent('EUR');
     expect(fullTime()).not.toBeInTheDocument();
