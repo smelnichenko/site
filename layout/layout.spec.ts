@@ -1101,8 +1101,11 @@ test('booking titles wrap at words, at 390 px', async ({ page }) => {
     '/masi/bookings?event=INTERVIEW_HELD&language=et&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
     'table',
   );
+  // the title column by its place, not its class: a check that selects by the rule under test finds nothing without it
+  const cells = await page.locator('tbody tr td:nth-child(2)').count();
+  expect(cells, "the fixture's bookings are drawn").toBe(2);
   const broken = await page.evaluate(() =>
-    [...document.querySelectorAll('td.masi-booking-title')].flatMap((td) => {
+    [...document.querySelectorAll('tbody tr td:nth-child(2)')].flatMap((td) => {
       const range = document.createRange();
       const text = td.firstChild;
       if (!text?.textContent) return [];
