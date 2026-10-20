@@ -1356,6 +1356,10 @@ a.muted,
 }
 
 /* a checkbox in a filter row is a box, not a 36px-tall field: its glyph would sit above the label's text */
+/* two letters and the placeholder: the browser's default text box is three times that, and wraps the row early */
+.masi-filters .masi-country {
+  width: 8rem;
+}
 .masi-filters input[type='checkbox'] {
   min-height: auto;
 }
@@ -1568,6 +1572,40 @@ a.muted,
 }
 .masi-send-fields dt {
   color: #666;
+}
+/* a posting's terms: the term in its own column, every line of its value in the other (the full-time month is a
+   second dd under Salary, so a dd is pinned to column 2 rather than taking the next free cell) */
+.masi-terms {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px 12px;
+  margin: 8px 0 0;
+}
+.masi-terms dt {
+  grid-column: 1;
+  color: #666;
+}
+.masi-terms dd {
+  grid-column: 2;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+/* on a phone the term column would leave the figures a third of the card, and "80,000–110,000 EUR / year" broke
+   before its "year": the term goes above its value instead, the value gets the card's width */
+@media (max-width: 600px) {
+  .masi-terms {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .masi-terms dt,
+  .masi-terms dd {
+    grid-column: 1;
+  }
+  .masi-terms dt {
+    font-size: 0.8rem;
+  }
+  .masi-terms dt:not(:first-child) {
+    margin-top: 6px;
+  }
 }
 .masi-send-to {
   border: none;

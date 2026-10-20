@@ -41,6 +41,29 @@ const UNBROKEN =
 
 const detail: MasiJob = { ...job, title: LONG_TITLE, match: aiMatch as MasiMatch };
 
+/**
+ * A posting with every term masi reads: a yearly euro figure (so a second, full-time monthly line), a form of work, a
+ * country, and the longest remote scope masi keeps (200 characters) with an unbroken run in it.
+ */
+const termed: MasiJob = {
+  ...detail,
+  id: 12,
+  salaryMin: 80000,
+  salaryMax: 110000,
+  salaryCurrency: 'EUR',
+  salaryPeriod: 'YEAR',
+  salaryMonthlyEurFteMin: 6667,
+  salaryMonthlyEurFteMax: 9167,
+  employmentType: 'FIXED_TERM',
+  country: 'EE',
+  remoteScope:
+    `Remote within the EU/EEA, Estonia, Finland, Latvia, Lithuania, Sweden — ${UNBROKEN}`.slice(
+      0,
+      200,
+    ),
+};
+const details: Record<string, MasiJob> = { '12': termed };
+
 const master: CvVersionMeta = {
   version: 1,
   note: 'the first master',
@@ -680,7 +703,7 @@ export function answer(url: URL): Answer | undefined {
       () => ({ status: 200, body: calendar('2026-09-22', '2026-09-23').events.slice(0, 3) }),
     ],
     [/^\/jobs$/, () => ({ status: 200, body: jobs })],
-    [/^\/jobs\/\d+$/, () => ({ status: 200, body: detail })],
+    [/^\/jobs\/\d+$/, () => ({ status: 200, body: details[path.split('/')[2]] ?? detail })],
     [/^\/jobs\/\d+\/history$/, () => ({ status: 200, body: [] })],
     [/^\/jobs\/\d+\/similar$/, () => ({ status: 200, body: [] })],
     [

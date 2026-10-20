@@ -65,6 +65,53 @@ describe('StatsPanel', () => {
   });
 });
 
+describe('StatsPanel salary', () => {
+  /** masi since it reads a posting's currency and period: full-time monthly euros, and the count it left out. */
+  const salary = { posted: 2, lowest: 2500, medianMin: 2750, medianMax: 4500, highest: 12000 };
+  const region = (name: RegExp) => screen.getByRole('region', { name });
+
+  it('labels the figures full-time monthly EUR and counts the postings it left out', () => {
+    render(<StatsPanel stats={{ ...stats, salary: { ...salary, excluded: 3 } }} />);
+    const card = region(/^Salary in full-time monthly EUR \(posted on 2 new jobs\)$/);
+    expect(card).toHaveTextContent('2,500 – 12,000 EUR · median 2,750 to 4,500');
+    expect(card).toHaveTextContent('3 postings in other currencies or with no period, not counted');
+  });
+
+  it('says one posting left out in the singular, and nothing when none was', () => {
+    const view = render(<StatsPanel stats={{ ...stats, salary: { ...salary, excluded: 1 } }} />);
+    expect(region(/full-time monthly EUR/)).toHaveTextContent(
+      '1 posting in another currency or with no period, not counted',
+    );
+    view.unmount();
+    render(<StatsPanel stats={{ ...stats, salary: { ...salary, excluded: 0 } }} />);
+    expect(region(/full-time monthly EUR/)).not.toHaveTextContent('not counted');
+  });
+
+  it('says no posting had a euro salary of a stated period when every one was left out', () => {
+    const none = { posted: 0, lowest: null, medianMin: null, medianMax: null, highest: null };
+    render(<StatsPanel stats={{ ...stats, salary: { ...none, excluded: 2 } }} />);
+    const card = region(/full-time monthly EUR/);
+    expect(card).toHaveTextContent('No new job posted a salary in euros of a stated period.');
+    expect(card).toHaveTextContent('2 postings in other currencies or with no period, not counted');
+  });
+
+  it('reads a report stored before masi read the unit (excluded: null) as the old figures, with no EUR', () => {
+    render(<StatsPanel stats={{ ...stats, salary: { ...salary, excluded: null } }} />);
+    const card = region(/^Salary \(posted on 2 new jobs\)$/);
+    expect(card).toHaveTextContent('2500 – 12000 · median 2750 to 4500');
+    expect(card).not.toHaveTextContent('EUR');
+    expect(card).not.toHaveTextContent('not counted');
+  });
+
+  it("keeps today's line for the old masi, whose figures are no full-time euros and which counts none out", () => {
+    render(<StatsPanel stats={{ ...stats, salary }} />);
+    const card = region(/^Salary \(posted on 2 new jobs\)$/);
+    expect(card).toHaveTextContent('2500 – 12000 · median 2750 to 4500');
+    expect(card).not.toHaveTextContent('EUR');
+    expect(card).not.toHaveTextContent('not counted');
+  });
+});
+
 describe('periodLabel', () => {
   it('shows the last day of a half-open period in Europe/Tallinn', async () => {
     const { periodLabel } = await import('./format');

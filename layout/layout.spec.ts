@@ -79,6 +79,16 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       widths: [360, 390, 1366],
       drawn: { '.masi-send-done': [1, 'delivered to masi-sink@pmon.dev'] },
     },
+    {
+      name: "job with the posting's terms",
+      path: '/masi/jobs/12',
+      ready: '.masi-terms',
+      widths: [360, 390, 1366],
+      drawn: {
+        '.masi-terms dd': [5, '≈ 6,667–9,167 EUR / month full-time'],
+        '.masi-terms dd:first-of-type': [1, '80,000–110,000 EUR / year'],
+      },
+    },
     { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
     { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
     {
@@ -728,6 +738,53 @@ for (const { name, path, ready, drawn, widths } of PAGES) {
       expect(bare, 'every select is the masi control height').toEqual([]);
     });
   }
+}
+
+/**
+ * A posting's salary at a phone's width and a desktop's: its figures and the full-time month under them each on one
+ * line and starting at the same x — on a desktop in the value column right of the terms (the second dd is pinned there,
+ * not dropped into the term column), on a phone under its term — and nothing past the card's padding.
+ */
+for (const width of [360, 1366]) {
+  test(`the posting's salary: two whole lines, one under the other, inside the card, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/jobs/12', '.masi-terms');
+    const m = await page.evaluate(() => {
+      const terms = document.querySelector('.masi-terms');
+      const card = terms?.closest('.card');
+      const term = terms?.querySelector('dt');
+      if (!terms || !card || !term) throw new Error('no terms card');
+      const box = (el: Element) => el.getBoundingClientRect();
+      const [salary, fullTime] = [...terms.querySelectorAll('dd')].slice(0, 2);
+      const lineHeight = parseFloat(getComputedStyle(salary).lineHeight);
+      const inner = box(card).right - parseFloat(getComputedStyle(card).paddingRight);
+      return {
+        texts: [salary.textContent, fullTime.textContent],
+        lefts: [box(salary).left, box(fullTime).left].map(Math.round),
+        termsRight: Math.round(
+          Math.max(...[...terms.querySelectorAll('dt')].map((d) => box(d).right)),
+        ),
+        salaryTerm: { left: Math.round(box(term).left), bottom: box(term).bottom },
+        salaryTop: box(salary).top,
+        lines: [salary, fullTime].map((el) => Math.round(box(el).height / lineHeight)),
+        past: Math.round(
+          Math.max(...[...terms.querySelectorAll('dd')].map((d) => box(d).right)) - inner,
+        ),
+      };
+    });
+    expect(m.texts).toEqual(['80,000–110,000 EUR / year', '≈ 6,667–9,167 EUR / month full-time']);
+    expect(m.lefts[1], 'the full-time line under the figures').toBe(m.lefts[0]);
+    if (width > 600) {
+      expect(m.lefts[0], 'the figures right of the terms').toBeGreaterThan(m.termsRight);
+    } else {
+      expect(m.lefts[0], 'on a phone the figures under their term').toBe(m.salaryTerm.left);
+      expect(m.salaryTop, 'below it').toBeGreaterThanOrEqual(m.salaryTerm.bottom - 1);
+    }
+    expect(m.lines, 'each salary line on one line').toEqual([1, 1]);
+    expect(m.past, 'nothing past the card').toBeLessThanOrEqual(0);
+  });
 }
 
 for (const view of ['week', 'day']) {

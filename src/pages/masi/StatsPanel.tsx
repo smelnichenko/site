@@ -1,5 +1,7 @@
+import { useId } from 'react';
 import type { MasiStats } from '../../services/api';
 import { formatDateTime, formatUsd } from './format';
+import { formatAmount } from './salary';
 import MasiTable from '../../components/MasiTable';
 
 interface BarRow {
@@ -44,6 +46,60 @@ function entries(record: Record<string, number>, dropZero = true): BarRow[] {
 function hours(h: number | null): string {
   if (h === null) return '—';
   return h >= 48 ? `${(h / 24).toFixed(1)} days` : `${h} h`;
+}
+
+/** "2,500"; a missing figure is a dash. */
+function amount(n: number | null): string {
+  return n === null ? '—' : formatAmount(n);
+}
+
+/** "3 postings in other currencies or with no period, not counted". */
+function excludedLine(n: number): string {
+  return n === 1
+    ? '1 posting in another currency or with no period, not counted'
+    : `${n} postings in other currencies or with no period, not counted`;
+}
+
+/**
+ * The period's salary figures. A masi that reads the unit sends `excluded` and its figures are euros a full-time month
+ * (the postings in another currency or of no stated period counted apart). An older one sends no `excluded`, and a
+ * report stored before the unit was read has `excluded: null`: in both the figures are the sources' own numbers in
+ * whatever unit they had, shown as they always were, with no unit.
+ */
+function SalaryCard({ salary }: Readonly<{ salary: MasiStats['salary'] }>) {
+  const titleId = useId();
+  // != null: a live answer of the old masi has no `excluded`, a report it stored has `excluded: null`
+  const fullTime = salary.excluded != null;
+  return (
+    <section className="card" aria-labelledby={titleId}>
+      <div className="card-title" id={titleId}>
+        {fullTime ? 'Salary in full-time monthly EUR' : 'Salary'} (posted on {salary.posted} new
+        jobs)
+      </div>
+      {salary.posted === 0 && (
+        <div className="empty-state">
+          {fullTime
+            ? 'No new job posted a salary in euros of a stated period.'
+            : 'No new job posted a salary.'}
+        </div>
+      )}
+      {salary.posted > 0 && fullTime && (
+        <div className="muted" data-testid="salary-line">
+          {amount(salary.lowest)} – {amount(salary.highest)} EUR · median {amount(salary.medianMin)}{' '}
+          to {amount(salary.medianMax)}
+        </div>
+      )}
+      {salary.posted > 0 && !fullTime && (
+        <div className="muted" data-testid="salary-line">
+          {salary.lowest} – {salary.highest} · median {salary.medianMin ?? '—'} to{' '}
+          {salary.medianMax ?? '—'}
+        </div>
+      )}
+      {(salary.excluded ?? 0) > 0 && (
+        <div className="muted">{excludedLine(salary.excluded ?? 0)}</div>
+      )}
+    </section>
+  );
 }
 
 /** The figures of one period, live or stored: registry, sources, market, the caller's funnel, the LLM spend. */
@@ -110,17 +166,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
         <Bars title="LLM cost by model" rows={entries(stats.llm.byModel)} unit="usd" />
         <Bars title="Runs per source" rows={runs} />
       </div>
-      <div className="card">
-        <div className="card-title">Salary (posted on {stats.salary.posted} new jobs)</div>
-        {stats.salary.posted === 0 ? (
-          <div className="empty-state">No new job posted a salary.</div>
-        ) : (
-          <div className="muted" data-testid="salary-line">
-            {stats.salary.lowest} – {stats.salary.highest} · median {stats.salary.medianMin ?? '—'}{' '}
-            to {stats.salary.medianMax ?? '—'}
-          </div>
-        )}
-      </div>
+      <SalaryCard salary={stats.salary} />
       <div className="card">
         <div className="card-title">Sources</div>
         <MasiTable label="Sources in the period">
