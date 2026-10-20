@@ -11,6 +11,7 @@ export const stats: MasiStats = {
     newListings: 2,
     closedListings: 1,
     medianListingLifetimeHours: 120,
+    rowsExact: true,
   },
   sources: [
     {
@@ -41,6 +42,11 @@ export const stats: MasiStats = {
   techTags: { java: 2, kubernetes: 1, spring: 1 },
   salary: { posted: 2, lowest: 2500, medianMin: 2750, medianMax: 4500, highest: 4500 },
   funnel: { requested: 2, applied: 1, averagePackageCostUsd: 0.2 },
+  outcomes: {
+    interviews: 5,
+    interviewsByLanguage: { en: 1, et: 3, none: 1 },
+    responses: { REPLIED: 1, INTERVIEW: 2, OFFER: 0, REJECTED: 3 },
+  },
   llm: {
     totalUsd: 0.6,
     byPurpose: { EXTRACT: 0.1, TUNE: 0.5, LETTER: 0, SCORE: 0, ENRICH: 0 },

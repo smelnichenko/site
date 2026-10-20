@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import MasiActivity from './MasiActivity';
 import type { MasiActivity as Row } from '../../services/api';
@@ -265,5 +266,54 @@ describe('MasiActivity', () => {
     vi.mocked(api.fetchMasiActivity).mockRejectedValue(new Error('boom'));
     renderAt('/masi/activity', '/masi/activity', <MasiActivity />);
     expect(await screen.findByText(/boom/)).toBeInTheDocument();
+  });
+
+  it("shows a report's responses: the caller's rows of one kind in the period, named, and clears back to the log", async () => {
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: rows,
+      page: 0,
+      size: 50,
+      totalElements: 2,
+    });
+    const from = '2026-03-22T22:00:00Z';
+    const to = '2026-03-29T21:00:00Z';
+    /** The page's URL, as the address bar would show it after a clear. */
+    function Search() {
+      return <output data-testid="search">{useLocation().search}</output>;
+    }
+    render(
+      <MemoryRouter
+        initialEntries={[`/masi/activity?response=REJECTED&from=${from}&to=${to}&kind=CALL`]}
+      >
+        <Routes>
+          <Route
+            path="/masi/activity"
+            element={
+              <>
+                <MasiActivity />
+                <Search />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const note = await screen.findByRole('region', { name: 'Report filter' });
+    expect(note).toHaveTextContent('refused 23 Mar 2026 – 29 Mar 2026');
+    expect(vi.mocked(api.fetchMasiActivity).mock.calls[0][0]).toMatchObject({
+      response: 'REJECTED',
+      from,
+      to,
+    });
+    await userEvent.click(within(note).getByRole('button', { name: 'clear the report filter' }));
+    await waitFor(() =>
+      expect(api.fetchMasiActivity).toHaveBeenLastCalledWith(
+        expect.objectContaining({ response: undefined, from: undefined, to: undefined }),
+        expect.anything(),
+      ),
+    );
+    expect(screen.queryByRole('region', { name: 'Report filter' })).not.toBeInTheDocument();
+    // the figure's parameters are gone from the URL, every one; the operator's own filter stays
+    expect(screen.getByTestId('search')).toHaveTextContent(/^\?kind=CALL$/);
   });
 });

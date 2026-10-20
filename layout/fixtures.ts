@@ -28,7 +28,13 @@ import type {
   RssOptions,
 } from '../src/services/api';
 import { readFileSync } from 'node:fs';
-import { job, listings as listingRows, prepared, sendPreview } from '../src/pages/masi/fixtures';
+import {
+  bookings,
+  job,
+  listings as listingRows,
+  prepared,
+  sendPreview,
+} from '../src/pages/masi/fixtures';
 import { report } from '../src/pages/masi/statsFixture';
 
 /** The real masi answer the Match card's unit test uses (a JSON file: read, not imported, in Node). */
@@ -318,6 +324,7 @@ const bigReport: MasiReport = {
       newListings: 2391,
       closedListings: 2210,
       medianListingLifetimeHours: 412.5,
+      rowsExact: true,
     },
     sources: [
       ...report.stats.sources,
@@ -343,6 +350,11 @@ const bigReport: MasiReport = {
       excluded: 312,
     },
     funnel: { requested: 1024, applied: 381, averagePackageCostUsd: 0.21 },
+    outcomes: {
+      interviews: 12,
+      interviewsByLanguage: { et: 9, en: 2, none: 1 },
+      responses: { REPLIED: 14, INTERVIEW: 12, OFFER: 2, REJECTED: 41 },
+    },
   },
 };
 
@@ -812,6 +824,10 @@ export function answer(url: URL): Answer | undefined {
     [/^\/reports\/5$/, () => ({ status: 200, body: report })],
     [/^\/reports\/6$/, () => ({ status: 200, body: bigReport })],
     [/^\/listings$/, () => ({ status: 200, body: listingPage })],
+    [
+      /^\/calendar\/events$/,
+      () => ({ status: 200, body: { content: bookings, page: 0, size: 50, totalElements: 2 } }),
+    ],
   ];
   const hit = routes.find(([re]) => re.test(path));
   return hit ? hit[1]() : undefined;

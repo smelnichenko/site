@@ -1866,6 +1866,11 @@ a.muted,
 .masi-listing-url {
   overflow-wrap: anywhere;
 }
+/* a booking's title is words: the column is as wide as its longest word, and only a token longer than the column breaks */
+.masi-booking-title {
+  min-width: 12ch;
+  overflow-wrap: break-word;
+}
 
 /* ---- masi calendar ---- */
 .masi-calendar-header {

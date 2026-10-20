@@ -315,7 +315,11 @@ describe('MasiJobs', () => {
         return <output data-testid="search">{useLocation().search}</output>;
       }
       render(
-        <MemoryRouter initialEntries={[`/masi/jobs?event=CLOSED&from=${from}&to=${to}&q=java`]}>
+        <MemoryRouter
+          initialEntries={[
+            `/masi/jobs?event=CLOSED&from=${from}&to=${to}&salary=COUNTED&titleNorm=java%20developer&tag=java&seniority=senior&q=java`,
+          ]}
+        >
           <Routes>
             <Route
               path="/masi/jobs"
@@ -339,6 +343,10 @@ describe('MasiJobs', () => {
       expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('ALL');
       const note = screen.getByRole('region', { name: 'Report filter' });
       expect(note).toHaveTextContent('closed 23 Mar 2026 – 29 Mar 2026');
+      // every report key in the URL, so a clear that misses one is seen
+      expect(note).toHaveTextContent(
+        'salary counted · titled "java developer" · tagged java · seniority senior',
+      );
       await userEvent.click(within(note).getByRole('button', { name: 'clear the report filter' }));
       await waitFor(() =>
         expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(

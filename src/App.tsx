@@ -27,6 +27,7 @@ const MasiJobDetail = lazy(() => import('./pages/masi/MasiJobDetail'));
 const MasiJobAdd = lazy(() => import('./pages/masi/MasiJobAdd'));
 const MasiPackages = lazy(() => import('./pages/masi/MasiPackages'));
 const MasiListings = lazy(() => import('./pages/masi/MasiListings'));
+const MasiBookings = lazy(() => import('./pages/masi/MasiBookings'));
 const MasiPackageDetail = lazy(() => import('./pages/masi/MasiPackageDetail'));
 const MasiCompanies = lazy(() => import('./pages/masi/MasiCompanies'));
 const MasiCompanyDetail = lazy(() => import('./pages/masi/MasiCompanyDetail'));
@@ -282,6 +283,14 @@ function App() {
                 element={
                   <ProtectedRoute permission="JOBS">
                     <MasiJobDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/bookings"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiBookings />
                   </ProtectedRoute>
                 }
               />

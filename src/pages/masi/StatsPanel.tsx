@@ -1,9 +1,21 @@
-import type { MasiStats } from '../../services/api';
+import type { ReactElement } from 'react';
+import type { MasiOutcomes, MasiStats } from '../../services/api';
 import { formatDateTime, formatUsd } from './format';
 import { formatAmount } from './salary';
 import MasiTable from '../../components/MasiTable';
 import FigureLink from './FigureLink';
-import { counted, jobsLink, listingsLink, packagesLink } from './figureLinks';
+import {
+  counted,
+  interviewsLink,
+  jobsLink,
+  listingsLink,
+  NO_LANGUAGE,
+  packagesLink,
+  RESPONSE_WORDS,
+  RESPONSES,
+  responsesLink,
+  type FigureWindow,
+} from './figureLinks';
 
 interface BarRow {
   label: string;
@@ -148,6 +160,80 @@ function SalaryCard({
   );
 }
 
+/** "et 3", or "language not known 1": a language applied in, as the outcomes line names it. */
+function languageWords(language: string): string {
+  return language === NO_LANGUAGE ? 'language not known' : language;
+}
+
+/**
+ * The caller's outcomes: the interviews they held, by the language they applied in, and the responses their log holds -
+ * "5 interviews held (et 3 · en 1) · 3 refused". Each count leads to its rows; a kind with none is not named.
+ */
+function OutcomesCard({
+  outcomes,
+  window,
+}: Readonly<{ outcomes: MasiOutcomes; window: FigureWindow }>) {
+  const languages = Object.entries(outcomes.interviewsByLanguage).sort(([a, x], [b, y]) =>
+    a === NO_LANGUAGE || b === NO_LANGUAGE
+      ? Number(a === NO_LANGUAGE) - Number(b === NO_LANGUAGE)
+      : y - x || a.localeCompare(b),
+  );
+  const responses = RESPONSES.filter((r) => (outcomes.responses[r] ?? 0) > 0);
+  const parts: ReactElement[] = [];
+  if (outcomes.interviews > 0) {
+    parts.push(
+      <span key="interviews">
+        <FigureLink value={outcomes.interviews} to={interviewsLink(window)}>
+          {counted(outcomes.interviews, 'interview held', 'interviews held')}
+        </FigureLink>
+        {languages.length > 0 && ' ('}
+        {languages.map(([language, n], i) => (
+          <span key={language}>
+            {i > 0 && ' · '}
+            {languageWords(language)}{' '}
+            <FigureLink
+              value={n}
+              to={interviewsLink(window, language)}
+              name={
+                language === NO_LANGUAGE
+                  ? `${counted(n, 'interview', 'interviews')}, language not known`
+                  : `${counted(n, 'interview', 'interviews')} applied in ${language}`
+              }
+            />
+          </span>
+        ))}
+        {languages.length > 0 && ')'}
+      </span>,
+    );
+  }
+  for (const r of responses) {
+    const n = outcomes.responses[r];
+    const [one, many] = RESPONSE_WORDS[r];
+    parts.push(
+      <FigureLink key={r} value={n} to={responsesLink(window, r)}>
+        {counted(n, one, many)}
+      </FigureLink>,
+    );
+  }
+  return (
+    <section className="card" aria-label="Outcomes">
+      <div className="card-title">Your outcomes</div>
+      {parts.length === 0 ? (
+        <div className="empty-state">No interview held and no response logged in this period.</div>
+      ) : (
+        <div className="masi-outcomes">
+          {parts.map((p, i) => (
+            <span key={String(p.key)}>
+              {i > 0 && ' · '}
+              {p}
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** The figures of one period, live or stored: registry, sources, market, the caller's funnel, the LLM spend. */
 export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
   const runs = stats.sources.map((s) => ({
@@ -156,6 +242,8 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
   }));
   const w = { from: stats.from, to: stats.to };
   const r = stats.registry;
+  // closes and reposts of a report stored before they were counted as rows: a list would hold fewer, so no link
+  const exact = r.rowsExact === true;
   return (
     <div className="masi-stats">
       <div className="muted">
@@ -174,7 +262,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
           <span className="muted">
             <FigureLink
               value={r.closedJobs}
-              to={jobsLink(w, 'CLOSED')}
+              to={exact ? jobsLink(w, 'CLOSED') : null}
               name={counted(r.closedJobs, 'closed job', 'closed jobs')}
             >
               {r.closedJobs} closed
@@ -184,7 +272,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
                 {' · '}
                 <FigureLink
                   value={r.repostedJobs}
-                  to={jobsLink(w, 'REPOSTED')}
+                  to={exact ? jobsLink(w, 'REPOSTED') : null}
                   name={counted(r.repostedJobs, 'reposted job', 'reposted jobs')}
                 >
                   {r.repostedJobs} reposted
@@ -205,7 +293,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
           <span className="muted">
             <FigureLink
               value={r.closedListings}
-              to={listingsLink(w, 'CLOSED')}
+              to={exact ? listingsLink(w, 'CLOSED') : null}
               name={counted(r.closedListings, 'closed listing', 'closed listings')}
             >
               {r.closedListings} closed
@@ -245,6 +333,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
           </span>
         </div>
       </div>
+      {stats.outcomes && <OutcomesCard outcomes={stats.outcomes} window={w} />}
       <div className="grid masi-stats-grid">
         <Bars
           title="Top hiring companies"
@@ -322,7 +411,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
                 <td>
                   <FigureLink
                     value={s.closedListings}
-                    to={listingsLink(w, 'CLOSED', s.key)}
+                    to={exact ? listingsLink(w, 'CLOSED', s.key) : null}
                     name={`${counted(s.closedListings, 'closed listing', 'closed listings')} on ${s.name}`}
                   />
                 </td>

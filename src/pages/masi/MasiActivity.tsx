@@ -11,6 +11,14 @@ import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import { errorMessage, formatDateTime, pageParam } from './format';
 import { addDays, startOf } from './calendarTime';
+import FigureFilterNote from './FigureFilterNote';
+import { figureParams, RESPONSE_WORDS, RESPONSES, windowLabel } from './figureLinks';
+
+/** The report's window for a response: what the period-less "day" filter becomes when a report's figure led here. */
+function windowOf(day: string, from?: string, to?: string) {
+  if (from && to) return { from, to };
+  return { from: day ? startOf(day) : undefined, to: day ? startOf(addDays(day, 1)) : undefined };
+}
 
 const PAGE_SIZE = 50;
 
@@ -53,6 +61,14 @@ export default function MasiActivity() {
   const company = params.get('company') ?? '';
   const contact = params.get('contact') ?? '';
   const person = params.get('person') ?? '';
+  // a report's response figure: the caller's rows of one response in the report's period
+  const figure = figureParams(params, RESPONSES, 'response');
+  // the figure's parts as strings off the URL, all three or none: what the loader depends on
+  const asked = RESPONSES.find((r) => r === params.get('response')) ?? '';
+  const complete = Boolean(asked && params.get('from') && params.get('to'));
+  const response = complete ? asked : '';
+  const figureFrom = complete ? (params.get('from') ?? '') : '';
+  const figureTo = complete ? (params.get('to') ?? '') : '';
   const pageNo = pageParam(params.get('page'));
   const [page, setPage] = useState<Paged<Row> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,8 +79,8 @@ export default function MasiActivity() {
   const reload = useCallback(
     async (signal?: AbortSignal) => {
       const filter = {
-        from: day ? startOf(day) : undefined,
-        to: day ? startOf(addDays(day, 1)) : undefined,
+        ...windowOf(day, figureFrom, figureTo),
+        response: response || undefined,
         kind: kind || undefined,
         job: job ? Number(job) : undefined,
         company: company ? Number(company) : undefined,
@@ -75,7 +91,8 @@ export default function MasiActivity() {
       };
       setPage(await fetchMasiActivity(filter, signal));
     },
-    [day, kind, job, company, contact, person, pageNo],
+    // the figure's parts, not the object: a new one each render would reload for ever
+    [day, kind, job, company, contact, person, response, figureFrom, figureTo, pageNo],
   );
 
   useEffect(() => {
@@ -138,6 +155,16 @@ export default function MasiActivity() {
           <span className="muted">{page ? countWords(page.totalElements) : ''}</span>
         </div>
         {error && <div className="error">{error}</div>}
+        {figure && (
+          <FigureFilterNote
+            parts={[`${RESPONSE_WORDS[figure.event][1]} ${windowLabel(figure.from, figure.to)}`]}
+            onClear={() => {
+              const next = new URLSearchParams(params);
+              for (const key of ['response', 'from', 'to', 'page']) next.delete(key);
+              setParams(next);
+            }}
+          />
+        )}
         <div className="form-row masi-filters">
           <div className="form-group">
             <label htmlFor="act-day">Day</label>
