@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import type { MasiOutcomes, MasiStats } from '../../services/api';
 import { formatDateTime, formatUsd } from './format';
 import { formatAmount } from './salary';
@@ -179,7 +179,7 @@ function OutcomesCard({
       : y - x || a.localeCompare(b),
   );
   const responses = RESPONSES.filter((r) => (outcomes.responses[r] ?? 0) > 0);
-  const parts: ReactNode[] = [];
+  const parts: ReactElement[] = [];
   if (outcomes.interviews > 0) {
     parts.push(
       <span key="interviews">
@@ -223,7 +223,7 @@ function OutcomesCard({
       ) : (
         <div className="masi-outcomes">
           {parts.map((p, i) => (
-            <span key={i}>
+            <span key={String(p.key)}>
               {i > 0 && ' · '}
               {p}
             </span>
