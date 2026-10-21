@@ -52,7 +52,15 @@ export default function MasiJobs() {
   const employmentType = employmentParam(params.get('employmentType'));
   const country = (params.get('country') ?? '').toUpperCase();
   const company = params.get('company');
-  const sort = params.get('sort') === BY_MATCH ? BY_MATCH : '';
+  const offeredSorts = new Set([
+    BY_MATCH,
+    'title,asc',
+    'title,desc',
+    'firstSeenAt,asc',
+    'firstSeenAt,desc',
+  ]);
+  const rawSort = params.get('sort') ?? '';
+  const sort = offeredSorts.has(rawSort) ? rawSort : '';
   const pageNo = pageParam(params.get('page'));
 
   useEffect(() => {
@@ -106,6 +114,20 @@ export default function MasiJobs() {
     seniority,
     pageNo,
   ]);
+
+  function sortBy(column: string) {
+    const next = new URLSearchParams(params);
+    const asc = `${column},asc`;
+    next.set('sort', sort === asc ? `${column},desc` : asc);
+    next.delete('page');
+    setParams(next);
+  }
+
+  function sortMark(column: string): string {
+    if (sort === `${column},asc`) return ' ▲';
+    if (sort === `${column},desc`) return ' ▼';
+    return '';
+  }
 
   function set(key: string, value: string) {
     setAll({ [key]: value });
@@ -257,11 +279,23 @@ export default function MasiJobs() {
           <MasiTable label="Jobs">
             <thead>
               <tr>
-                <th>Title</th>
+                <th>
+                  <button type="button" className="sortable-th" onClick={() => sortBy('title')}>
+                    Title{sortMark('title')}
+                  </button>
+                </th>
                 <th>Company</th>
                 <th>Sources</th>
                 <th>Location</th>
-                <th>First seen</th>
+                <th>
+                  <button
+                    type="button"
+                    className="sortable-th"
+                    onClick={() => sortBy('firstSeenAt')}
+                  >
+                    First seen{sortMark('firstSeenAt')}
+                  </button>
+                </th>
                 <th className="masi-num">Match</th>
                 <th>Package</th>
               </tr>
