@@ -216,7 +216,7 @@ export default function MasiPersons() {
                           .map((id) => pictures.get(id))
                           .find((url) => url != null)}
                         alt={p.name ?? 'person'}
-                        style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }}
+                        style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }}
                       />
                     )}
                   </td>

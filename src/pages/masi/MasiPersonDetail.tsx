@@ -230,7 +230,7 @@ export default function MasiPersonDetail() {
                           src={pictures.get(t.contactId)}
                           alt={companyName}
                           className="masi-contact-picture"
-                          style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }}
+                          style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }}
                         />
                       )}
                     </td>
