@@ -204,21 +204,33 @@ export default function MasiPersons() {
                     {p.title && <div className="muted">{p.title}</div>}
                   </td>
                   <td>
-                    {p.ties
-                      .map((t) => t.contactId)
-                      .filter((id): id is number => id != null)
-                      .map((id) => pictures.get(id))
-                      .find((url) => url != null) && (
-                      <img
-                        src={p.ties
-                          .map((t) => t.contactId)
-                          .filter((id): id is number => id != null)
-                          .map((id) => pictures.get(id))
-                          .find((url) => url != null)}
-                        alt={p.name ?? 'person'}
-                        style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }}
-                      />
-                    )}
+                    {(() => {
+                      const url = p.ties
+                        .map((t) => t.contactId)
+                        .filter((id): id is number => id != null)
+                        .map((id) => pictures.get(id))
+                        .find((x) => x != null);
+                      return url ? (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Open the picture of ${p.name ?? 'this person'}`}
+                        >
+                          <img
+                            src={url}
+                            alt={p.name ?? 'person'}
+                            style={{
+                              width: 80,
+                              height: 80,
+                              objectFit: 'cover',
+                              borderRadius: 8,
+                              cursor: 'zoom-in',
+                            }}
+                          />
+                        </a>
+                      ) : null;
+                    })()}
                   </td>
                   <td>{p.email ?? ''}</td>
                   <td>
