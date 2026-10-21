@@ -24,6 +24,7 @@ export default function MasiPersons() {
   const [params, setParams] = useSearchParams();
   const pageNo = pageParam(params.get('page'));
   const q = params.get('q') ?? '';
+  const sort = params.get('sort') ?? '';
   const agencyOnly = params.get('agency') === 'true';
   const companyParam = params.get('company');
   const company = companyParam ? Number(companyParam) : undefined;
@@ -42,6 +43,7 @@ export default function MasiPersons() {
         agency: agencyOnly ? true : undefined,
         page: pageNo,
         size: PAGE_SIZE,
+        sort: sort || undefined,
       },
       controller.signal,
     )
@@ -72,7 +74,22 @@ export default function MasiPersons() {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load people'));
       });
     return () => controller.abort();
-  }, [q, company, agencyOnly, pageNo]);
+  }, [q, company, agencyOnly, pageNo, sort]);
+
+  /** A header press sorts by that column, toggling the direction; the first press of another column is ascending. */
+  function sortBy(column: string) {
+    const next = new URLSearchParams(params);
+    const asc = `${column},asc`;
+    next.set('sort', sort === asc ? `${column},desc` : asc);
+    next.delete('page');
+    setParams(next);
+  }
+
+  function sortMark(column: string): string {
+    if (sort === `${column},asc`) return ' ▲';
+    if (sort === `${column},desc`) return ' ▼';
+    return '';
+  }
 
   function setParam(key: string, value: string | null) {
     const next = new URLSearchParams(params);
@@ -155,11 +172,27 @@ export default function MasiPersons() {
           <MasiTable label="People">
             <thead>
               <tr>
-                <th>Name</th>
+                <th>
+                  <button type="button" className="sortable-th" onClick={() => sortBy('nameNorm')}>
+                    Name{sortMark('nameNorm')}
+                  </button>
+                </th>
                 <th>Picture</th>
-                <th>Address</th>
+                <th>
+                  <button type="button" className="sortable-th" onClick={() => sortBy('emailNorm')}>
+                    Address{sortMark('emailNorm')}
+                  </button>
+                </th>
                 <th>Companies</th>
-                <th>Seen</th>
+                <th>
+                  <button
+                    type="button"
+                    className="sortable-th"
+                    onClick={() => sortBy('lastSeenAt')}
+                  >
+                    Seen{sortMark('lastSeenAt')}
+                  </button>
+                </th>
                 <th>Contact?</th>
               </tr>
             </thead>

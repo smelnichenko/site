@@ -2081,7 +2081,14 @@ export function saveMasiJobNote(id: number, userNote: string): Promise<MasiJob> 
 }
 
 export function fetchMasiCompanies(
-  filter: { q?: string; status?: string; hiring?: boolean; page?: number; size?: number },
+  filter: {
+    q?: string;
+    status?: string;
+    hiring?: boolean;
+    page?: number;
+    size?: number;
+    sort?: string;
+  },
   signal?: AbortSignal,
 ): Promise<Paged<MasiCompany>> {
   return masiGet(`/companies${query({ ...filter })}`, signal, 'load companies');
@@ -2279,7 +2286,14 @@ export function takeBackMasiPlacement(id: number): Promise<MasiCompany> {
 }
 
 export function fetchMasiPersons(
-  filter: { q?: string; company?: number; agency?: boolean; page?: number; size?: number },
+  filter: {
+    q?: string;
+    company?: number;
+    agency?: boolean;
+    page?: number;
+    size?: number;
+    sort?: string;
+  },
   signal?: AbortSignal,
 ): Promise<Paged<MasiPerson>> {
   return masiGet(`/persons${query({ ...filter })}`, signal, 'load people');

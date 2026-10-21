@@ -1327,6 +1327,20 @@ a.muted,
   outline-offset: 2px;
 }
 
+/* a sortable column header: the whole header is the press, the table keeps its own text style */
+.sortable-th {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sortable-th:hover {
+  color: #4a90d9;
+}
+
 /* an input in a masi table (a cron, a request cap) is a control, not a 19 px text slot */
 .masi .table input {
   min-height: 36px;
