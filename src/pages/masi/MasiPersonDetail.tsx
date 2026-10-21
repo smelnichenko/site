@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   fetchMasiActivity,
+  fetchMasiContactPictureBlob,
+  fetchMasiContactPictures,
   fetchMasiPerson,
   MasiActivity,
   MasiPerson,
@@ -26,6 +28,7 @@ export default function MasiPersonDetail() {
     note: '',
   });
   const [activity, setActivity] = useState<MasiActivity[]>([]);
+  const [pictures, setPictures] = useState<Map<number, string>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -43,6 +46,21 @@ export default function MasiPersonDetail() {
         setActivity(log.content);
         setError(null);
         setMessage(null); // a message about the person this page showed before is not about this one
+        // the contact's pictures, the first of each shown on its tie: the bytes come as blobs, an <img> cannot send the token
+        const urls = new Map<number, string>();
+        for (const tie of p.ties) {
+          if (tie.contactId == null || urls.has(tie.contactId)) continue;
+          try {
+            const rows = await fetchMasiContactPictures(tie.contactId, controller.signal);
+            if (rows.length > 0) {
+              const blob = await fetchMasiContactPictureBlob(tie.contactId, rows[0].id, controller.signal);
+              urls.set(tie.contactId, URL.createObjectURL(blob));
+            }
+          } catch {
+            // one contact without a picture is no reason to fail the page
+          }
+        }
+        setPictures(urls);
       } catch (e: unknown) {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load the person'));
       }
@@ -179,6 +197,7 @@ export default function MasiPersonDetail() {
                 <th>Since</th>
                 <th>Until</th>
                 <th>Address</th>
+                <th>Picture</th>
                 <th />
               </tr>
             </thead>
@@ -201,6 +220,16 @@ export default function MasiPersonDetail() {
                     <td>{formatDate(t.since)}</td>
                     <td>{formatDate(t.until)}</td>
                     <td>{whereLabel(t.where)}</td>
+                    <td>
+                      {t.contactId != null && pictures.get(t.contactId) && (
+                        <img
+                          src={pictures.get(t.contactId)}
+                          alt={companyName}
+                          className="masi-contact-picture"
+                          style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }}
+                        />
+                      )}
+                    </td>
                     <td>
                       {logHere && (
                         <Link
