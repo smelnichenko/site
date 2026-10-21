@@ -53,7 +53,11 @@ export default function MasiPersonDetail() {
           try {
             const rows = await fetchMasiContactPictures(tie.contactId, controller.signal);
             if (rows.length > 0) {
-              const blob = await fetchMasiContactPictureBlob(tie.contactId, rows[0].id, controller.signal);
+              const blob = await fetchMasiContactPictureBlob(
+                tie.contactId,
+                rows[0].id,
+                controller.signal,
+              );
               urls.set(tie.contactId, URL.createObjectURL(blob));
             }
           } catch {

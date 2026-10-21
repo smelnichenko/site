@@ -2313,7 +2313,9 @@ export async function fetchMasiContactPictureBlob(
   pictureId: number,
   signal?: AbortSignal,
 ): Promise<Blob> {
-  const response = await apiFetch(`${API_BASE}/masi/contacts/${contactId}/pictures/${pictureId}`, { signal });
+  const response = await apiFetch(`${API_BASE}/masi/contacts/${contactId}/pictures/${pictureId}`, {
+    signal,
+  });
   if (!response.ok) {
     const data = await readErrorBody(response);
     throw new Error(data.error || 'Failed to load the picture');
