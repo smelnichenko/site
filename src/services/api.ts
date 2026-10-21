@@ -2289,6 +2289,38 @@ export function fetchMasiPerson(id: number, signal?: AbortSignal): Promise<MasiP
   return masiGet(`/persons/${id}`, signal, 'load the person');
 }
 
+/** One picture collected for a contact: its metadata, never its bytes. */
+export interface MasiContactPicture {
+  id: number;
+  source: string;
+  sourceUrl: string | null;
+  contentType: string | null;
+  size: number;
+  capturedAt: string;
+}
+
+/** The pictures collected for a contact, newest first. */
+export function fetchMasiContactPictures(
+  contactId: number,
+  signal?: AbortSignal,
+): Promise<MasiContactPicture[]> {
+  return masiGet(`/contacts/${contactId}/pictures`, signal, 'load the pictures');
+}
+
+/** A picture's bytes as a blob: an <img> cannot send the token itself, so the fetch does. */
+export async function fetchMasiContactPictureBlob(
+  contactId: number,
+  pictureId: number,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const response = await apiFetch(`${API_BASE}/masi/contacts/${contactId}/pictures/${pictureId}`, { signal });
+  if (!response.ok) {
+    const data = await readErrorBody(response);
+    throw new Error(data.error || 'Failed to load the picture');
+  }
+  return response.blob();
+}
+
 /** The people tied to one company: who posted for it, who represents it, who was spoken to. */
 export function fetchMasiCompanyPersons(id: number, signal?: AbortSignal): Promise<MasiPerson[]> {
   return masiGet(`/persons/of-company/${id}`, signal, 'load the people');
