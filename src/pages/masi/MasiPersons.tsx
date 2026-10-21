@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { fetchMasiPersons, MasiPerson, Paged, patchMasiPerson } from '../../services/api';
+import {
+  fetchMasiContactPictureBlob,
+  fetchMasiContactPictures,
+  fetchMasiPersons,
+  MasiPerson,
+  Paged,
+  patchMasiPerson,
+} from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import MasiTable from '../../components/MasiTable';
@@ -22,6 +29,7 @@ export default function MasiPersons() {
   const company = companyParam ? Number(companyParam) : undefined;
   const [typed, setTyped] = useState(q);
   const [page, setPage] = useState<Paged<MasiPerson> | null>(null);
+  const [pictures, setPictures] = useState<Map<number, string>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -37,9 +45,28 @@ export default function MasiPersons() {
       },
       controller.signal,
     )
-      .then((p) => {
+      .then(async (p) => {
         setPage(p);
         setError(null);
+        const urls = new Map<number, string>();
+        for (const person of p.content) {
+          const contactId = person.ties.find((t) => t.contactId != null)?.contactId;
+          if (contactId == null || urls.has(contactId)) continue;
+          try {
+            const rows = await fetchMasiContactPictures(contactId, controller.signal);
+            if (rows.length > 0) {
+              const blob = await fetchMasiContactPictureBlob(
+                contactId,
+                rows[0].id,
+                controller.signal,
+              );
+              urls.set(contactId, URL.createObjectURL(blob));
+            }
+          } catch {
+            // a person without a picture is no reason to fail the list
+          }
+        }
+        setPictures(urls);
       })
       .catch((e: unknown) => {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load people'));
@@ -129,6 +156,7 @@ export default function MasiPersons() {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Picture</th>
                 <th>Address</th>
                 <th>Companies</th>
                 <th>Seen</th>
@@ -141,6 +169,23 @@ export default function MasiPersons() {
                   <td>
                     <Link to={`/masi/persons/${p.id}`}>{p.name ?? 'unnamed'}</Link>
                     {p.title && <div className="muted">{p.title}</div>}
+                  </td>
+                  <td>
+                    {p.ties
+                      .map((t) => t.contactId)
+                      .filter((id): id is number => id != null)
+                      .map((id) => pictures.get(id))
+                      .find((url) => url != null) && (
+                      <img
+                        src={p.ties
+                          .map((t) => t.contactId)
+                          .filter((id): id is number => id != null)
+                          .map((id) => pictures.get(id))
+                          .find((url) => url != null)}
+                        alt={p.name ?? 'person'}
+                        style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }}
+                      />
+                    )}
                   </td>
                   <td>{p.email ?? ''}</td>
                   <td>
