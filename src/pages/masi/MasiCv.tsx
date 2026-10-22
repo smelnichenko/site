@@ -3,6 +3,7 @@ import {
   activateCvVersion,
   createCvVersion,
   deleteCvVersion,
+  mergeCvVersions,
   fetchCvMaster,
   fetchCvPreview,
   fetchCvVersion,
@@ -99,6 +100,7 @@ function MasiCv() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<number[]>([]);
 
   const reload = useCallback(async (signal?: AbortSignal) => {
     const [master, list] = await Promise.all([fetchCvMaster(signal), fetchCvVersions(signal)]);
@@ -213,6 +215,27 @@ function MasiCv() {
       await reload();
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onMerge() {
+    if (selected.length < 2) {
+      setMessage('Choose at least two versions to merge');
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const merged = await mergeCvVersions(selected, `merge of ${selected.map((v) => `v${v}`).join(', ')}`);
+      setSelected([]);
+      setMessage(`Merged into v${merged.version} (draft - review and activate it)`);
+      await reload();
+      setYaml((await fetchCvVersion(merged.version)).yaml ?? yaml);
+      setShown(merged.version);
+    } catch (e: unknown) {
+      setMessage(e instanceof Error ? e.message : 'Merge failed');
     } finally {
       setBusy(false);
     }
@@ -353,9 +376,19 @@ function MasiCv() {
         {versions.length === 0 ? (
           <p className="muted">No versions yet. Fill in the evidence bank and save it.</p>
         ) : (
-          <MasiTable label="CV versions">
+          <>
+            <div className="badge-group">
+              <LoadingButton
+                className="status-badge action"
+                onClick={() => void onMerge()}
+                loading={busy}
+                label={`Merge selected (${selected.length})`}
+              />
+            </div>
+            <MasiTable label="CV versions">
             <thead>
               <tr>
+                <th></th>
                 <th>Version</th>
                 <th>Note</th>
                 <th>Language</th>
@@ -367,6 +400,20 @@ function MasiCv() {
             <tbody>
               {versions.map((v) => (
                 <tr key={v.version}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(v.version)}
+                      onChange={() =>
+                        setSelected((prev) =>
+                          prev.includes(v.version)
+                            ? prev.filter((n) => n !== v.version)
+                            : [...prev, v.version],
+                        )
+                      }
+                      disabled={busy}
+                    />
+                  </td>
                   <td>v{v.version}</td>
                   <td>{v.note ?? ''}</td>
                   <td>{languageName(v.language)}</td>
@@ -412,7 +459,8 @@ function MasiCv() {
                 </tr>
               ))}
             </tbody>
-          </MasiTable>
+            </MasiTable>
+          </>
         )}
       </div>
     </div>

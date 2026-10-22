@@ -1264,6 +1264,19 @@ export async function activateCvVersion(version: number): Promise<CvVersionMeta>
   return readJson(response);
 }
 
+export async function mergeCvVersions(versions: number[], note?: string): Promise<CvVersionMeta> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/merge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ versions, note }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? 'Failed to merge the CV versions');
+  }
+  return readJson(response);
+}
+
 export async function deleteCvVersion(version: number): Promise<void> {
   const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}`, {
     method: 'DELETE',
