@@ -2147,7 +2147,6 @@ export type MasiVisitOutcome =
   | 'REGISTER_BUSY'
   | 'UNCONFIRMED'
   | 'NO_CANDIDATE'
-  | 'ROBOTS_DENIED'
   | 'FETCH_FAILED'
   | 'VISIT_FAILED';
 

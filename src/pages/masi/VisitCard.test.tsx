@@ -448,7 +448,7 @@ describe('VisitCard', () => {
       visits({
         attempt: {
           ...guessed,
-          outcome: 'ROBOTS_DENIED',
+          outcome: 'FETCH_FAILED',
           candidateUrl: null,
           evidence: null,
           foundBy: null,
@@ -460,7 +460,7 @@ describe('VisitCard', () => {
     renderCard();
 
     expect(
-      await screen.findByText("the sites' robots.txt forbid reading them"),
+      await screen.findByText("no site could be read"),
     ).toBeInTheDocument();
     expect(screen.getByText('cut short by a restart: visited again soon')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Accept / })).not.toBeInTheDocument();

@@ -21,7 +21,6 @@ const CAME_TO: Record<MasiVisitOutcome, string> = {
   REGISTER_BUSY: 'the register was busy: visited again soon',
   UNCONFIRMED: 'not sure it is its site',
   NO_CANDIDATE: 'nothing to visit',
-  ROBOTS_DENIED: "the sites' robots.txt forbid reading them",
   FETCH_FAILED: 'no site could be read',
   VISIT_FAILED: 'the visit did not finish',
 };
