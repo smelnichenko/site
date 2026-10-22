@@ -11,6 +11,7 @@ import {
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import MasiTable from '../../components/MasiTable';
+import PictureLightbox, { ViewerPicture } from './PictureLightbox';
 import { errorMessage, formatDateTime, pageParam } from './format';
 import { byCompany, rolesText } from './people';
 
@@ -33,6 +34,7 @@ export default function MasiPersons() {
   const [pictures, setPictures] = useState<Map<number, string>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [viewer, setViewer] = useState<{ pictures: ViewerPicture[]; index: number } | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -210,12 +212,28 @@ export default function MasiPersons() {
                         .filter((id): id is number => id != null)
                         .map((id) => pictures.get(id))
                         .find((x) => x != null);
-                      return url ? (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
+                      if (url == null) {
+                        return null;
+                      }
+                      const all = p.ties
+                        .map((t) =>
+                          t.contactId != null && pictures.get(t.contactId)
+                            ? {
+                                url: pictures.get(t.contactId) as string,
+                                alt: p.name ?? 'person',
+                              }
+                            : null,
+                        )
+                        .filter((x): x is ViewerPicture => x != null);
+                      return (
+                        <button
+                          type="button"
+                          className="picture-thumb"
                           aria-label={`Open the picture of ${p.name ?? 'this person'}`}
+                          onClick={() => {
+                            const index = Math.max(0, all.findIndex((x) => x.url === url));
+                            setViewer({ pictures: all, index });
+                          }}
                         >
                           <img
                             src={url}
@@ -228,8 +246,8 @@ export default function MasiPersons() {
                               cursor: 'zoom-in',
                             }}
                           />
-                        </a>
-                      ) : null;
+                        </button>
+                      );
                     })()}
                   </td>
                   <td>{p.email ?? ''}</td>
@@ -280,6 +298,13 @@ export default function MasiPersons() {
           </div>
         )}
       </div>
+      {viewer && (
+        <PictureLightbox
+          pictures={viewer.pictures}
+          index={viewer.index}
+          onClose={() => setViewer(null)}
+        />
+      )}
     </div>
   );
 }

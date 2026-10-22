@@ -12,6 +12,7 @@ import {
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import MasiTable from '../../components/MasiTable';
+import PictureLightbox, { ViewerPicture } from './PictureLightbox';
 import { errorMessage, formatDate, formatDateTime } from './format';
 import { changes, Draft, draftOf, evidenceLabel, roleLabel, whereLabel } from './people';
 
@@ -32,6 +33,7 @@ export default function MasiPersonDetail() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [viewer, setViewer] = useState<{ pictures: ViewerPicture[]; index: number } | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -226,12 +228,37 @@ export default function MasiPersonDetail() {
                     <td>{whereLabel(t.where)}</td>
                     <td>
                       {t.contactId != null && pictures.get(t.contactId) && (
-                        <img
-                          src={pictures.get(t.contactId)}
-                          alt={companyName}
-                          className="masi-contact-picture"
-                          style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }}
-                        />
+                        <button
+                          type="button"
+                          className="picture-thumb"
+                          aria-label={`Open the picture of ${companyName}`}
+                          onClick={() => {
+                            const cid = t.contactId;
+                            if (cid == null) return;
+                            const all = person.ties
+                              .map((tie) =>
+                                tie.contactId != null && pictures.get(tie.contactId)
+                                  ? {
+                                      url: pictures.get(tie.contactId) as string,
+                                      alt: tie.companyName ?? `company ${tie.companyId}`,
+                                    }
+                                  : null,
+                              )
+                              .filter((x): x is ViewerPicture => x != null);
+                            const index = Math.max(
+                              0,
+                              all.findIndex((x) => x.url === pictures.get(cid)),
+                            );
+                            setViewer({ pictures: all, index });
+                          }}
+                        >
+                          <img
+                            src={pictures.get(t.contactId)}
+                            alt={companyName}
+                            className="masi-contact-picture"
+                            style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, cursor: 'zoom-in' }}
+                          />
+                        </button>
                       )}
                     </td>
                     <td>
@@ -289,6 +316,13 @@ export default function MasiPersonDetail() {
           </MasiTable>
         )}
       </div>
+      {viewer && (
+        <PictureLightbox
+          pictures={viewer.pictures}
+          index={viewer.index}
+          onClose={() => setViewer(null)}
+        />
+      )}
     </div>
   );
 }
