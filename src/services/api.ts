@@ -1264,6 +1264,16 @@ export async function activateCvVersion(version: number): Promise<CvVersionMeta>
   return readJson(response);
 }
 
+export async function deleteCvVersion(version: number): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/masi/cv/versions/${version}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? 'Failed to delete the CV version');
+  }
+}
+
 /** Starts translating a version into {@code language}; the model works in the background (202). */
 export async function startCvTranslation(
   version: number,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   activateCvVersion,
   createCvVersion,
+  deleteCvVersion,
   fetchCvMaster,
   fetchCvPreview,
   fetchCvVersion,
@@ -200,6 +201,23 @@ function MasiCv() {
     }
   }
 
+  async function onDelete(version: number) {
+    if (!window.confirm(`Delete CV version ${version}? This cannot be undone.`)) {
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      await deleteCvVersion(version);
+      setMessage(`Version ${version} deleted`);
+      await reload();
+    } catch (e: unknown) {
+      setMessage(e instanceof Error ? e.message : 'Delete failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onShow(version: number) {
     setBusy(true);
     setMessage(null);
@@ -379,6 +397,15 @@ function MasiCv() {
                         disabled={busy}
                       >
                         Activate
+                      </button>
+                    )}
+                    {!v.active && (
+                      <button
+                        className="status-badge danger"
+                        onClick={() => void onDelete(v.version)}
+                        disabled={busy}
+                      >
+                        Delete
                       </button>
                     )}
                   </td>
