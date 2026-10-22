@@ -152,3 +152,47 @@ steps:
             key: infra_repo_token
             target:
               env: INFRA_TOKEN
+
+  # ============== PROMOTE TO PROD (operator 2026-10-22: no more half-year pile-ups) ==============
+  - name: promote-prod
+    image: alpine:latest
+    commands:
+      - apk add --no-cache git
+      - printf "machine git.pmon.dev
+login woodpecker
+password %s
+" "$INFRA_TOKEN" > ~/.netrc && chmod 600 ~/.netrc
+      - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
+      - |
+        HELMRELEASE=clusters/production/schnappy-production-apps/values.yaml
+
+        for attempt in 1 2 3 4 5; do
+          cd / && rm -rf /tmp/infra
+          git clone https://git.pmon.dev/schnappy/infra.git /tmp/infra
+          cd /tmp/infra
+          git config user.name "Woodpecker CD"
+          git config user.email "woodpecker@pmon.dev"
+
+          grep -qE 'tag: "[^"]*"  # site$' "$HELMRELEASE" || { echo "ERROR: no 'tag: ... # site' line in $HELMRELEASE"; exit 1; }
+          sed -i "s|tag: ".*"  # site$|tag: "$GIT_HASH"  # site|" "$HELMRELEASE"
+          grep -q "tag: "$GIT_HASH"  # site$" "$HELMRELEASE" || { echo "ERROR: sed did not apply"; exit 1; }
+
+          git add -A
+          git diff --cached --quiet && { echo "No changes to commit"; exit 0; }
+          git commit -m "promote(prod): site=$GIT_HASH"
+          git push && { echo "Push succeeded"; exit 0; }
+
+          echo "Push conflict (attempt $attempt), retrying..."
+          sleep $((attempt * 2))
+        done
+
+        echo "ERROR: Failed to push after 5 attempts"
+        exit 1
+    depends_on: [update-infra]
+    backend_options:
+      kubernetes:
+        secrets:
+          - name: woodpecker-ci-secrets
+            key: infra_repo_token
+            target:
+              env: INFRA_TOKEN
