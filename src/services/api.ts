@@ -1791,11 +1791,13 @@ async function masiSend<T>(
   method: string,
   body?: unknown,
   what = 'save',
+  signal?: AbortSignal,
 ): Promise<T> {
   const response = await apiFetch(`${API_BASE}/masi${path}`, {
     method,
     headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   });
   if (!response.ok) {
     const data = await readErrorBody(response);
@@ -2380,6 +2382,20 @@ export function patchMasiPerson(
 
 export function fetchMasiSources(signal?: AbortSignal): Promise<MasiSource[]> {
   return masiGet('/sources', signal, 'load sources');
+}
+
+export interface MasiAssistant {
+  enabled: boolean;
+  gmailReady: boolean;
+  linkedinReady: boolean;
+}
+
+export function fetchMasiAssistant(signal?: AbortSignal): Promise<MasiAssistant> {
+  return masiSend('/assistant', 'GET', undefined, 'load the assistant', signal);
+}
+
+export function patchMasiAssistant(enabled: boolean): Promise<MasiAssistant> {
+  return masiSend('/assistant', 'PATCH', { enabled }, 'switch the assistant');
 }
 
 export function patchMasiSource(

@@ -1,9 +1,12 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import {
+  fetchMasiAssistant,
   fetchMasiSourceRuns,
   fetchMasiSources,
+  MasiAssistant,
   MasiSource,
   MasiSourceRun,
+  patchMasiAssistant,
   patchMasiSource,
   runMasiSource,
 } from '../../services/api';
@@ -92,6 +95,7 @@ export default function MasiSources() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [assistant, setAssistant] = useState<MasiAssistant | null>(null);
 
   const serverCron = useRef<Map<number, string>>(new Map());
   const reload = useCallback(async (signal?: AbortSignal) => {
@@ -107,6 +111,7 @@ export default function MasiSources() {
     void (async () => {
       try {
         await reload(controller.signal);
+        setAssistant(await fetchMasiAssistant(controller.signal));
       } catch (e: unknown) {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load sources'));
       }
@@ -162,6 +167,26 @@ export default function MasiSources() {
         {message && <div className="muted">{message}</div>}
         {!sources && !error && <div className="loading">Loading sources...</div>}
         {sources && (
+          <>
+          <div className="assistant-switch">
+            <label>
+              <input
+                type="checkbox"
+                checked={assistant?.enabled ?? false}
+                onChange={(e) =>
+                  void act(0, () => patchMasiAssistant(e.target.checked).then((a) => setAssistant(a)), 'assistant saved')
+                }
+              />
+              Assistant (replies from your Gmail, applies on LinkedIn)
+            </label>
+            <span className="muted">
+              {assistant
+                ? assistant.enabled
+                  ? `on · gmail ${assistant.gmailReady ? 'ready' : 'no credentials'} · linkedin ${assistant.linkedinReady ? 'ready' : 'no cookie'}`
+                  : 'off'
+                : ''}
+            </span>
+          </div>
           <MasiTable label="Sources">
             <thead>
               <tr>
@@ -342,6 +367,7 @@ export default function MasiSources() {
               ))}
             </tbody>
           </MasiTable>
+          </>
         )}
       </div>
     </div>
