@@ -6,7 +6,7 @@ import { badgeClass, errorMessage, formatDate, PACKAGE_STATES, pageParam } from 
 import MasiTable from '../../components/MasiTable';
 import SourceMarks from './SourceMarks';
 import FigureFilterNote from './FigureFilterNote';
-import { figureParams, JOB_EVENTS, SALARY_FIGURES, windowLabel } from './figureLinks';
+import { figureParams, JOB_EVENTS, SALARY_FIGURES } from './figureLinks';
 
 const PAGE_SIZE = 50;
 /** The forms of work masi tells apart, as the filter offers them; anything else in the URL is not passed on. */
@@ -250,10 +250,12 @@ export default function MasiJobs() {
         </form>
         {(figure || salary || titleNorm || tag || seniority) && (
           <FigureFilterNote
+            period={
+              figure
+                ? { words: EVENT_WORDS[figure.event], from: figure.from, to: figure.to }
+                : undefined
+            }
             parts={[
-              ...(figure
-                ? [`${EVENT_WORDS[figure.event]} ${windowLabel(figure.from, figure.to)}`]
-                : []),
               ...(salary ? [SALARY_WORDS[salary]] : []),
               ...(titleNorm ? [`titled "${titleNorm}"`] : []),
               ...(tag ? [`tagged ${tag}`] : []),

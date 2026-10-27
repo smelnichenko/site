@@ -12,7 +12,7 @@ import LoadingButton from '../../components/LoadingButton';
 import { errorMessage, formatDateTime, pageParam } from './format';
 import { addDays, startOf } from './calendarTime';
 import FigureFilterNote from './FigureFilterNote';
-import { figureParams, RESPONSE_WORDS, RESPONSES, windowLabel } from './figureLinks';
+import { figureParams, RESPONSE_WORDS, RESPONSES, SEPARATOR } from './figureLinks';
 
 /** The report's window for a response: what the period-less "day" filter becomes when a report's figure led here. */
 function windowOf(day: string, from?: string, to?: string) {
@@ -147,7 +147,7 @@ export default function MasiActivity() {
   const totalPages = page ? Math.max(1, Math.ceil(page.totalElements / PAGE_SIZE)) : 1;
 
   return (
-    <div>
+    <div className="masi">
       <MasiNav />
       <div className="card">
         <div className="card-header">
@@ -157,7 +157,7 @@ export default function MasiActivity() {
         {error && <div className="error">{error}</div>}
         {figure && (
           <FigureFilterNote
-            parts={[`${RESPONSE_WORDS[figure.event][1]} ${windowLabel(figure.from, figure.to)}`]}
+            period={{ words: RESPONSE_WORDS[figure.event][1], from: figure.from, to: figure.to }}
             onClear={() => {
               const next = new URLSearchParams(params);
               for (const key of ['response', 'from', 'to', 'page']) next.delete(key);
@@ -262,7 +262,7 @@ export default function MasiActivity() {
                   {a.kind !== 'COLLECTED' && a.kind !== 'APPLIED' && a.kind !== 'PREPARED' && (
                     <>
                       <span className="masi-activity-summary">{a.summary}</span>
-                      {' · '}
+                      {SEPARATOR}
                     </>
                   )}
                   {a.jobId && (
@@ -290,8 +290,14 @@ export default function MasiActivity() {
                   )}
                   {a.packageId && (
                     <>
-                      {' · '}
-                      <Link to={`/masi/packages/${a.packageId}`}>package</Link>
+                      {SEPARATOR}
+                      {/* named by its number: every row's link says "package", and a list of links would not tell them apart */}
+                      <Link
+                        to={`/masi/packages/${a.packageId}`}
+                        aria-label={`package ${a.packageId}`}
+                      >
+                        package
+                      </Link>
                     </>
                   )}
                   {a.detail && <span className="muted"> — {a.detail}</span>}

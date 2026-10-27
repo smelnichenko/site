@@ -15,3 +15,14 @@ export function renderAt(path: string, route: string, element: ReactElement) {
 }
 
 export { job, prepared, sendPreview } from './fixtures';
+
+/**
+ * Every "·" in a text that a line could start with - one not tied to the part before it by a no-break space - with a
+ * little of the text around it, to say where.
+ */
+export function looseSeparators(text: string | null): string[] {
+  const s = text ?? '';
+  return [...s.matchAll(/·/g)]
+    .filter((m) => s[m.index - 1] !== '\u00a0')
+    .map((m) => s.slice(Math.max(0, m.index - 15), m.index + 3));
+}

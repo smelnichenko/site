@@ -1859,8 +1859,15 @@ a.muted,
 }
 
 /* A report figure that leads to the rows it counts. Underlined: in a tile the number is the accent colour whether it is
-   a link or a plain-text zero, and colour alone would not tell them apart. */
+   a link or a plain-text zero, and colour alone would not tell them apart. A finger target: a "3" in a sentence is 7 px
+   wide, so the link is a 44 px box around its words, its text on the line's baseline (an inline-flex box's baseline is
+   its text's) - the line grows to hold it, no neighbour's box overlaps it. */
 .masi-figure-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
@@ -1875,6 +1882,10 @@ a.muted,
 .masi-figure-filter > span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+/* a date of the filter's period is one piece: "23 Mar" on one line and "2026" on the next reads as two dates */
+.masi-nowrap {
+  white-space: nowrap;
 }
 /* a board's own title may be one unbroken token: it wraps in its cell, never widens the table past the card */
 .masi-listing-url {

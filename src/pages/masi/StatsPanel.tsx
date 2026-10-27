@@ -3,7 +3,7 @@ import type { MasiOutcomes, MasiStats } from '../../services/api';
 import { formatDateTime, formatUsd } from './format';
 import { formatAmount } from './salary';
 import MasiTable from '../../components/MasiTable';
-import FigureLink from './FigureLink';
+import FigureLink, { Tied } from './FigureLink';
 import {
   counted,
   interviewsLink,
@@ -14,8 +14,12 @@ import {
   RESPONSE_WORDS,
   RESPONSES,
   responsesLink,
+  SEPARATOR,
   type FigureWindow,
 } from './figureLinks';
+
+/** The separator a figure link is tied to (Tied): the no-break space and the dot, the space after it outside. */
+const DOT = SEPARATOR.trimEnd();
 
 interface BarRow {
   label: string;
@@ -113,18 +117,19 @@ function SalaryCard({
       <div className="card-title">
         {fullTime ? 'Salary in full-time monthly EUR' : 'Salary'} (posted on{' '}
         {fullTime ? (
-          <FigureLink
-            value={salary.posted}
-            to={jobsLink(window, 'NEW', { salary: 'COUNTED' })}
-            name={`${posted} with a salary counted`}
-          >
-            {posted}
-          </FigureLink>
+          <Tied after=")">
+            <FigureLink
+              value={salary.posted}
+              to={jobsLink(window, 'NEW', { salary: 'COUNTED' })}
+              name={`${posted} with a salary counted`}
+            >
+              {posted}
+            </FigureLink>
+          </Tied>
         ) : (
           // the old figure counted every posted salary, read or not: no list holds exactly those rows
-          posted
+          `${posted})`
         )}
-        )
       </div>
       {salary.posted === 0 && (
         <div className="empty-state">
@@ -135,14 +140,14 @@ function SalaryCard({
       )}
       {salary.posted > 0 && fullTime && (
         <div className="muted" data-testid="salary-line">
-          {amount(salary.lowest)} – {amount(salary.highest)} EUR · median {amount(salary.medianMin)}{' '}
-          to {amount(salary.medianMax)}
+          {amount(salary.lowest)} – {amount(salary.highest)} EUR{SEPARATOR}median{' '}
+          {amount(salary.medianMin)} to {amount(salary.medianMax)}
         </div>
       )}
       {salary.posted > 0 && !fullTime && (
         <div className="muted" data-testid="salary-line">
-          {salary.lowest} – {salary.highest} · median {salary.medianMin ?? '—'} to{' '}
-          {salary.medianMax ?? '—'}
+          {salary.lowest} – {salary.highest}
+          {SEPARATOR}median {salary.medianMin ?? '—'} to {salary.medianMax ?? '—'}
         </div>
       )}
       {(salary.excluded ?? 0) > 0 && (
@@ -179,41 +184,55 @@ function OutcomesCard({
       : y - x || a.localeCompare(b),
   );
   const responses = RESPONSES.filter((r) => (outcomes.responses[r] ?? 0) > 0);
-  const parts: ReactElement[] = [];
+  // each part is drawn knowing whether a "·" follows it: a figure at its end is tied to that dot (or to its bracket)
+  const parts: Array<{ key: string; draw: (more: boolean) => ReactElement }> = [];
   if (outcomes.interviews > 0) {
-    parts.push(
-      <span key="interviews">
-        <FigureLink value={outcomes.interviews} to={interviewsLink(window)}>
-          {counted(outcomes.interviews, 'interview held', 'interviews held')}
-        </FigureLink>
-        {languages.length > 0 && ' ('}
-        {languages.map(([language, n], i) => (
-          <span key={language}>
-            {i > 0 && ' · '}
-            {languageWords(language)}{' '}
-            <FigureLink
-              value={n}
-              to={interviewsLink(window, language)}
-              name={
-                language === NO_LANGUAGE
-                  ? `${counted(n, 'interview', 'interviews')}, language not known`
-                  : `${counted(n, 'interview', 'interviews')} applied in ${language}`
-              }
-            />
-          </span>
-        ))}
-        {languages.length > 0 && ')'}
-      </span>,
+    const held = (
+      <FigureLink value={outcomes.interviews} to={interviewsLink(window)}>
+        {counted(outcomes.interviews, 'interview held', 'interviews held')}
+      </FigureLink>
     );
+    parts.push({
+      key: 'interviews',
+      draw: (more) => {
+        // the last language's count closes the bracket, and takes the dot after it when a part follows
+        const close = more ? `)${DOT}` : ')';
+        return languages.length === 0 ? (
+          <>{more ? <Tied after={DOT}>{held}</Tied> : held}</>
+        ) : (
+          <>
+            {held}
+            {' ('}
+            {languages.map(([language, n], i) => (
+              <span key={language}>
+                {/* the language's words in the link with its count: a lone "3" would be a 44 px box with gaps
+                    either side of the digit; named starting with what it shows ("et 3 interviews") */}
+                <Tied after={i < languages.length - 1 ? DOT : close}>
+                  <FigureLink
+                    value={n}
+                    to={interviewsLink(window, language)}
+                    name={`${languageWords(language)} ${counted(n, 'interview', 'interviews')}`}
+                  >
+                    {languageWords(language)} {n}
+                  </FigureLink>
+                </Tied>
+                {i < languages.length - 1 && ' '}
+              </span>
+            ))}
+          </>
+        );
+      },
+    });
   }
   for (const r of responses) {
     const n = outcomes.responses[r];
     const [one, many] = RESPONSE_WORDS[r];
-    parts.push(
-      <FigureLink key={r} value={n} to={responsesLink(window, r)}>
+    const link = (
+      <FigureLink value={n} to={responsesLink(window, r)}>
         {counted(n, one, many)}
-      </FigureLink>,
+      </FigureLink>
     );
+    parts.push({ key: r, draw: (more) => (more ? <Tied after={DOT}>{link}</Tied> : link) });
   }
   return (
     <section className="card" aria-label="Outcomes">
@@ -223,9 +242,9 @@ function OutcomesCard({
       ) : (
         <div className="masi-outcomes">
           {parts.map((p, i) => (
-            <span key={String(p.key)}>
-              {i > 0 && ' · '}
-              {p}
+            <span key={p.key}>
+              {p.draw(i < parts.length - 1)}
+              {i < parts.length - 1 && ' '}
             </span>
           ))}
         </div>
@@ -260,16 +279,18 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
           </span>
           <span className="stat-label">new jobs</span>
           <span className="muted">
-            <FigureLink
-              value={r.closedJobs}
-              to={exact ? jobsLink(w, 'CLOSED') : null}
-              name={counted(r.closedJobs, 'closed job', 'closed jobs')}
-            >
-              {r.closedJobs} closed
-            </FigureLink>
+            <Tied after={r.repostedJobs > 0 ? DOT : ''}>
+              <FigureLink
+                value={r.closedJobs}
+                to={exact ? jobsLink(w, 'CLOSED') : null}
+                name={counted(r.closedJobs, 'closed job', 'closed jobs')}
+              >
+                {r.closedJobs} closed
+              </FigureLink>
+            </Tied>
             {r.repostedJobs > 0 && (
               <>
-                {' · '}
+                {' '}
                 <FigureLink
                   value={r.repostedJobs}
                   to={exact ? jobsLink(w, 'REPOSTED') : null}
@@ -291,14 +312,16 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
           </span>
           <span className="stat-label">new listings</span>
           <span className="muted">
-            <FigureLink
-              value={r.closedListings}
-              to={exact ? listingsLink(w, 'CLOSED') : null}
-              name={counted(r.closedListings, 'closed listing', 'closed listings')}
-            >
-              {r.closedListings} closed
-            </FigureLink>{' '}
-            · median lifetime {hours(r.medianListingLifetimeHours)}
+            <Tied after={DOT}>
+              <FigureLink
+                value={r.closedListings}
+                to={exact ? listingsLink(w, 'CLOSED') : null}
+                name={counted(r.closedListings, 'closed listing', 'closed listings')}
+              >
+                {r.closedListings} closed
+              </FigureLink>
+            </Tied>{' '}
+            median lifetime {hours(r.medianListingLifetimeHours)}
           </span>
         </div>
         <div className="card masi-tile" data-testid="funnel-tile">
@@ -311,15 +334,17 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
           </span>
           <span className="stat-label">applied</span>
           <span className="muted">
-            <FigureLink
-              value={stats.funnel.requested}
-              to={packagesLink(w, 'REQUESTED')}
-              name={undefined}
-            >
-              {stats.funnel.requested} packages requested
-            </FigureLink>
+            <Tied after={stats.funnel.averagePackageCostUsd === null ? '' : DOT}>
+              <FigureLink
+                value={stats.funnel.requested}
+                to={packagesLink(w, 'REQUESTED')}
+                name={undefined}
+              >
+                {stats.funnel.requested} packages requested
+              </FigureLink>
+            </Tied>
             {stats.funnel.averagePackageCostUsd !== null &&
-              ` · ${formatUsd(stats.funnel.averagePackageCostUsd)} per package`}
+              ` ${formatUsd(stats.funnel.averagePackageCostUsd)} per package`}
           </span>
         </div>
         <div className="card masi-tile" data-testid="llm-tile">
@@ -329,7 +354,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
             {Object.entries(stats.llm.calls)
               .filter(([, n]) => n > 0)
               .map(([k, n]) => `${n} ${k.toLowerCase()}`)
-              .join(' · ') || 'no calls'}
+              .join(SEPARATOR) || 'no calls'}
           </span>
         </div>
       </div>
@@ -427,8 +452,10 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
         </MasiTable>
       </div>
       <div className="muted" data-testid="tokens-line">
-        Tokens: {stats.llm.tokens.input} in · {stats.llm.tokens.cacheRead} cache read ·{' '}
-        {stats.llm.tokens.cacheWrite} cache write · {stats.llm.tokens.output} out
+        Tokens: {stats.llm.tokens.input} in{SEPARATOR}
+        {stats.llm.tokens.cacheRead} cache read{SEPARATOR}
+        {stats.llm.tokens.cacheWrite} cache write{SEPARATOR}
+        {stats.llm.tokens.output} out
       </div>
     </div>
   );

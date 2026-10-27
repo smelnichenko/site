@@ -5,6 +5,7 @@ import LoadingButton from '../../components/LoadingButton';
 import MasiNav from '../../components/MasiNav';
 import StatsPanel from './StatsPanel';
 import { badgeClass, errorMessage, formatDateTime, periodLabel } from './format';
+import { SEPARATOR } from './figureLinks';
 
 /** One stored report: the period's stats as frozen, plus the registry and the caller's queue as of generation. */
 export default function MasiReportDetail() {
@@ -76,7 +77,7 @@ export default function MasiReportDetail() {
         <div className="muted" data-testid="snapshot-line">
           As of {formatDateTime(report.snapshot.asOf)}: {report.snapshot.openJobs} open jobs,{' '}
           {report.snapshot.companiesHiring} companies hiring
-          {queue && ` · my queue: ${queue}`}
+          {queue && `${SEPARATOR}my queue: ${queue}`}
         </div>
         {report.kind === 'WEEKLY' && (
           <div className="badge-group masi-mail-me">

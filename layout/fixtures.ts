@@ -14,6 +14,7 @@ import type {
   MasiCompanyFigures,
   MasiCompanyVisits,
   MasiPerson,
+  MasiActivity,
   MasiJob,
   MasiListingRow,
   MasiMatch,
@@ -356,6 +357,59 @@ const bigReport: MasiReport = {
       responses: { REPLIED: 14, INTERVIEW: 12, OFFER: 2, REJECTED: 41 },
     },
   },
+};
+
+/**
+ * The activity log as a report's response figure or a job's log shows it: a call with a person, an application with its
+ * package, a message whose summary and detail run past a phone's line - every part a row joins with a separator.
+ */
+const activityRow: MasiActivity = {
+  id: 1,
+  at: '2026-03-24T09:30:00Z',
+  kind: 'CALL',
+  origin: 'OPERATOR',
+  jobId: 7,
+  jobTitle: 'Senior Java Developer',
+  companyId: 3,
+  companyName: 'Nortal AS',
+  contactId: 11,
+  contactName: 'Mari Maasikas',
+  personId: 40,
+  packageId: null,
+  summary: 'Screening call',
+  detail: '30 min, next: tech interview',
+  mine: true,
+};
+const activityPage: Paged<MasiActivity> = {
+  content: [
+    activityRow,
+    {
+      ...activityRow,
+      id: 2,
+      kind: 'APPLIED',
+      origin: 'SYSTEM',
+      contactId: null,
+      contactName: null,
+      personId: null,
+      packageId: 11,
+      summary: 'Senior Java Developer',
+      detail: null,
+    },
+    {
+      ...activityRow,
+      id: 3,
+      kind: 'REJECTED',
+      origin: 'MAIL',
+      jobTitle: LONG_TITLE,
+      companyName: `${LONG_TITLE} OÜ`,
+      packageId: 12,
+      summary: 'Thank you for applying, we went with another candidate this time',
+      detail: 'the recruiter offered to keep the CV on file for the next opening in the team',
+    },
+  ],
+  page: 0,
+  size: 50,
+  totalElements: 3,
 };
 
 /** The listings a report's figure leads to: one with a board title as long as a URL, unbroken. */
@@ -819,7 +873,9 @@ export function answer(url: URL): Answer | undefined {
     ],
     [/^\/persons\/of-company\/\d+$/, () => ({ status: 200, body: [] })],
     [/^\/persons\/\d+$/, () => ({ status: 200, body: person })],
-    [/^\/activity$/, () => ({ status: 200, body: { ...none, size: 20 } })],
+    // the person page asks for each contact's pictures: none collected
+    [/^\/contacts\/\d+\/pictures$/, () => ({ status: 200, body: [] })],
+    [/^\/activity$/, () => ({ status: 200, body: activityPage })],
     [/^\/packages\/retune$/, () => ({ status: 200, body: { count: 12, estimatedUsd: 3.42 } })],
     [/^\/reports\/5$/, () => ({ status: 200, body: report })],
     [/^\/reports\/6$/, () => ({ status: 200, body: bigReport })],
