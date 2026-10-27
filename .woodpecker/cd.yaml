@@ -158,10 +158,7 @@ steps:
     image: alpine:latest
     commands:
       - apk add --no-cache git
-      - printf "machine git.pmon.dev
-login woodpecker
-password %s
-" "$INFRA_TOKEN" > ~/.netrc && chmod 600 ~/.netrc
+      - printf 'machine git.pmon.dev\nlogin woodpecker\npassword %s\n' "$INFRA_TOKEN" > ~/.netrc && chmod 600 ~/.netrc
       - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
       - |
         HELMRELEASE=clusters/production/schnappy-production-apps/values.yaml
