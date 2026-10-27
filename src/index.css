@@ -2314,9 +2314,17 @@ a.muted,
   display: flex;
   align-items: center;
   justify-content: center;
+}
+/* behind the picture and the arrows (first in the DOM, all positioned): a click beside the picture lands here */
+.picture-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  border: none;
   cursor: zoom-out;
 }
 .picture-lightbox img {
+  position: relative;
   max-width: 92vw;
   max-height: 92vh;
   border-radius: 10px;

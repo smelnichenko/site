@@ -228,7 +228,8 @@ function MasiCv() {
     setBusy(true);
     setMessage(null);
     try {
-      const merged = await mergeCvVersions(selected, `merge of ${selected.map((v) => `v${v}`).join(', ')}`);
+      const versions = selected.map((v) => 'v' + v).join(', ');
+      const merged = await mergeCvVersions(selected, `merge of ${versions}`);
       setSelected([]);
       setMessage(`Merged into v${merged.version} (draft - review and activate it)`);
       await reload();

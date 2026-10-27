@@ -84,6 +84,19 @@ function takesToken(s: MasiSource): boolean {
   return s.key === 'github' || tokenOf(s.configJson) !== '';
 }
 
+/** The assistant's state beside its switch: off, or on and whether its Gmail and LinkedIn are ready; nothing until read. */
+function assistantNote(assistant: MasiAssistant | null): string {
+  if (!assistant) {
+    return '';
+  }
+  if (!assistant.enabled) {
+    return 'off';
+  }
+  const gmail = assistant.gmailReady ? 'ready' : 'no credentials';
+  const linkedin = assistant.linkedinReady ? 'ready' : 'no cookie';
+  return `on · gmail ${gmail} · linkedin ${linkedin}`;
+}
+
 /** Every collector agent: enable, cron, run now, and its last runs; a source without a bean (FAILING) cannot be enabled. */
 export default function MasiSources() {
   const [sources, setSources] = useState<MasiSource[] | null>(null);
@@ -179,13 +192,7 @@ export default function MasiSources() {
               />
               Assistant (replies from your Gmail, applies on LinkedIn)
             </label>
-            <span className="muted">
-              {assistant
-                ? assistant.enabled
-                  ? `on · gmail ${assistant.gmailReady ? 'ready' : 'no credentials'} · linkedin ${assistant.linkedinReady ? 'ready' : 'no cookie'}`
-                  : 'off'
-                : ''}
-            </span>
+            <span className="muted">{assistantNote(assistant)}</span>
           </div>
           <MasiTable label="Sources">
             <thead>
