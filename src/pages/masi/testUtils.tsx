@@ -21,8 +21,10 @@ export { job, prepared, sendPreview } from './fixtures';
  * little of the text around it, to say where.
  */
 export function looseSeparators(text: string | null): string[] {
-  const s = text ?? '';
-  return [...s.matchAll(/·/g)]
-    .filter((m) => s[m.index - 1] !== '\u00a0')
-    .map((m) => s.slice(Math.max(0, m.index - 15), m.index + 3));
+  if (text == null) {
+    return [];
+  }
+  return [...text.matchAll(/·/g)]
+    .filter((m) => text[m.index - 1] !== '\u00a0')
+    .map((m) => text.slice(Math.max(0, m.index - 15), m.index + 3));
 }

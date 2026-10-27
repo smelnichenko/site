@@ -231,7 +231,10 @@ export default function MasiPersons() {
                           className="picture-thumb"
                           aria-label={`Open the picture of ${p.name ?? 'this person'}`}
                           onClick={() => {
-                            const index = Math.max(0, all.findIndex((x) => x.url === url));
+                            const index = Math.max(
+                              0,
+                              all.findIndex((x) => x.url === url),
+                            );
                             setViewer({ pictures: all, index });
                           }}
                         >

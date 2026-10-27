@@ -171,6 +171,44 @@ function languageWords(language: string): string {
 }
 
 /**
+ * The interviews part of the outcomes line: the count held, then by language in brackets - each language's count tied
+ * to the "·" after it, the last to its bracket; {@code more} when another part follows (the bracket takes its dot).
+ */
+function interviewsPart(
+  held: ReactElement,
+  languages: Array<[string, number]>,
+  window: FigureWindow,
+  more: boolean,
+): ReactElement {
+  // the last language's count closes the bracket, and takes the dot after it when a part follows
+  const close = more ? `)${DOT}` : ')';
+  return languages.length === 0 ? (
+    <>{more ? <Tied after={DOT}>{held}</Tied> : held}</>
+  ) : (
+    <>
+      {held}
+      {' ('}
+      {languages.map(([language, n], i) => (
+        <span key={language}>
+          {/* the language's words in the link with its count: a lone "3" would be a 44 px box with gaps
+                either side of the digit; named starting with what it shows ("et 3 interviews") */}
+          <Tied after={i < languages.length - 1 ? DOT : close}>
+            <FigureLink
+              value={n}
+              to={interviewsLink(window, language)}
+              name={`${languageWords(language)} ${counted(n, 'interview', 'interviews')}`}
+            >
+              {languageWords(language)} {n}
+            </FigureLink>
+          </Tied>
+          {i < languages.length - 1 && ' '}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/**
  * The caller's outcomes: the interviews they held, by the language they applied in, and the responses their log holds -
  * "5 interviews held (et 3 · en 1) · 3 refused". Each count leads to its rows; a kind with none is not named.
  */
@@ -185,7 +223,7 @@ function OutcomesCard({
   );
   const responses = RESPONSES.filter((r) => (outcomes.responses[r] ?? 0) > 0);
   // each part is drawn knowing whether a "·" follows it: a figure at its end is tied to that dot (or to its bracket)
-  const parts: Array<{ key: string; draw: (more: boolean) => ReactElement }> = [];
+  const parts: Array<{ key: string; alone: ReactElement; followed: ReactElement }> = [];
   if (outcomes.interviews > 0) {
     const held = (
       <FigureLink value={outcomes.interviews} to={interviewsLink(window)}>
@@ -194,34 +232,8 @@ function OutcomesCard({
     );
     parts.push({
       key: 'interviews',
-      draw: (more) => {
-        // the last language's count closes the bracket, and takes the dot after it when a part follows
-        const close = more ? `)${DOT}` : ')';
-        return languages.length === 0 ? (
-          <>{more ? <Tied after={DOT}>{held}</Tied> : held}</>
-        ) : (
-          <>
-            {held}
-            {' ('}
-            {languages.map(([language, n], i) => (
-              <span key={language}>
-                {/* the language's words in the link with its count: a lone "3" would be a 44 px box with gaps
-                    either side of the digit; named starting with what it shows ("et 3 interviews") */}
-                <Tied after={i < languages.length - 1 ? DOT : close}>
-                  <FigureLink
-                    value={n}
-                    to={interviewsLink(window, language)}
-                    name={`${languageWords(language)} ${counted(n, 'interview', 'interviews')}`}
-                  >
-                    {languageWords(language)} {n}
-                  </FigureLink>
-                </Tied>
-                {i < languages.length - 1 && ' '}
-              </span>
-            ))}
-          </>
-        );
-      },
+      alone: interviewsPart(held, languages, window, false),
+      followed: interviewsPart(held, languages, window, true),
     });
   }
   for (const r of responses) {
@@ -232,7 +244,7 @@ function OutcomesCard({
         {counted(n, one, many)}
       </FigureLink>
     );
-    parts.push({ key: r, draw: (more) => (more ? <Tied after={DOT}>{link}</Tied> : link) });
+    parts.push({ key: r, alone: link, followed: <Tied after={DOT}>{link}</Tied> });
   }
   return (
     <section className="card" aria-label="Outcomes">
@@ -243,7 +255,7 @@ function OutcomesCard({
         <div className="masi-outcomes">
           {parts.map((p, i) => (
             <span key={p.key}>
-              {p.draw(i < parts.length - 1)}
+              {i < parts.length - 1 ? p.followed : p.alone}
               {i < parts.length - 1 && ' '}
             </span>
           ))}

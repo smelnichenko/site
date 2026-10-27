@@ -40,9 +40,14 @@ export default function PictureLightbox({
     return null;
   }
   return (
-    <div className="picture-lightbox" role="dialog" aria-modal="true" aria-label={picture.alt}>
+    <dialog open className="picture-lightbox" aria-modal="true" aria-label={picture.alt}>
       {/* the backdrop: a click beside the picture closes it - a button, so a keyboard reaches it too */}
-      <button type="button" className="picture-lightbox-backdrop" aria-label="Close" onClick={onClose} />
+      <button
+        type="button"
+        className="picture-lightbox-backdrop"
+        aria-label="Close"
+        onClick={onClose}
+      />
       <img src={picture.url} alt={picture.alt} />
       {pictures.length > 1 && (
         <>
@@ -73,6 +78,6 @@ export default function PictureLightbox({
           </div>
         </>
       )}
-    </div>
+    </dialog>
   );
 }

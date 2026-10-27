@@ -2307,6 +2307,15 @@ a.muted,
 
 /* Full-screen picture viewer: the backdrop click closes, the arrows page, Escape closes. */
 .picture-lightbox {
+  /* a <dialog>: its own box, border, padding, colours and size limits taken off - the whole screen */
+  margin: 0;
+  padding: 0;
+  border: none;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  color: inherit;
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -2335,7 +2344,8 @@ a.muted,
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.14);
+  /* solid: 14 % white over the 82 % black backdrop, as it showed - so the arrow's contrast is the one judged */
+  background: #484848;
   border: none;
   color: #fff;
   font-size: 44px;
@@ -2346,7 +2356,7 @@ a.muted,
   cursor: pointer;
 }
 .picture-lightbox-arrow:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: #626262;
 }
 .picture-lightbox-arrow.left {
   left: 16px;
