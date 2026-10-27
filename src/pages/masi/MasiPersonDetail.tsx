@@ -256,7 +256,13 @@ export default function MasiPersonDetail() {
                             src={pictures.get(t.contactId)}
                             alt={companyName}
                             className="masi-contact-picture"
-                            style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, cursor: 'zoom-in' }}
+                            style={{
+                              width: 64,
+                              height: 64,
+                              objectFit: 'cover',
+                              borderRadius: 8,
+                              cursor: 'zoom-in',
+                            }}
                           />
                         </button>
                       )}

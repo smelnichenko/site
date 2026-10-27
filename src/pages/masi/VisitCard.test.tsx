@@ -459,9 +459,7 @@ describe('VisitCard', () => {
     );
     renderCard();
 
-    expect(
-      await screen.findByText("no site could be read"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('no site could be read')).toBeInTheDocument();
     expect(screen.getByText('cut short by a restart: visited again soon')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Accept / })).not.toBeInTheDocument();
   });

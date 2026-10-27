@@ -5,7 +5,7 @@ import MasiNav from '../../components/MasiNav';
 import MasiTable from '../../components/MasiTable';
 import { errorMessage, formatDateTime, pageParam } from './format';
 import FigureFilterNote from './FigureFilterNote';
-import { BOOKING_EVENTS, figureParams, NO_LANGUAGE, windowLabel } from './figureLinks';
+import { BOOKING_EVENTS, figureParams, NO_LANGUAGE } from './figureLinks';
 
 const PAGE_SIZE = 50;
 
@@ -57,12 +57,12 @@ export default function MasiBookings() {
 
   const total = page?.totalElements ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const parts = [
-    ...(figure ? [`interviews held ${windowLabel(figure.from, figure.to)}`] : []),
-    ...(language
-      ? [language === NO_LANGUAGE ? 'language not known' : `applied in ${language}`]
-      : []),
-  ];
+  const period = figure
+    ? { words: 'interviews held', from: figure.from, to: figure.to }
+    : undefined;
+  const parts = language
+    ? [language === NO_LANGUAGE ? 'language not known' : `applied in ${language}`]
+    : [];
   return (
     <div className="masi">
       <MasiNav />
@@ -71,8 +71,9 @@ export default function MasiBookings() {
           <span className="card-title">Bookings</span>
           <span className="muted">{page ? `${total} matching` : ''}</span>
         </div>
-        {parts.length > 0 && (
+        {(period || parts.length > 0) && (
           <FigureFilterNote
+            period={period}
             parts={parts}
             onClear={() => set({ event: '', from: '', to: '', language: '' })}
           />

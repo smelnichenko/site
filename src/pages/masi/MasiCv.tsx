@@ -228,7 +228,8 @@ function MasiCv() {
     setBusy(true);
     setMessage(null);
     try {
-      const merged = await mergeCvVersions(selected, `merge of ${selected.map((v) => `v${v}`).join(', ')}`);
+      const versions = selected.map((v) => 'v' + v).join(', ');
+      const merged = await mergeCvVersions(selected, `merge of ${versions}`);
       setSelected([]);
       setMessage(`Merged into v${merged.version} (draft - review and activate it)`);
       await reload();
@@ -386,79 +387,79 @@ function MasiCv() {
               />
             </div>
             <MasiTable label="CV versions">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Version</th>
-                <th>Note</th>
-                <th>Language</th>
-                <th>Created</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {versions.map((v) => (
-                <tr key={v.version}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(v.version)}
-                      onChange={() =>
-                        setSelected((prev) =>
-                          prev.includes(v.version)
-                            ? prev.filter((n) => n !== v.version)
-                            : [...prev, v.version],
-                        )
-                      }
-                      disabled={busy}
-                    />
-                  </td>
-                  <td>v{v.version}</td>
-                  <td>{v.note ?? ''}</td>
-                  <td>{languageName(v.language)}</td>
-                  <td>{formatDate(v.createdAt)}</td>
-                  <td>
-                    {v.active ? `active since ${formatDate(v.activatedAt)}` : ''}
-                    {v.translatedFrom === null ? '' : `translation of v${v.translatedFrom}`}
-                  </td>
-                  <td className="badge-group">
-                    <button
-                      className="status-badge edit"
-                      onClick={() => void onShow(v.version)}
-                      disabled={busy}
-                    >
-                      Show
-                    </button>
-                    <button
-                      className="status-badge action"
-                      onClick={() => void onPreview(v.version)}
-                      disabled={busy}
-                    >
-                      Preview PDF
-                    </button>
-                    {!v.active && activatable(v) && (
-                      <button
-                        className="status-badge add"
-                        onClick={() => void onActivate(v.version)}
-                        disabled={busy}
-                      >
-                        Activate
-                      </button>
-                    )}
-                    {!v.active && (
-                      <button
-                        className="status-badge danger"
-                        onClick={() => void onDelete(v.version)}
-                        disabled={busy}
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </td>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Version</th>
+                  <th>Note</th>
+                  <th>Language</th>
+                  <th>Created</th>
+                  <th>Status</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
+              </thead>
+              <tbody>
+                {versions.map((v) => (
+                  <tr key={v.version}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(v.version)}
+                        onChange={() =>
+                          setSelected((prev) =>
+                            prev.includes(v.version)
+                              ? prev.filter((n) => n !== v.version)
+                              : [...prev, v.version],
+                          )
+                        }
+                        disabled={busy}
+                      />
+                    </td>
+                    <td>v{v.version}</td>
+                    <td>{v.note ?? ''}</td>
+                    <td>{languageName(v.language)}</td>
+                    <td>{formatDate(v.createdAt)}</td>
+                    <td>
+                      {v.active ? `active since ${formatDate(v.activatedAt)}` : ''}
+                      {v.translatedFrom === null ? '' : `translation of v${v.translatedFrom}`}
+                    </td>
+                    <td className="badge-group">
+                      <button
+                        className="status-badge edit"
+                        onClick={() => void onShow(v.version)}
+                        disabled={busy}
+                      >
+                        Show
+                      </button>
+                      <button
+                        className="status-badge action"
+                        onClick={() => void onPreview(v.version)}
+                        disabled={busy}
+                      >
+                        Preview PDF
+                      </button>
+                      {!v.active && activatable(v) && (
+                        <button
+                          className="status-badge add"
+                          onClick={() => void onActivate(v.version)}
+                          disabled={busy}
+                        >
+                          Activate
+                        </button>
+                      )}
+                      {!v.active && (
+                        <button
+                          className="status-badge danger"
+                          onClick={() => void onDelete(v.version)}
+                          disabled={busy}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </MasiTable>
           </>
         )}

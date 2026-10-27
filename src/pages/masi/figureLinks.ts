@@ -105,15 +105,26 @@ const CLOCK = new Intl.DateTimeFormat('en-GB', {
  * the last one the day before the exclusive end, as a report's title says them. Any other window shows both instants.
  */
 export function windowLabel(from: string, to: string): string {
+  return windowEnds(from, to).join(' – ');
+}
+
+/** The window's two ends as windowLabel says them, apart: a note that keeps each date on one line sets them itself. */
+export function windowEnds(from: string, to: string): [string, string] {
   const a = new Date(from);
   const b = new Date(to);
-  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return `${from} – ${to}`;
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return [from, to];
   const midnight = (d: Date) => CLOCK.format(d) === '00:00:00';
   if (midnight(a) && midnight(b)) {
-    return `${DAY.format(a)} – ${DAY.format(new Date(b.getTime() - 1))}`;
+    return [DAY.format(a), DAY.format(new Date(b.getTime() - 1))];
   }
-  return `${formatDateTime(from)} – ${formatDateTime(to)}`;
+  return [formatDateTime(from), formatDateTime(to)];
 }
+
+/**
+ * The " · " between the parts of a line, tied to the part before it by a no-break space: where the line wraps, the
+ * separator ends a line, never starts one.
+ */
+export const SEPARATOR = '\u00a0· ';
 
 /** "3 new jobs", "1 new job". */
 export function counted(n: number, one: string, many: string): string {

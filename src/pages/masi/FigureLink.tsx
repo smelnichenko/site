@@ -20,3 +20,18 @@ export default function FigureLink({
     </Link>
   );
 }
+
+/**
+ * A figure and the text right after it - its "·", a closing bracket - kept on one line. A figure link is a box (a
+ * finger target), and a browser breaks a line between a box and the text after it even at a no-break space; inside one
+ * nowrap span it cannot, so the line breaks after the separator rather than starting a line with it. `after` carries no
+ * space of its own: the caller's space after the span is where the line may break.
+ */
+export function Tied({ children, after }: Readonly<{ children: ReactNode; after: string }>) {
+  return (
+    <span className="masi-nowrap">
+      {children}
+      {after}
+    </span>
+  );
+}

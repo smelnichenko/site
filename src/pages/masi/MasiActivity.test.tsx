@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import MasiActivity from './MasiActivity';
 import type { MasiActivity as Row } from '../../services/api';
-import { renderAt } from './testUtils';
+import { looseSeparators, renderAt } from './testUtils';
 
 vi.mock('../../services/api', () => ({
   fetchMasiActivity: vi.fn(),
@@ -106,7 +106,7 @@ describe('MasiActivity', () => {
       'href',
       '/masi/persons/40', // the person the contact is
     );
-    expect(within(items[1]).getByRole('link', { name: 'package' })).toHaveAttribute(
+    expect(within(items[1]).getByRole('link', { name: 'package 11' })).toHaveAttribute(
       'href',
       '/masi/packages/11',
     );
@@ -315,5 +315,44 @@ describe('MasiActivity', () => {
     expect(screen.queryByRole('region', { name: 'Report filter' })).not.toBeInTheDocument();
     // the figure's parameters are gone from the URL, every one; the operator's own filter stays
     expect(screen.getByTestId('search')).toHaveTextContent(/^\?kind=CALL$/);
+  });
+  it("is a masi page like the rest: under the masi pages' own rules, its separators kept with the part before them", async () => {
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: rows,
+      page: 0,
+      size: 50,
+      totalElements: 3,
+    });
+    renderAt('/masi/activity?job=7', '/masi/activity', <MasiActivity />);
+    const list = await screen.findByRole('list', { name: 'Activity' });
+    // the page's root carries the class every `.masi ...` rule of the stylesheet is scoped to
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(screen.getByRole('navigation', { name: 'masi sections' }).parentElement).toHaveClass(
+      'masi',
+    );
+    // the premise: the rows draw separators (a summary's, a package's)
+    expect(list.textContent).toContain('·');
+    expect(looseSeparators(list.textContent)).toEqual([]);
+  });
+
+  it('names every control of the log, the scope chip by what it clears', async () => {
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: rows,
+      page: 0,
+      size: 50,
+      totalElements: 3,
+    });
+    renderAt('/masi/activity?job=7', '/masi/activity', <MasiActivity />);
+    await screen.findByRole('list', { name: 'Activity' });
+    expect(screen.getByRole('button', { name: 'Clear the scope: job 7' })).toBeInTheDocument();
+    for (const name of ['Day', 'Kind', 'What', 'Summary', 'Detail']) {
+      expect(screen.getByLabelText(name)).toBeInTheDocument();
+    }
+    expect(screen.getByRole('button', { name: 'Log' })).toBeInTheDocument();
+    // two rows' package links are told apart by name, not only by where they lead
+    const packages = screen.getAllByRole('link', { name: /^package/ });
+    expect(packages.map((a) => a.getAttribute('aria-label') ?? a.textContent)).toEqual(
+      packages.map((a) => `package ${a.getAttribute('href')?.split('/').pop()}`),
+    );
   });
 });

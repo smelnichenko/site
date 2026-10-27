@@ -1859,8 +1859,15 @@ a.muted,
 }
 
 /* A report figure that leads to the rows it counts. Underlined: in a tile the number is the accent colour whether it is
-   a link or a plain-text zero, and colour alone would not tell them apart. */
+   a link or a plain-text zero, and colour alone would not tell them apart. A finger target: a "3" in a sentence is 7 px
+   wide, so the link is a 44 px box around its words, its text on the line's baseline (an inline-flex box's baseline is
+   its text's) - the line grows to hold it, no neighbour's box overlaps it. */
 .masi-figure-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
@@ -1875,6 +1882,10 @@ a.muted,
 .masi-figure-filter > span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+/* a date of the filter's period is one piece: "23 Mar" on one line and "2026" on the next reads as two dates */
+.masi-nowrap {
+  white-space: nowrap;
 }
 /* a board's own title may be one unbroken token: it wraps in its cell, never widens the table past the card */
 .masi-listing-url {
@@ -2296,6 +2307,15 @@ a.muted,
 
 /* Full-screen picture viewer: the backdrop click closes, the arrows page, Escape closes. */
 .picture-lightbox {
+  /* a <dialog>: its own box, border, padding, colours and size limits taken off - the whole screen */
+  margin: 0;
+  padding: 0;
+  border: none;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  color: inherit;
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -2303,9 +2323,17 @@ a.muted,
   display: flex;
   align-items: center;
   justify-content: center;
+}
+/* behind the picture and the arrows (first in the DOM, all positioned): a click beside the picture lands here */
+.picture-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  border: none;
   cursor: zoom-out;
 }
 .picture-lightbox img {
+  position: relative;
   max-width: 92vw;
   max-height: 92vh;
   border-radius: 10px;
@@ -2316,7 +2344,8 @@ a.muted,
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.14);
+  /* solid: 14 % white over the 82 % black backdrop, as it showed - so the arrow's contrast is the one judged */
+  background: #484848;
   border: none;
   color: #fff;
   font-size: 44px;
@@ -2327,7 +2356,7 @@ a.muted,
   cursor: pointer;
 }
 .picture-lightbox-arrow:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: #626262;
 }
 .picture-lightbox-arrow.left {
   left: 16px;

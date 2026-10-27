@@ -14,11 +14,11 @@ export default function PictureLightbox({
   pictures,
   index,
   onClose,
-}: {
+}: Readonly<{
   pictures: ViewerPicture[];
   index: number;
   onClose: () => void;
-}) {
+}>) {
   const [current, setCurrent] = useState(Math.max(0, Math.min(index, pictures.length - 1)));
 
   useEffect(() => {
@@ -40,17 +40,15 @@ export default function PictureLightbox({
     return null;
   }
   return (
-    <div
-      className="picture-lightbox"
-      role="dialog"
-      aria-label={picture.alt}
-      onClick={onClose}
-    >
-      <img
-        src={picture.url}
-        alt={picture.alt}
-        onClick={(e) => e.stopPropagation()}
+    <dialog open className="picture-lightbox" aria-modal="true" aria-label={picture.alt}>
+      {/* the backdrop: a click beside the picture closes it - a button, so a keyboard reaches it too */}
+      <button
+        type="button"
+        className="picture-lightbox-backdrop"
+        aria-label="Close"
+        onClick={onClose}
       />
+      <img src={picture.url} alt={picture.alt} />
       {pictures.length > 1 && (
         <>
           <button
@@ -80,6 +78,6 @@ export default function PictureLightbox({
           </div>
         </>
       )}
-    </div>
+    </dialog>
   );
 }

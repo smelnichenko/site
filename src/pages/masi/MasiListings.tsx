@@ -5,7 +5,7 @@ import MasiNav from '../../components/MasiNav';
 import MasiTable from '../../components/MasiTable';
 import { errorMessage, formatDate, pageParam } from './format';
 import FigureFilterNote from './FigureFilterNote';
-import { figureParams, LISTING_EVENTS, windowLabel } from './figureLinks';
+import { figureParams, LISTING_EVENTS } from './figureLinks';
 
 const PAGE_SIZE = 50;
 const EVENT_WORDS = { NEW: 'first seen', CLOSED: 'closed' } as const;
@@ -58,10 +58,10 @@ export default function MasiListings() {
 
   const total = page?.totalElements ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const parts = [
-    ...(figure ? [`${EVENT_WORDS[figure.event]} ${windowLabel(figure.from, figure.to)}`] : []),
-    ...(source ? [`on ${source}`] : []),
-  ];
+  const period = figure
+    ? { words: EVENT_WORDS[figure.event], from: figure.from, to: figure.to }
+    : undefined;
+  const parts = source ? [`on ${source}`] : [];
   return (
     <div className="masi">
       <MasiNav />
@@ -70,8 +70,9 @@ export default function MasiListings() {
           <span className="card-title">Listings</span>
           <span className="muted">{page ? `${total} matching` : ''}</span>
         </div>
-        {parts.length > 0 && (
+        {(period || parts.length > 0) && (
           <FigureFilterNote
+            period={period}
             parts={parts}
             onClear={() => set({ event: '', from: '', to: '', source: '' })}
           />

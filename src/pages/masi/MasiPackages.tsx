@@ -11,7 +11,7 @@ import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDateTime, formatUsd, PACKAGE_STATES } from './format';
 import MasiTable from '../../components/MasiTable';
 import FigureFilterNote from './FigureFilterNote';
-import { figureParams, PACKAGE_EVENTS, windowLabel } from './figureLinks';
+import { figureParams, PACKAGE_EVENTS } from './figureLinks';
 
 const EVENT_WORDS = { REQUESTED: 'requested', APPLIED: 'applied' } as const;
 
@@ -108,7 +108,7 @@ export default function MasiPackages() {
         </div>
         {figure && (
           <FigureFilterNote
-            parts={[`${EVENT_WORDS[figure.event]} ${windowLabel(figure.from, figure.to)}`]}
+            period={{ words: EVENT_WORDS[figure.event], from: figure.from, to: figure.to }}
             onClear={() => setAll({ event: '', from: '', to: '' })}
           />
         )}

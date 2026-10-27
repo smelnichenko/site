@@ -661,7 +661,13 @@ for (const { name, path, ready, drawn, widths } of PAGES) {
       for (const [sel, [min, text]] of Object.entries(drawn)) {
         const texts = await page.locator(sel).allTextContents();
         expect(texts.length, `${sel}: the fixture's rows are drawn`).toBeGreaterThanOrEqual(min);
-        if (text) expect(texts.join(' '), `${sel} shows the fixture's hard text`).toContain(text);
+        // read as words: a no-break space (the one that ties a "·" to the part before it) is a space
+        if (text) {
+          expect(
+            texts.join(' ').replace(/\s+/g, ' '),
+            `${sel} shows the fixture's hard text`,
+          ).toContain(text);
+        }
       }
       await expect(page.locator('main'), 'no load failure').not.toContainText(/Failed to load/);
 
@@ -1119,3 +1125,170 @@ test('booking titles wrap at words, at 390 px', async ({ page }) => {
   );
   expect(broken, 'no word is broken across lines').toEqual([]);
 });
+
+/**
+ * A report's figures are finger targets: every link at least 44 px either way, at a phone's width and a desktop's,
+ * and no two of them overlapping - a box grown over its neighbour's would take its taps.
+ */
+for (const width of [375, 1366]) {
+  test(`report figures are 44 px targets, apart, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/reports/6', '.masi-figure-link');
+    const m = await page.evaluate(() => {
+      // by role, not by the class under test: every link the stats draw
+      const links = [...document.querySelectorAll('.masi-stats a[href]')];
+      const rects = links.map((a) => ({
+        name: a.getAttribute('aria-label') ?? (a.textContent ?? '').trim(),
+        // an inline link broken over two lines is two boxes, each of them a target
+        boxes: [...a.getClientRects()],
+      }));
+      const small = rects.flatMap((l) =>
+        l.boxes
+          .filter((b) => b.width < 44 || b.height < 44)
+          .map((b) => `${l.name}: ${b.width.toFixed(1)}×${b.height.toFixed(1)}`),
+      );
+      const all = rects.flatMap((l) => l.boxes.map((b) => ({ name: l.name, b })));
+      const overlapping = all.flatMap((x, i) =>
+        all
+          .slice(i + 1)
+          .filter(
+            (y) =>
+              x.name !== y.name &&
+              Math.min(x.b.right, y.b.right) - Math.max(x.b.left, y.b.left) > 0.5 &&
+              Math.min(x.b.bottom, y.b.bottom) - Math.max(x.b.top, y.b.top) > 0.5,
+          )
+          .map((y) => `${x.name} / ${y.name}`),
+      );
+      return { count: links.length, small, overlapping };
+    });
+    expect(m.count, "the fixture's figures are drawn").toBeGreaterThanOrEqual(33);
+    expect(m.small, 'every figure link is 44 px either way').toEqual([]);
+    expect(m.overlapping, 'no figure link overlaps another').toEqual([]);
+  });
+}
+
+/**
+ * The "·" between parts goes with the part before it: at every width from a small phone's to a desktop card's, no line
+ * starts with one. A sweep, not one width: where a line breaks moves with the width, and a break before a separator
+ * happens only where the line fills right there.
+ */
+const SEPARATED: Array<[string, string, string]> = [
+  ['a report', '/masi/reports/6', '.masi-figure-link'],
+  ['the activity log', '/masi/activity?job=7', '.masi-activity li'],
+  [
+    "a report figure's filter",
+    '/masi/jobs?event=NEW&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z&titleNorm=java%20developer&tag=java&seniority=senior',
+    '.masi-figure-filter',
+  ],
+];
+for (const [name, path, ready] of SEPARATED) {
+  test(`${name}: no line starts with a separator, 320 to 800 px`, async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 900 });
+    await open(page, path, ready);
+    const starts: string[] = [];
+    let seen = 0;
+    for (let width = 320; width <= 800; width += 4) {
+      await page.setViewportSize({ width, height: 900 });
+      const m = await page.evaluate(() => {
+        const main = document.querySelector('main');
+        if (!main) return { seps: 0, starts: [] as string[] };
+        const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
+        const chars: Array<{ node: Text; i: number }> = [];
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          const t = n as Text;
+          if (!t.parentElement || t.parentElement.getClientRects().length === 0) continue;
+          for (let i = 0; i < t.data.length; i++) {
+            if (t.data[i].trim()) chars.push({ node: t, i });
+          }
+        }
+        const rect = (c: { node: Text; i: number }) => {
+          const r = document.createRange();
+          r.setStart(c.node, c.i);
+          r.setEnd(c.node, c.i + 1);
+          return r.getBoundingClientRect();
+        };
+        let seps = 0;
+        const out: string[] = [];
+        chars.forEach((c, k) => {
+          if (c.node.data[c.i] !== '·' || k === 0) return;
+          seps++;
+          const dot = rect(c);
+          const before = rect(chars[k - 1]);
+          const middle = dot.top + dot.height / 2;
+          // on the same line the dot's middle is inside the glyph box of the letter before it
+          if (middle < before.top || middle > before.bottom) {
+            out.push(`…${c.node.data.slice(Math.max(0, c.i - 12), c.i + 12)}`);
+          }
+        });
+        return { seps, starts: out };
+      });
+      seen = Math.max(seen, m.seps);
+      starts.push(...m.starts.map((s) => `${width} px: ${s}`));
+    }
+    expect(seen, 'the page draws separators').toBeGreaterThanOrEqual(2);
+    expect(starts, 'no line starts with "·"').toEqual([]);
+  });
+}
+
+/** A report figure's filter names its days whole: no date is broken across two lines, at any width a phone has. */
+for (const path of [
+  '/masi/activity?response=REJECTED&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+  '/masi/jobs?event=NEW&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z&titleNorm=java%20developer&tag=java&seniority=senior',
+]) {
+  test(`the filter's dates stay whole, 300 to 480 px: ${path.split('?')[0]}`, async ({ page }) => {
+    await page.setViewportSize({ width: 480, height: 900 });
+    await open(page, path, '.masi-figure-filter');
+    const broken: string[] = [];
+    let dates = 0;
+    for (let width = 300; width <= 480; width += 2) {
+      await page.setViewportSize({ width, height: 900 });
+      const m = await page.evaluate(() => {
+        const note = document.querySelector('.masi-figure-filter');
+        if (!note) return { dates: 0, broken: [] as string[] };
+        const walker = document.createTreeWalker(note, NodeFilter.SHOW_TEXT);
+        let n = 0;
+        const out: string[] = [];
+        for (let t = walker.nextNode() as Text | null; t; t = walker.nextNode() as Text | null) {
+          for (const d of t.data.matchAll(/\d{1,2}\s[A-Z][a-z]{2}\s\d{4}/g)) {
+            n++;
+            const r = document.createRange();
+            r.setStart(t, d.index);
+            r.setEnd(t, d.index + d[0].length);
+            const tops = new Set([...r.getClientRects()].map((b) => Math.round(b.top)));
+            if (tops.size > 1) out.push(d[0]);
+          }
+        }
+        return { dates: n, broken: out };
+      });
+      dates = Math.max(dates, m.dates);
+      broken.push(...m.broken.map((d) => `${width} px: ${d}`));
+    }
+    expect(dates, "the filter's two dates are drawn").toBe(2);
+    expect(broken, 'no date broken across lines').toEqual([]);
+  });
+}
+
+/**
+ * The activity log is a masi page like the rest: its inputs in the page's font (not the browser's Arial), the scope chip
+ * a flat badge (not a button's outset border), at a phone's width and a desktop's.
+ */
+for (const width of [375, 1366]) {
+  test(`the activity log takes the masi pages' look, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/activity?job=7', '.masi-activity li');
+    const m = await page.evaluate(() => {
+      const body = getComputedStyle(document.body).fontFamily;
+      const summary = document.getElementById('act-summary');
+      const chip = document.querySelector('button[aria-label^="Clear the scope"]');
+      return {
+        body,
+        summary: summary ? getComputedStyle(summary).fontFamily : 'no summary input',
+        chipBorder: chip ? getComputedStyle(chip).borderTopStyle : 'no chip',
+        chipFont: chip ? getComputedStyle(chip).fontFamily : 'no chip',
+      };
+    });
+    expect(m.summary, "an input in the page's font").toBe(m.body);
+    expect(m.chipFont, "the chip in the page's font").toBe(m.body);
+    expect(m.chipBorder, 'the chip is flat').toBe('none');
+  });
+}

@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import StatsPanel, { Bars } from './StatsPanel';
 import { stats } from './statsFixture';
+import { looseSeparators } from './testUtils';
 
 /** Where a link leads: its path and its query, as one object. */
 function target(name: string) {
@@ -314,13 +315,13 @@ describe('StatsPanel outcomes', () => {
       event: 'INTERVIEW_HELD',
       ...window,
     });
-    expect(target('3 interviews applied in et')).toEqual({
+    expect(target('et 3 interviews')).toEqual({
       path: '/masi/bookings',
       event: 'INTERVIEW_HELD',
       language: 'et',
       ...window,
     });
-    expect(target('1 interview, language not known')).toEqual({
+    expect(target('language not known 1 interview')).toEqual({
       path: '/masi/bookings',
       event: 'INTERVIEW_HELD',
       language: 'none',
@@ -367,5 +368,23 @@ describe('StatsPanel outcomes', () => {
     delete older.outcomes;
     render(<StatsPanel stats={older} />);
     expect(screen.queryByRole('region', { name: 'Outcomes' })).not.toBeInTheDocument();
+  });
+});
+
+describe('StatsPanel reads as text', () => {
+  it('keeps every "·" with the part before it, so no line starts with one', () => {
+    render(<StatsPanel stats={stats} />);
+    const text = document.body.textContent;
+    // the premise: the panel draws separators - tiles, outcomes, salary, tokens
+    expect(text.match(/·/g)?.length).toBeGreaterThanOrEqual(8);
+    expect(looseSeparators(text)).toEqual([]);
+  });
+
+  it('names every figure link for what it counts, never a bare number', () => {
+    render(<StatsPanel stats={stats} />);
+    const links = screen.getAllByRole('link');
+    expect(links.length).toBeGreaterThanOrEqual(10);
+    const names = links.map((a) => a.getAttribute('aria-label') ?? (a.textContent ?? '').trim());
+    expect(names.filter((n) => !/[a-z]/i.test(n))).toEqual([]);
   });
 });
