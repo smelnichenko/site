@@ -40,6 +40,25 @@ describe('PackagePanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the skills the PDF prints, and says how many it leaves off', () => {
+    const skills = Array.from({ length: 14 }, (_, i) => `Skill${i + 1}`);
+    render(
+      <PackagePanel
+        pkg={{ ...prepared, tunedCv: { ...prepared.tunedCv, skills, skillsPrinted: 12 } }}
+        onChanged={() => undefined}
+      />,
+    );
+    const line = screen.getByText(/^Skills:/);
+    expect(line).toHaveTextContent(skills.slice(0, 12).join(', '));
+    expect(line).not.toHaveTextContent('Skill13');
+    expect(line).toHaveTextContent('+2 not on the PDF (it prints the first 12)');
+  });
+
+  it('shows every skill when the PDF prints them all, or masi does not say', () => {
+    render(<PackagePanel pkg={prepared} onChanged={() => undefined} />);
+    expect(screen.getByText(/^Skills:/)).toHaveTextContent(/^Skills: Java, Kafka$/);
+  });
+
   it('saves a file under the name masi gives it', async () => {
     const api = await import('../../services/api');
     vi.mocked(api.fetchMasiArtifact).mockResolvedValue({

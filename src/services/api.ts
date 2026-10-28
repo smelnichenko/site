@@ -1698,6 +1698,8 @@ export interface MasiTunedCv {
   title: string;
   roles: MasiTunedRole[];
   skills: string[];
+  /** How many of {@link skills} the PDF prints (its first ones); absent from a masi that does not say. */
+  skillsPrinted?: number;
   coverLetter: string;
 }
 

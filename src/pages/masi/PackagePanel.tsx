@@ -3,6 +3,7 @@ import {
   fetchMasiArtifact,
   MasiPackage,
   MasiPackageLanguage,
+  MasiTunedCv,
   regenerateMasiPackage,
   reviewMasiPackage,
 } from '../../services/api';
@@ -180,9 +181,7 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
               )}
             </div>
           ))}
-          {pkg.tunedCv.skills.length > 0 && (
-            <p className="muted">Skills: {pkg.tunedCv.skills.join(', ')}</p>
-          )}
+          {pkg.tunedCv.skills.length > 0 && <SkillsLine cv={pkg.tunedCv} />}
         </div>
       )}
       {!editing && pkg.coverLetter && (
@@ -310,5 +309,17 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
         <PackageSend pkg={pkg} jobOpen={jobOpen} onChanged={onChanged} />
       )}
     </div>
+  );
+}
+
+/** The skills as the PDF prints them: its first ones, and how many it leaves off. */
+function SkillsLine({ cv }: Readonly<{ cv: MasiTunedCv }>) {
+  const printed = cv.skillsPrinted ?? cv.skills.length;
+  const left = cv.skills.length - printed;
+  return (
+    <p className="muted">
+      Skills: {cv.skills.slice(0, printed).join(', ')}
+      {left > 0 && ` — +${left} not on the PDF (it prints the first ${printed})`}
+    </p>
   );
 }
