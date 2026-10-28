@@ -2406,3 +2406,21 @@ a.muted,
   align-items: center;
   gap: 0.25rem;
 }
+
+/* the operator's verdict on a requirement: its select, note and buttons wrap under the requirement, finger-sized */
+.masi .masi-judge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.25rem 0;
+}
+.masi .masi-judge input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.masi .masi-judge select,
+.masi .masi-judge input,
+.masi .masi-judge-open {
+  min-height: 44px;
+}

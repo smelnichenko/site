@@ -1463,8 +1463,8 @@ export interface MasiMatchRequirement {
   verdict: MasiMatchVerdict;
   evidence: MasiMatchEvidence[];
   reason: string | null;
-  /** Who decided: the model on its evidence, the master's role dates (years), or its languages list (a level). */
-  decidedBy: 'model' | 'dates' | 'languages';
+  /** Who decided: the model on its evidence, the master's role dates (years), its languages list (a level), or the operator. */
+  decidedBy: 'model' | 'dates' | 'languages' | 'you';
 }
 
 export interface MasiManualJob {
@@ -1860,6 +1860,19 @@ export function fetchMasiListings(
 
 export function fetchMasiJob(id: number, signal?: AbortSignal): Promise<MasiJob> {
   return masiGet(`/jobs/${id}`, signal, 'load the job');
+}
+
+/** The operator's own verdict on a requirement of the job's match (null: the model's again); the answer is the job as it is now. */
+export function judgeMasiRequirement(
+  jobId: number,
+  requirementId: string,
+  verdict: MasiMatchVerdict | null,
+  note: string | null,
+): Promise<MasiJob> {
+  const path = `/jobs/${jobId}/match/requirements/${encodeURIComponent(requirementId)}`;
+  return verdict === null
+    ? masiSend(path, 'DELETE', undefined, 'take the verdict back')
+    : masiSend(path, 'PUT', { verdict, note }, 'save the verdict');
 }
 
 /** A posting pasted in from a board masi never contacts; the answer is the job it became (maybe one a board already shows). */

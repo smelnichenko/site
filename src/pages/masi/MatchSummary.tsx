@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { createContext, useContext, useId, useState } from 'react';
 import type {
   MasiMatch,
   MasiMatchRequirement,
@@ -21,12 +21,114 @@ const VERDICT_WORDS: Record<MasiMatchVerdict, string> = {
   NOT_A_CV_THING: 'not for a CV',
 };
 
-/** Who decided, when it was not the model: masi counted it from the CV itself. */
+/** Who decided, when it was not the model: masi counted it from the CV itself, or the operator said so. */
 const DECIDED_BY: Record<MasiMatchRequirement['decidedBy'], string | null> = {
   model: null,
   dates: 'Counted from the dates of your roles.',
   languages: 'Read from the languages on your CV.',
+  you: 'Your verdict.',
 };
+
+const VERDICTS: MasiMatchVerdict[] = ['MET', 'PARTLY', 'NOT_MET', 'NOT_A_CV_THING'];
+
+/** The operator's verdict on a requirement (null: the model's again), and why. */
+export type OnJudge = (
+  requirementId: string,
+  verdict: MasiMatchVerdict | null,
+  note: string | null,
+) => Promise<void>;
+
+/** Where the page lets the operator correct the list; none, and the list is only read. */
+const JudgeContext = createContext<OnJudge | null>(null);
+
+/** The operator's own verdict on one requirement: their verdict and note, or the model's again. */
+function Judge({ r }: Readonly<{ r: MasiMatchRequirement }>) {
+  const onJudge = useContext(JudgeContext);
+  const noteId = useId();
+  const [open, setOpen] = useState(false);
+  const [verdict, setVerdict] = useState<MasiMatchVerdict>(r.verdict);
+  const [note, setNote] = useState(r.decidedBy === 'you' ? (r.reason ?? '') : '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!onJudge) return null;
+  const name = r.english ?? r.text;
+
+  async function send(v: MasiMatchVerdict | null, n: string | null) {
+    setBusy(true);
+    setError(null);
+    try {
+      await onJudge!(r.id, v, n);
+      setOpen(false);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'The verdict could not be saved');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="btn-small masi-judge-open"
+        aria-label={`Change the verdict on ${name}`}
+        onClick={() => setOpen(true)}
+      >
+        Change
+      </button>
+    );
+  }
+  return (
+    <div className="masi-judge">
+      <select
+        aria-label={`Verdict on ${name}`}
+        value={verdict}
+        onChange={(e) => setVerdict(e.target.value as MasiMatchVerdict)}
+      >
+        {VERDICTS.map((v) => (
+          <option key={v} value={v}>
+            {VERDICT_WORDS[v]}
+          </option>
+        ))}
+      </select>
+      <label htmlFor={noteId}>Why (optional)</label>
+      <input id={noteId} value={note} onChange={(e) => setNote(e.target.value)} />
+      {error && (
+        <div className="error" role="alert">
+          {error}
+        </div>
+      )}
+      <div className="badge-group">
+        <button
+          type="button"
+          className="status-badge action"
+          disabled={busy}
+          onClick={() => void send(verdict, note.trim() === '' ? null : note.trim())}
+        >
+          Save verdict
+        </button>
+        {r.decidedBy === 'you' && (
+          <button
+            type="button"
+            className="status-badge"
+            disabled={busy}
+            onClick={() => void send(null, null)}
+          >
+            Back to the model's
+          </button>
+        )}
+        <button
+          type="button"
+          className="status-badge"
+          disabled={busy}
+          onClick={() => setOpen(false)}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function Phrases({ label, phrases }: Readonly<{ label: string; phrases: string[] }>) {
   const id = useId();
@@ -68,6 +170,7 @@ function Requirement({ r }: Readonly<{ r: MasiMatchRequirement }>) {
         )}
         {r.reason && <div className="masi-req-detail muted">{r.reason}</div>}
         {decided && <div className="masi-req-detail muted">{decided}</div>}
+        <Judge r={r} />
       </div>
     </li>
   );
@@ -120,6 +223,7 @@ function Keywords({ items }: Readonly<{ items: MasiMatchRequirement[] }>) {
 /** What no CV can show, from every list, named once: a heading of its own like the lists above it. */
 function Traits({ items }: Readonly<{ items: MasiMatchRequirement[] }>) {
   const id = useId();
+  const judging = useContext(JudgeContext) !== null;
   if (items.length === 0) return null;
   return (
     <div className="masi-match-list">
@@ -128,7 +232,11 @@ function Traits({ items }: Readonly<{ items: MasiMatchRequirement[] }>) {
       </h3>
       <ul aria-labelledby={id}>
         {items.map((r) => (
-          <li key={r.id}>{r.english ?? r.text}</li>
+          <li key={r.id}>
+            {r.english ?? r.text}
+            {judging && ' '}
+            <Judge r={r} />
+          </li>
         ))}
       </ul>
     </div>
@@ -152,7 +260,10 @@ function AiMatch({ match }: Readonly<{ match: MasiMatch }>) {
 }
 
 /** How far the active CV master covers what the posting asks for, and the must-haves on either side: a ranking aid, not a verdict. */
-export default function MatchSummary({ match }: Readonly<{ match: MasiMatch | null }>) {
+export default function MatchSummary({
+  match,
+  onJudge,
+}: Readonly<{ match: MasiMatch | null; onJudge?: OnJudge }>) {
   if (!match) return null;
   const ai = match.method === 'AI';
   return (
@@ -174,7 +285,9 @@ export default function MatchSummary({ match }: Readonly<{ match: MasiMatch | nu
         </p>
       )}
       {ai ? (
-        <AiMatch match={match} />
+        <JudgeContext.Provider value={onJudge ?? null}>
+          <AiMatch match={match} />
+        </JudgeContext.Provider>
       ) : (
         <>
           <Phrases label="Your CV shows" phrases={match.supportedMustHave} />
