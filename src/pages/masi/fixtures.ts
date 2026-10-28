@@ -84,6 +84,7 @@ export const prepared = {
   error: null,
   userNotes: null,
   appliedAt: null,
+  editedAt: null,
   response: 'NONE',
   createdAt: '2026-09-18T09:00:00Z',
   updatedAt: '2026-09-18T09:05:00Z',
