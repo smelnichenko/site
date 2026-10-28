@@ -62,6 +62,7 @@ export const prepared = {
       {
         company: 'Tõrva Fintech OÜ',
         title: 'Senior Backend Engineer',
+        period: '2021-03 – present',
         collapsed: false,
         bullets: [{ achievementIndex: 0, text: 'Cut p99 latency from 800 ms to 120 ms' }],
       },

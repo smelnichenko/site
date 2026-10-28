@@ -1687,6 +1687,8 @@ export interface MasiTunedBullet {
 export interface MasiTunedRole {
   company: string;
   title: string;
+  /** The master's dates for this role, as the PDF prints them; absent when its master no longer passes the schema. */
+  period?: string;
   collapsed: boolean;
   bullets: MasiTunedBullet[];
 }
