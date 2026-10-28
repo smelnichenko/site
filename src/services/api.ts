@@ -1729,6 +1729,8 @@ export interface MasiPackage {
   error: string | null;
   userNotes: string | null;
   appliedAt: string | null;
+  /** When the operator last edited the CV or the letter by hand; null while they are the model's. */
+  editedAt: string | null;
   response: string;
   createdAt: string;
   updatedAt: string;
@@ -2461,6 +2463,11 @@ export function reviewMasiPackage(
 }
 
 /** Regenerates; a language changes the package's (and 'auto' hands it back to the posting), none keeps it. */
+/** The operator's own CV and letter for a PREPARED or REVIEWED package: masi makes its PDF and letter again from them. */
+export function saveMasiPackageContent(id: number, content: MasiTunedCv): Promise<MasiPackage> {
+  return masiSend(`/packages/${id}/content`, 'PUT', content, 'save the edit');
+}
+
 export function regenerateMasiPackage(
   id: number,
   language?: MasiPackageLanguage,

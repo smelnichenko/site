@@ -2375,3 +2375,34 @@ a.muted,
   border-radius: 999px;
   font-size: 13px;
 }
+
+/* the package editor: each bullet's text grows with the panel, its Remove a finger target beside it */
+.masi-edit textarea,
+.masi-edit input:not([type='checkbox']) {
+  width: 100%;
+}
+.masi-edit fieldset {
+  border: 1px solid #ddd;
+  border-radius: 0.25rem;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+.masi-edit-bullet {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.25rem 0;
+}
+.masi-edit-bullet textarea {
+  flex: 1;
+  min-width: 0;
+}
+.masi-edit-bullet button,
+.masi-edit-check {
+  min-height: 44px;
+}
+.masi-edit-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}

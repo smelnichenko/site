@@ -7,6 +7,7 @@ import {
   reviewMasiPackage,
 } from '../../services/api';
 import LoadingButton from '../../components/LoadingButton';
+import PackageEditor from './PackageEditor';
 import PackageLanguage from './PackageLanguage';
 import PackageSend from './PackageSend';
 import { languageLine } from './language';
@@ -33,6 +34,7 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [language, setLanguage] = useState<MasiPackageLanguage>(
     (pkg.language as MasiPackageLanguage | null) ?? 'auto',
   );
@@ -95,6 +97,7 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
         {pkg.attempts} attempt(s) · cost {formatUsd(pkg.costUsd)} · updated{' '}
         {formatDateTime(pkg.updatedAt)}
         {pkg.appliedAt ? ` · applied ${formatDateTime(pkg.appliedAt)}` : ''}
+        {pkg.editedAt ? ` · edited by you ${formatDateTime(pkg.editedAt)}` : ''}
       </div>
       <div className="muted" data-testid="package-language">
         {languageLine(pkg.writtenIn, pkg.tunedFromVersion, pkg.language)}
@@ -133,7 +136,25 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
           </ul>
         </details>
       )}
-      {pkg.tunedCv && (
+      {editing && pkg.tunedCv && (
+        <PackageEditor
+          pkg={pkg}
+          onSaved={(next) => {
+            setEditing(false);
+            onChanged(next);
+            setMessage('Edit saved: the PDF and the letter are made from it');
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      )}
+      {!editing && reviewable && pkg.tunedCv && (
+        <div className="badge-group">
+          <button type="button" className="status-badge action" onClick={() => setEditing(true)}>
+            Edit
+          </button>
+        </div>
+      )}
+      {!editing && pkg.tunedCv && (
         <div className="masi-tuned">
           <h3>{pkg.tunedCv.title}</h3>
           <p>{pkg.tunedCv.summary}</p>
@@ -162,7 +183,7 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
           )}
         </div>
       )}
-      {pkg.coverLetter && (
+      {!editing && pkg.coverLetter && (
         <div className="masi-letter">
           <div className="card-header">
             <span className="card-title">Cover letter</span>
