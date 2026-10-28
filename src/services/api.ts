@@ -2504,12 +2504,23 @@ export function retuneMasi(): Promise<{ count: number; estimatedUsd: number }> {
 }
 
 /** The artifact is a file the browser opens itself; the token rides in a header, so fetch it as a blob. */
-export async function fetchMasiArtifact(id: number, kind: 'CV_PDF' | 'LETTER_TXT'): Promise<Blob> {
+/** A package's file and the name masi gives it (the operator's, e.g. `Mari-Maasikas-CV.pdf`); null when it gives none. */
+export interface MasiArtifactFile {
+  blob: Blob;
+  filename: string | null;
+}
+
+export async function fetchMasiArtifact(
+  id: number,
+  kind: 'CV_PDF' | 'LETTER_TXT',
+): Promise<MasiArtifactFile> {
   const response = await apiFetch(
     `${API_BASE}/masi/packages/${id}/artifacts/${kind.toLowerCase()}`,
   );
   if (!response.ok) throw new Error('Failed to fetch the artifact');
-  return response.blob();
+  const disposition = response.headers?.get('Content-Disposition') ?? '';
+  const named = /filename="([^"]+)"/.exec(disposition);
+  return { blob: await response.blob(), filename: named ? named[1] : null };
 }
 
 /**

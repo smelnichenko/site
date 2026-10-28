@@ -56,9 +56,11 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
   async function openArtifact(kind: 'CV_PDF' | 'LETTER_TXT') {
     setBusy(true);
     try {
+      // the name masi gives it is the operator's: a recruiter sees an uploaded file's name as it is
+      const file = await fetchMasiArtifact(pkg.id, kind);
       openBlob(
-        await fetchMasiArtifact(pkg.id, kind),
-        kind === 'CV_PDF' ? `cv-${pkg.id}.pdf` : `letter-${pkg.id}.txt`,
+        file.blob,
+        file.filename ?? (kind === 'CV_PDF' ? `cv-${pkg.id}.pdf` : `letter-${pkg.id}.txt`),
       );
     } catch (e: unknown) {
       setMessage(errorMessage(e, 'The artifact could not be fetched'));
