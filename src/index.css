@@ -2406,3 +2406,36 @@ a.muted,
   align-items: center;
   gap: 0.25rem;
 }
+
+/* the operator's verdict on a requirement: its select, note and buttons wrap under the requirement, finger-sized */
+.masi .masi-judge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.25rem 0;
+}
+.masi .masi-judge input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.masi .masi-judge select,
+.masi .masi-judge input {
+  min-height: 44px;
+}
+/* the verdict word is the button that opens the operator's verdict: a finger target in the tag's own column */
+.masi .masi-req .masi-verdict-button,
+.masi .masi-verdict-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 64px;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.masi .masi-verdict-button:focus-visible {
+  outline: 2px solid #1a73e8;
+  outline-offset: 2px;
+}

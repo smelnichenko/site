@@ -7,6 +7,7 @@ import {
   fetchMasiJobBookings,
   fetchMasiJobHistory,
   fetchMasiSimilarJobs,
+  judgeMasiRequirement,
   MasiJob,
   MasiCalendarEvent,
   MasiJobHistoryEntry,
@@ -228,7 +229,12 @@ export default function MasiJobDetail() {
             </ul>
           </div>
         )}
-        <MatchSummary match={job.match} />
+        <MatchSummary
+          match={job.match}
+          onJudge={async (requirementId, verdict, note) =>
+            setJob(await judgeMasiRequirement(job.id, requirementId, verdict, note))
+          }
+        />
         {(job.scores?.length ?? 0) > 1 && (
           <p className="muted" aria-label="Score with each active CV">
             by CV:{' '}
