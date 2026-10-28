@@ -40,6 +40,26 @@ describe('PackagePanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('saves a file under the name masi gives it', async () => {
+    const api = await import('../../services/api');
+    vi.mocked(api.fetchMasiArtifact).mockResolvedValue({
+      blob: new Blob(['%PDF-'], { type: 'application/pdf' }),
+      filename: 'Mari-Maasikas-CV.pdf',
+    });
+    const saved: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      saved.push(this.download);
+    });
+    URL.createObjectURL = vi.fn(() => 'blob:x');
+    URL.revokeObjectURL = vi.fn();
+    render(<PackagePanel pkg={prepared} onChanged={() => undefined} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open CV PDF' }));
+    await waitFor(() => expect(saved).toEqual(['Mari-Maasikas-CV.pdf']));
+    click.mockRestore();
+  });
+
   it('a PREPARING package offers nothing but its notes', () => {
     render(
       <PackagePanel

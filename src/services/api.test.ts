@@ -1051,15 +1051,28 @@ describe('api - masi', () => {
     ]);
   });
 
-  it('fetches an artifact by its lower-cased kind as a blob', async () => {
+  it('fetches an artifact by its lower-cased kind as a blob, with the name masi gives it', async () => {
     const blob = new Blob(['%PDF-'], { type: 'application/pdf' });
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
+      headers: new Headers({ 'Content-Disposition': 'inline; filename="Mari-Maasikas-CV.pdf"' }),
       blob: () => Promise.resolve(blob),
     });
-    expect(await api.fetchMasiArtifact(11, 'CV_PDF')).toBe(blob);
+    const file = await api.fetchMasiArtifact(11, 'CV_PDF');
+    expect(file.blob).toBe(blob);
+    expect(file.filename).toBe('Mari-Maasikas-CV.pdf');
     expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/packages/11/artifacts/cv_pdf');
+  });
+
+  it('an artifact without a name from masi has none', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      blob: () => Promise.resolve(new Blob(['x'])),
+    });
+    expect((await api.fetchMasiArtifact(11, 'LETTER_TXT')).filename).toBeNull();
   });
 });
 

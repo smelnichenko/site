@@ -310,9 +310,10 @@ describe('MasiJobDetail', () => {
     expect(screen.getByText('(collapsed)')).toBeInTheDocument();
     expect(screen.getByText('Dear Nortal team, token-LETTER')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Jobs' })).toHaveClass('active'); // the nested path keeps its tab
-    vi.mocked(api.fetchMasiArtifact).mockResolvedValue(
-      new Blob(['%PDF-'], { type: 'application/pdf' }),
-    );
+    vi.mocked(api.fetchMasiArtifact).mockResolvedValue({
+      blob: new Blob(['%PDF-'], { type: 'application/pdf' }),
+      filename: 'Mari-Maasikas-CV.pdf',
+    });
     await userEvent.click(screen.getByRole('button', { name: 'Open CV PDF' }));
     await waitFor(() => expect(api.fetchMasiArtifact).toHaveBeenCalledWith(11, 'CV_PDF'));
     await userEvent.click(screen.getByRole('button', { name: 'Download letter' }));
