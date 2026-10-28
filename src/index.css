@@ -2420,7 +2420,22 @@ a.muted,
   min-width: 0;
 }
 .masi .masi-judge select,
-.masi .masi-judge input,
-.masi .masi-judge-open {
+.masi .masi-judge input {
   min-height: 44px;
+}
+/* the verdict word is the button that opens the operator's verdict: a finger target in the tag's own column */
+.masi .masi-req .masi-verdict-button,
+.masi .masi-verdict-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 64px;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.masi .masi-verdict-button:focus-visible {
+  outline: 2px solid #1a73e8;
+  outline-offset: 2px;
 }

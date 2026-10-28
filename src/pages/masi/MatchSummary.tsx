@@ -42,23 +42,23 @@ export type OnJudge = (
 const JudgeContext = createContext<OnJudge | null>(null);
 
 /** The operator's own verdict on one requirement: their verdict and note, or the model's again. */
-function Judge({ r }: Readonly<{ r: MasiMatchRequirement }>) {
+function JudgeForm({ r, onClose }: Readonly<{ r: MasiMatchRequirement; onClose: () => void }>) {
   const onJudge = useContext(JudgeContext);
   const noteId = useId();
-  const [open, setOpen] = useState(false);
   const [verdict, setVerdict] = useState<MasiMatchVerdict>(r.verdict);
   const [note, setNote] = useState(r.decidedBy === 'you' ? (r.reason ?? '') : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!onJudge) return null;
+  const judge = onJudge;
   const name = r.english ?? r.text;
 
   async function send(v: MasiMatchVerdict | null, n: string | null) {
     setBusy(true);
     setError(null);
     try {
-      await onJudge!(r.id, v, n);
-      setOpen(false);
+      await judge(r.id, v, n);
+      onClose();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'The verdict could not be saved');
     } finally {
@@ -66,18 +66,6 @@ function Judge({ r }: Readonly<{ r: MasiMatchRequirement }>) {
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        className="btn-small masi-judge-open"
-        aria-label={`Change the verdict on ${name}`}
-        onClick={() => setOpen(true)}
-      >
-        Change
-      </button>
-    );
-  }
   return (
     <div className="masi-judge">
       <select
@@ -114,19 +102,38 @@ function Judge({ r }: Readonly<{ r: MasiMatchRequirement }>) {
             disabled={busy}
             onClick={() => void send(null, null)}
           >
-            Back to the model's
+            Back to the model&apos;s
           </button>
         )}
-        <button
-          type="button"
-          className="status-badge"
-          disabled={busy}
-          onClick={() => setOpen(false)}
-        >
+        <button type="button" className="status-badge" disabled={busy} onClick={onClose}>
           Cancel
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * The verdict as a word; where the page lets the operator judge, the word is the button that opens their verdict - no
+ * row of its own under every requirement.
+ */
+function Verdict({
+  r,
+  open,
+  onToggle,
+}: Readonly<{ r: MasiMatchRequirement; open: boolean; onToggle: () => void }>) {
+  const judging = useContext(JudgeContext) !== null;
+  if (!judging) return <span className="masi-tag masi-verdict">{VERDICT_WORDS[r.verdict]}</span>;
+  return (
+    <button
+      type="button"
+      className="masi-tag masi-verdict masi-verdict-button"
+      aria-label={`Change the verdict on ${r.english ?? r.text}`}
+      aria-expanded={open}
+      onClick={onToggle}
+    >
+      {VERDICT_WORDS[r.verdict]}
+    </button>
   );
 }
 
@@ -152,13 +159,14 @@ function Phrases({ label, phrases }: Readonly<{ label: string; phrases: string[]
  * who decided when it was masi. The verdict and the body are two columns: a wrapped line stays under its own text.
  */
 function Requirement({ r }: Readonly<{ r: MasiMatchRequirement }>) {
+  const [judging, setJudging] = useState(false);
   const decided = DECIDED_BY[r.decidedBy];
   // the model gives English for a requirement in another language; the same words again are no translation
   const english =
     r.english && r.english.trim().toLowerCase() !== r.text.trim().toLowerCase() ? r.english : null;
   return (
     <li className={`masi-req masi-req-${r.verdict.toLowerCase()}`}>
-      <span className="masi-tag masi-verdict">{VERDICT_WORDS[r.verdict]}</span>{' '}
+      <Verdict r={r} open={judging} onToggle={() => setJudging((o) => !o)} />{' '}
       <div className="masi-req-body">
         <span>{english ?? r.text}</span>
         {english && <span className="muted"> — “{r.text}”</span>}
@@ -170,7 +178,7 @@ function Requirement({ r }: Readonly<{ r: MasiMatchRequirement }>) {
         )}
         {r.reason && <div className="masi-req-detail muted">{r.reason}</div>}
         {decided && <div className="masi-req-detail muted">{decided}</div>}
-        <Judge r={r} />
+        {judging && <JudgeForm r={r} onClose={() => setJudging(false)} />}
       </div>
     </li>
   );
@@ -208,14 +216,19 @@ function RequirementList({
 /** The keywords, folded: the summary says how many the CV shows and names the list it opens. */
 function Keywords({ items }: Readonly<{ items: MasiMatchRequirement[] }>) {
   const id = useId();
+  const onJudge = useContext(JudgeContext);
+  // a closed list's controls are laid out under the summary, over what follows it: none until it is opened
+  const [open, setOpen] = useState(false);
   if (items.length === 0) return null;
   const shown = items.filter((r) => r.verdict !== 'NOT_MET').length;
   return (
-    <details className="masi-match-keywords">
+    <details className="masi-match-keywords" onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary id={id}>
         The posting’s keywords: your CV shows {shown} of {items.length}
       </summary>
-      <RequirementList labelledBy={id} items={items} />
+      <JudgeContext.Provider value={open ? onJudge : null}>
+        <RequirementList labelledBy={id} items={items} />
+      </JudgeContext.Provider>
     </details>
   );
 }
@@ -223,7 +236,6 @@ function Keywords({ items }: Readonly<{ items: MasiMatchRequirement[] }>) {
 /** What no CV can show, from every list, named once: a heading of its own like the lists above it. */
 function Traits({ items }: Readonly<{ items: MasiMatchRequirement[] }>) {
   const id = useId();
-  const judging = useContext(JudgeContext) !== null;
   if (items.length === 0) return null;
   return (
     <div className="masi-match-list">
@@ -232,14 +244,28 @@ function Traits({ items }: Readonly<{ items: MasiMatchRequirement[] }>) {
       </h3>
       <ul aria-labelledby={id}>
         {items.map((r) => (
-          <li key={r.id}>
-            {r.english ?? r.text}
-            {judging && ' '}
-            <Judge r={r} />
-          </li>
+          <Trait key={r.id} r={r} />
         ))}
       </ul>
     </div>
+  );
+}
+
+/** One of them: its words, and where the operator may judge, the verdict that opens theirs. */
+function Trait({ r }: Readonly<{ r: MasiMatchRequirement }>) {
+  const [judging, setJudging] = useState(false);
+  const can = useContext(JudgeContext) !== null;
+  return (
+    <li>
+      {r.english ?? r.text}
+      {can && (
+        <>
+          {' '}
+          <Verdict r={r} open={judging} onToggle={() => setJudging((o) => !o)} />
+        </>
+      )}
+      {judging && <JudgeForm r={r} onClose={() => setJudging(false)} />}
+    </li>
   );
 }
 
@@ -282,6 +308,11 @@ export default function MatchSummary({
               ? 'what the posting asks for, judged by AI against the evidence in your CV'
               : 'how much of what the posting asks for your CV shows in words'}
           </span>
+        </p>
+      )}
+      {ai && onJudge && (
+        <p className="muted masi-hint">
+          Press a verdict to give your own: the score counts it and the tuner is told.
         </p>
       )}
       {ai ? (

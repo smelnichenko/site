@@ -77,8 +77,30 @@ describe('MatchSummary verdicts', () => {
     expect(screen.getByLabelText('Verdict on Kafka')).toBeInTheDocument();
   });
 
+  it('the folded keywords offer their verdicts only once opened', async () => {
+    const judge = vi.fn().mockResolvedValue(undefined);
+    render(
+      <MatchSummary
+        match={{
+          ...match,
+          requirements: [req({ id: 'K1', category: 'KEYWORD', text: 'Kafka Streams' })],
+        }}
+        onJudge={judge}
+      />,
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Change the verdict on Kafka Streams' }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByText(/The posting’s keywords/));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Change the verdict on Kafka Streams' }),
+    );
+    expect(screen.getByLabelText('Verdict on Kafka Streams')).toBeInTheDocument();
+  });
+
   it('without a way to judge, offers none', () => {
     render(<MatchSummary match={match} />);
     expect(screen.queryByRole('button', { name: /Change the verdict/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Press a verdict/)).not.toBeInTheDocument();
   });
 });
