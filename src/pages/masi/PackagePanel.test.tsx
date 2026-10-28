@@ -25,6 +25,21 @@ describe('PackagePanel', () => {
     await waitFor(() => expect(api.regenerateMasiPackage).toHaveBeenCalledWith(11, 'et'));
   });
 
+  it("shows each role's dates as the PDF prints them, and no separator for a role masi gave none", () => {
+    render(<PackagePanel pkg={prepared} onChanged={() => undefined} />);
+    const role = (text: RegExp) =>
+      screen.getByText(
+        (_, el) => el?.classList.contains('masi-role') === true && text.test(el.textContent ?? ''),
+      );
+    expect(
+      role(/^Senior Backend Engineer · Tõrva Fintech OÜ · 2021-03 – present/),
+    ).toBeInTheDocument();
+    expect(screen.getByText('2021-03 – present')).toHaveClass('masi-nowrap');
+    expect(
+      role(/^Software Developer · Riigi Infosüsteemide Amet \(collapsed\)$/),
+    ).toBeInTheDocument();
+  });
+
   it('a PREPARING package offers nothing but its notes', () => {
     render(
       <PackagePanel

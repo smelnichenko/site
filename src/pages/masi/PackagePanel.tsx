@@ -140,6 +140,12 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
           {pkg.tunedCv.roles.map((r) => (
             <div key={`${r.company}:${r.title}`} className="masi-role">
               <strong>{r.title}</strong> · {r.company}
+              {r.period && (
+                <>
+                  {' · '}
+                  <span className="masi-nowrap">{r.period}</span>
+                </>
+              )}
               {r.collapsed ? (
                 <span className="muted"> (collapsed)</span>
               ) : (
