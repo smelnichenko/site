@@ -171,8 +171,10 @@ steps:
           git config user.email "woodpecker@pmon.dev"
 
           grep -qE 'tag: "[^"]*"  # site$' "$HELMRELEASE" || { echo "ERROR: no 'tag: ... # site' line in $HELMRELEASE"; exit 1; }
-          sed -i "s|tag: ".*"  # site$|tag: "$GIT_HASH"  # site|" "$HELMRELEASE"
-          grep -q "tag: "$GIT_HASH"  # site$" "$HELMRELEASE" || { echo "ERROR: sed did not apply"; exit 1; }
+          # the quotes escaped, as update-infra's: bare, the shell drops them, the tag is written unquoted and the next
+          # run's grep above finds no quoted line (site main pipeline 236, 2026-10-28)
+          sed -i "s|tag: \".*\"  # site$|tag: \"$GIT_HASH\"  # site|" "$HELMRELEASE"
+          grep -q "tag: \"$GIT_HASH\"  # site$" "$HELMRELEASE" || { echo "ERROR: sed did not apply"; exit 1; }
 
           git add -A
           git diff --cached --quiet && { echo "No changes to commit"; exit 0; }
