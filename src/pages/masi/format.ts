@@ -56,7 +56,6 @@ export const PACKAGE_STATES = [
   'REVIEWED',
   'APPLIED',
   'SKIPPED',
-  'FAILED_GUARD',
   'FAILED',
 ] as const;
 
@@ -71,7 +70,6 @@ export function badgeClass(status: string | null | undefined): string {
     case 'REVIEWED':
       return 'status-badge add';
     case 'FAILED':
-    case 'FAILED_GUARD':
     case 'FAILING':
     case 'DISABLED_AUTO':
     case 'ERROR':

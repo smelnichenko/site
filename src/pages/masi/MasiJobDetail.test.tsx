@@ -273,7 +273,6 @@ describe('MasiJobDetail', () => {
       status: 'NEW',
       tunedCv: null,
       coverLetter: null,
-      claims: null,
       lint: null,
       artifacts: [],
     });
@@ -304,7 +303,6 @@ describe('MasiJobDetail', () => {
       .mockResolvedValue({ ...prepared, status: 'APPLIED', appliedAt: '2026-09-18T10:00:00Z' });
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
     expect(await screen.findByTestId('package-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('claims-clean')).toHaveTextContent('0 claims violations');
     expect(screen.getByTestId('lint')).toHaveTextContent('1 lint warning(s)');
     expect(screen.getByText('Cut p99 latency from 800 ms to 120 ms')).toBeInTheDocument();
     expect(screen.getByText('(collapsed)')).toBeInTheDocument();
@@ -349,7 +347,6 @@ describe('MasiJobDetail', () => {
         status: 'NEW',
         tunedCv: null,
         coverLetter: null,
-        claims: null,
         lint: null,
         artifacts: [],
       };
@@ -408,27 +405,25 @@ describe('MasiJobDetail', () => {
     expect(screen.getAllByRole('button', { name: 'Regenerate' })).toHaveLength(1); // the open job's panel only
   });
 
-  it('shows the refused claims of a guard failure and offers regenerate', async () => {
+  it("shows a failed package's error and offers regenerate", async () => {
     vi.mocked(api.fetchMasiJob).mockResolvedValue(job);
     vi.mocked(api.fetchMasiPackages).mockResolvedValue([
       {
         ...prepared,
-        status: 'FAILED_GUARD',
-        claims: [{ rule: 'skills', detail: "'Rust' is not in the master" }],
+        status: 'FAILED',
         artifacts: [],
-        error: 'refused twice: skills',
+        error: 'the model refused: no',
       },
     ]);
     vi.mocked(api.regenerateMasiPackage).mockResolvedValue({
       ...prepared,
       status: 'NEW',
-      claims: null,
       tunedCv: null,
       artifacts: [],
     });
     renderAt('/masi/jobs/7', '/masi/jobs/:id', <MasiJobDetail />);
     await waitFor(() =>
-      expect(screen.getByTestId('claims')).toHaveTextContent("'Rust' is not in the master"),
+      expect(screen.getByRole('alert')).toHaveTextContent('the model refused: no'),
     );
     expect(screen.queryByRole('button', { name: 'Open CV PDF' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Regenerate' }));

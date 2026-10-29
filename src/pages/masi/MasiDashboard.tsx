@@ -65,7 +65,7 @@ export default function MasiDashboard() {
           <span className="stat-label">packages awaiting review</span>
           <span className="muted">
             {data.packages.APPLIED ?? 0} applied · {data.packages.SKIPPED ?? 0} skipped ·{' '}
-            {(data.packages.FAILED ?? 0) + (data.packages.FAILED_GUARD ?? 0)} failed
+            {data.packages.FAILED ?? 0} failed
           </span>
         </Link>
         <div className="card masi-tile" data-testid="cost-tile">

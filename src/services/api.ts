@@ -1724,7 +1724,6 @@ export interface MasiPackage {
   attempts: number;
   tunedCv: MasiTunedCv | null;
   coverLetter: string | null;
-  claims: MasiFinding[] | null;
   lint: MasiFinding[] | null;
   model: string | null;
   costUsd: number | null;
