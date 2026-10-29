@@ -137,8 +137,8 @@ const packages: MasiPackage[] = [
   {
     ...(prepared as MasiPackage),
     id: 12,
-    status: 'FAILED_GUARD',
-    claims: [{ rule: 'metric', detail: `role 1 dropped '40 teenust': ${LONG_TITLE} ${UNBROKEN}` }],
+    status: 'FAILED',
+    error: `the model refused: ${LONG_TITLE} ${UNBROKEN}`,
   },
 ];
 
