@@ -17,7 +17,7 @@ describe('MasiDashboard', () => {
       newJobs7d: 12,
       closedJobs7d: 3,
       companiesHiring: 41,
-      packages: { NEW: 1, PREPARED: 4, APPLIED: 2, SKIPPED: 1, FAILED: 0, FAILED_GUARD: 1 },
+      packages: { NEW: 1, PREPARED: 4, APPLIED: 2, SKIPPED: 1, FAILED: 1 },
       llm: {
         today: 0.25,
         dailyBudget: 1,

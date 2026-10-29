@@ -77,7 +77,6 @@ export const prepared = {
     coverLetter: 'Dear Nortal team, token-LETTER',
   },
   coverLetter: 'Dear Nortal team, token-LETTER',
-  claims: [],
   lint: [{ rule: 'keyword', detail: "the master supports 'Kafka' but the output never says it" }],
   model: 'claude-opus-5',
   costUsd: 0.12,

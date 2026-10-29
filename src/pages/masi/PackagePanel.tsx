@@ -24,8 +24,8 @@ interface Props {
 }
 
 /**
- * One package as the operator reviews it: the tuned CV over the master's facts, the claims
- * report and the lint next to it, the PDF and the letter, and the transitions masi never takes
+ * One package as the operator reviews it: the tuned CV over the master's facts, the lint next
+ * to it, the PDF and the letter, and the transitions masi never takes
  * by itself — Mark reviewed, Mark applied, Skip, Regenerate, Send. Applying is the operator's act:
  * masi mails a package only on the operator's press on Send, after showing exactly the mail.
  */
@@ -81,7 +81,6 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
     }
   }
 
-  const claims = pkg.claims ?? [];
   const lint = pkg.lint ?? [];
   const reviewable = pkg.status === 'PREPARED' || pkg.status === 'REVIEWED';
   const cvPdf = pkg.artifacts.find((a) => a.kind === 'CV_PDF');
@@ -108,23 +107,6 @@ export default function PackagePanel({ pkg, onChanged, jobOpen = true }: Readonl
       {pkg.error && (
         <div className="error" role="alert">
           {pkg.error}
-        </div>
-      )}
-      {claims.length > 0 && (
-        <div className="error" role="alert" data-testid="claims">
-          <strong>Claims the checker refused ({claims.length}):</strong>
-          <ul>
-            {claims.map((c) => (
-              <li key={`${c.rule}:${c.detail}`}>
-                <code>{c.rule}</code> {c.detail}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {pkg.claims?.length === 0 && pkg.status !== 'NEW' && pkg.status !== 'PREPARING' && (
-        <div className="status-badge success" data-testid="claims-clean">
-          0 claims violations
         </div>
       )}
       {lint.length > 0 && (

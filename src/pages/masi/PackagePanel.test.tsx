@@ -87,7 +87,6 @@ describe('PackagePanel', () => {
           status: 'PREPARING',
           tunedCv: null,
           coverLetter: null,
-          claims: null,
           lint: null,
           artifacts: [],
         }}
@@ -104,7 +103,6 @@ describe('PackagePanel', () => {
     ]) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
     }
-    expect(screen.queryByTestId('claims-clean')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Employer response')).not.toBeInTheDocument();
   });
 
@@ -122,7 +120,7 @@ describe('PackagePanel', () => {
     }
     expect(screen.queryByRole('button', { name: 'Save response' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Employer response')).not.toBeInTheDocument();
-    expect(screen.getByTestId('claims-clean')).toBeInTheDocument();
+    expect(screen.queryByText(/claims/i)).not.toBeInTheDocument();
   });
 
   it('an APPLIED package offers the response and nothing that would undo the application', () => {
@@ -139,21 +137,21 @@ describe('PackagePanel', () => {
     }
   });
 
-  it('violations hide the clean badge, an unavailable PDF hides its button, a closed job hides Regenerate', () => {
+  it('a failure shows its error, an unavailable PDF hides its button, a closed job hides Regenerate', () => {
     render(
       <PackagePanel
         pkg={{
           ...prepared,
-          status: 'FAILED_GUARD',
-          claims: [{ rule: 'skills', detail: "'Rust' is not in the master" }],
+          status: 'FAILED',
+          error: 'the model refused: no',
           artifacts: [{ ...prepared.artifacts[0], available: false }],
         }}
         onChanged={() => undefined}
         jobOpen={false}
       />,
     );
-    expect(screen.queryByTestId('claims-clean')).not.toBeInTheDocument();
-    expect(screen.getByTestId('claims')).toHaveTextContent("'Rust' is not in the master");
+    expect(screen.getByRole('alert')).toHaveTextContent('the model refused: no');
+    expect(screen.queryByText(/checker refused/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open CV PDF' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Regenerate' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Skip' })).toBeInTheDocument();
