@@ -6,6 +6,7 @@ import {
   MasiAssistant,
   MasiSource,
   MasiSourceRun,
+  Paged,
   patchMasiAssistant,
   patchMasiSource,
   runMasiSource,
@@ -98,9 +99,32 @@ function assistantNote(assistant: MasiAssistant | null): string {
 }
 
 
+
+/** The runs of every given source, or null for a page that has been left: a poll is not worth an error either way. */
+async function readRuns(
+  ids: number[],
+  signal: AbortSignal,
+  alive: boolean,
+): Promise<Paged<MasiSourceRun>[] | null> {
+  const fresh = await Promise.all(ids.map((id) => fetchMasiSourceRuns(id, signal)));
+  return alive && fresh.every(Boolean) ? fresh : null;
+}
+
+
+/** The page's per-source runs with the ones just read put in place of the old. */
+function mergeRuns(
+  cur: Record<number, MasiSourceRun[]>,
+  ids: number[],
+  fresh: Paged<MasiSourceRun>[],
+): Record<number, MasiSourceRun[]> {
+  const next = { ...cur };
+  ids.forEach((id, i) => { next[id] = fresh[i].content; });
+  return next;
+}
+
 /** How far a running source has got: what its newest unfinished run has recorded, or '' when it has said nothing yet. */
 function progressOf(row: MasiSourceRun | undefined, now: number): string {
-  if (!row || !row.startedAt) return '';
+  if (!row?.startedAt) return '';
   const minutes = Math.max(0, Math.round((now - Date.parse(row.startedAt)) / 60000));
   const parts: string[] = [];
   if (row.fetched > 0) parts.push(`${row.fetched.toLocaleString()} calls`);
@@ -159,20 +183,16 @@ export default function MasiSources() {
     const controller = new AbortController();
     let alive = true;
     const poll = () => {
-      void (async () => {
-        try {
-          const fresh = await Promise.all(ids.map((id) => fetchMasiSourceRuns(id, controller.signal)));
-          if (!alive) return;
-          setRuns((cur) => {
-            const next = { ...cur };
-            ids.forEach((id, i) => { next[id] = fresh[i].content; });
-            return next;
-          });
+      void readRuns(ids, controller.signal, alive).then(
+        (fresh) => {
+          if (!fresh || !alive) return;
+          setRuns((cur) => mergeRuns(cur, ids, fresh));
           setTick(Date.now());
-        } catch {
+        },
+        () => {
           // a poll that fails is left to the next one: the page keeps what it has
-        }
-      })();
+        },
+      );
     };
     // once at once - a run that started while the page was open is already part way - and then on the interval
     poll();
