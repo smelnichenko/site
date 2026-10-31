@@ -97,6 +97,18 @@ function assistantNote(assistant: MasiAssistant | null): string {
   return `on · gmail ${gmail} · linkedin ${linkedin}`;
 }
 
+
+/** How far a running source has got: what its newest unfinished run has recorded, or '' when it has said nothing yet. */
+function progressOf(row: MasiSourceRun | undefined, now: number): string {
+  if (!row || !row.startedAt) return '';
+  const minutes = Math.max(0, Math.round((now - Date.parse(row.startedAt)) / 60000));
+  const parts: string[] = [];
+  if (row.fetched > 0) parts.push(`${row.fetched.toLocaleString()} calls`);
+  if (row.newContacts > 0) parts.push(`${row.newContacts.toLocaleString()} people`);
+  parts.push(`${minutes} min`);
+  return parts.join(' · ');
+}
+
 /** Every collector agent: enable, cron, run now, and its last runs; a source without a bean (FAILING) cannot be enabled. */
 export default function MasiSources() {
   const [sources, setSources] = useState<MasiSource[] | null>(null);
@@ -131,6 +143,46 @@ export default function MasiSources() {
     })();
     return () => controller.abort();
   }, [reload]);
+
+  /**
+   * While anything is running, its figures are read again every few seconds.
+   *
+   * The collector writes them as it goes (masi, RunProgress), so this is what turns 'running' into something an
+   * operator can watch. Nothing polls when nothing runs: an idle page should not cost requests.
+   */
+  /** The instant of the last successful poll: the age shown beside a running source counts from it. */
+  const [tick, setTick] = useState(0);
+  const runningIds = (sources ?? []).filter((s) => s.running).map((s) => s.id).join(',');
+  useEffect(() => {
+    if (!runningIds) return;
+    const ids = runningIds.split(',').map(Number);
+    const controller = new AbortController();
+    let alive = true;
+    const poll = () => {
+      void (async () => {
+        try {
+          const fresh = await Promise.all(ids.map((id) => fetchMasiSourceRuns(id, controller.signal)));
+          if (!alive) return;
+          setRuns((cur) => {
+            const next = { ...cur };
+            ids.forEach((id, i) => { next[id] = fresh[i].content; });
+            return next;
+          });
+          setTick(Date.now());
+        } catch {
+          // a poll that fails is left to the next one: the page keeps what it has
+        }
+      })();
+    };
+    // once at once - a run that started while the page was open is already part way - and then on the interval
+    poll();
+    const timer = setInterval(poll, 15000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      controller.abort();
+    };
+  }, [runningIds]);
 
   async function act(id: number, fn: () => Promise<unknown>, done: string) {
     setBusyId(id);
@@ -308,6 +360,11 @@ export default function MasiSources() {
                         <span className={badgeClass(s.health)}>
                           {s.running ? 'running' : s.health.toLowerCase().replace('_', ' ')}
                         </span>
+                        {s.running && progressOf(runs[s.id]?.[0], tick) && (
+                          <div className="muted" data-testid={`progress-${s.key}`}>
+                            {progressOf(runs[s.id]?.[0], tick)}
+                          </div>
+                        )}
                         {s.consecutiveFailures > 0 && (
                           <div className="muted">{s.consecutiveFailures} failure(s) in a row</div>
                         )}

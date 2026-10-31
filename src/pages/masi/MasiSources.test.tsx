@@ -135,6 +135,41 @@ describe('MasiSources', () => {
     expect(second).toEqual({ countryId: '5a08cc451b7ce3b929d4128b', pageSize: 12 });
   });
 
+  /**
+   * A running source says how far it has got, from figures the collector writes as it goes.
+   *
+   * Until those were written mid-run the row could only say "running" for two hours while several thousand people had
+   * already been read.
+   */
+  it('shows a running source its calls and people, from the newest run', async () => {
+    vi.mocked(api.fetchMasiSources).mockResolvedValue([{ ...cvee, running: true }]);
+    vi.mocked(api.fetchMasiSourceRuns).mockResolvedValue({
+      content: [{
+        id: 9, sourceId: 1, startedAt: new Date(Date.now() - 5 * 60_000).toISOString(), finishedAt: null,
+        status: 'RUNNING', complete: false, fetched: 1267, parsed: 0, newJobs: 0, updatedListings: 0,
+        closedListings: 0, newCompanies: 0, newContacts: 369, error: null,
+      }],
+      totalElements: 1, totalPages: 1, size: 20, number: 0,
+    } as never);
+
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+
+    const line = await screen.findByTestId('progress-cvee', {}, { timeout: 3000 });
+    expect(line).toHaveTextContent('1,267 calls');
+    expect(line).toHaveTextContent('369 people');
+  });
+
+  /** Nothing running: nothing polls, so an idle page costs no requests. */
+  it('does not poll the runs of a source that is not running', async () => {
+    vi.mocked(api.fetchMasiSources).mockResolvedValue([cvee]);
+
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+
+    await screen.findByText('cv.ee');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(api.fetchMasiSourceRuns).not.toHaveBeenCalled();
+  });
+
   it('does not save a cap that is not a whole number of requests', async () => {
     vi.mocked(api.fetchMasiSources).mockResolvedValue([cvee]);
     renderAt('/masi/sources', '/masi/sources', <MasiSources />);
