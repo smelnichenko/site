@@ -144,12 +144,28 @@ describe('MasiSources', () => {
   it('shows a running source its calls and people, from the newest run', async () => {
     vi.mocked(api.fetchMasiSources).mockResolvedValue([{ ...cvee, running: true }]);
     vi.mocked(api.fetchMasiSourceRuns).mockResolvedValue({
-      content: [{
-        id: 9, sourceId: 1, startedAt: new Date(Date.now() - 5 * 60_000).toISOString(), finishedAt: null,
-        status: 'RUNNING', complete: false, fetched: 1267, parsed: 0, newJobs: 0, updatedListings: 0,
-        closedListings: 0, newCompanies: 0, newContacts: 369, error: null,
-      }],
-      totalElements: 1, totalPages: 1, size: 20, number: 0,
+      content: [
+        {
+          id: 9,
+          sourceId: 1,
+          startedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+          finishedAt: null,
+          status: 'RUNNING',
+          complete: false,
+          fetched: 1267,
+          parsed: 0,
+          newJobs: 0,
+          updatedListings: 0,
+          closedListings: 0,
+          newCompanies: 0,
+          newContacts: 369,
+          error: null,
+        },
+      ],
+      totalElements: 1,
+      totalPages: 1,
+      size: 20,
+      number: 0,
     } as never);
 
     renderAt('/masi/sources', '/masi/sources', <MasiSources />);
