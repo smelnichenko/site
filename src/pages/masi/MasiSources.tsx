@@ -98,8 +98,6 @@ function assistantNote(assistant: MasiAssistant | null): string {
   return `on · gmail ${gmail} · linkedin ${linkedin}`;
 }
 
-
-
 /** The runs of every given source, or null for a page that has been left: a poll is not worth an error either way. */
 async function readRuns(
   ids: number[],
@@ -110,7 +108,6 @@ async function readRuns(
   return alive && fresh.every(Boolean) ? fresh : null;
 }
 
-
 /** The page's per-source runs with the ones just read put in place of the old. */
 function mergeRuns(
   cur: Record<number, MasiSourceRun[]>,
@@ -118,7 +115,9 @@ function mergeRuns(
   fresh: Paged<MasiSourceRun>[],
 ): Record<number, MasiSourceRun[]> {
   const next = { ...cur };
-  ids.forEach((id, i) => { next[id] = fresh[i].content; });
+  ids.forEach((id, i) => {
+    next[id] = fresh[i].content;
+  });
   return next;
 }
 
@@ -176,7 +175,10 @@ export default function MasiSources() {
    */
   /** The instant of the last successful poll: the age shown beside a running source counts from it. */
   const [tick, setTick] = useState(0);
-  const runningIds = (sources ?? []).filter((s) => s.running).map((s) => s.id).join(',');
+  const runningIds = (sources ?? [])
+    .filter((s) => s.running)
+    .map((s) => s.id)
+    .join(',');
   useEffect(() => {
     if (!runningIds) return;
     const ids = runningIds.split(',').map(Number);
