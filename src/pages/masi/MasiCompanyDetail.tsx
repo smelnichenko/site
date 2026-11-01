@@ -3,6 +3,8 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import {
   fetchMasiCompany,
   fetchMasiCompanyContacts,
+  fetchMasiContactPictureBlob,
+  fetchMasiContactPictures,
   fetchMasiCompanyPersons,
   fetchMasiJobs,
   MasiCompany,
@@ -37,6 +39,44 @@ export default function MasiCompanyDetail() {
   const [busyPerson, setBusyPerson] = useState<number | null>(null);
   const [people, setPeople] = useState<MasiPerson[]>([]);
   const [addresses, setAddresses] = useState<MasiContact[]>([]);
+  /** One object URL per person that has a picture, by person id; one without simply has no key. */
+  const [avatars, setAvatars] = useState<Map<number, string>>(new Map());
+
+  /**
+   * A small picture before each person's name.
+   *
+   * An <img> cannot send the token, so each picture is fetched as a blob and shown from an object URL - the same way
+   * the people list does it. A person without a picture is drawn without one, and a picture that fails to load costs
+   * the table nothing.
+   */
+  useEffect(() => {
+    const controller = new AbortController();
+    let alive = true;
+    void (async () => {
+      const found = new Map<number, string>();
+      for (const p of people) {
+        const contactId = p.ties.find((t) => t.contactId != null)?.contactId;
+        if (contactId == null) continue;
+        try {
+          const rows = await fetchMasiContactPictures(contactId, controller.signal);
+          if (rows.length === 0) continue;
+          const blob = await fetchMasiContactPictureBlob(contactId, rows[0].id, controller.signal);
+          found.set(p.id, URL.createObjectURL(blob));
+        } catch {
+          // no picture is not a problem to report
+        }
+      }
+      if (!alive) return;
+      setAvatars((before) => {
+        before.forEach((url) => URL.revokeObjectURL(url));
+        return found;
+      });
+    })();
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [people]);
   const [busyAddress, setBusyAddress] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [careersUrl, setCareersUrl] = useState('');
@@ -323,6 +363,21 @@ export default function MasiCompanyDetail() {
                 return (
                   <tr key={p.id}>
                     <td>
+                      {avatars.get(p.id) && (
+                        <img
+                          src={avatars.get(p.id)}
+                          alt=""
+                          data-testid={`avatar-${p.id}`}
+                          style={{
+                            width: 24,
+                            height: 24,
+                            objectFit: 'cover',
+                            borderRadius: '50%',
+                            marginRight: 8,
+                            verticalAlign: 'middle',
+                          }}
+                        />
+                      )}
                       <Link to={`/masi/persons/${p.id}`}>{p.name ?? 'unnamed'}</Link>
                       {p.title && <div className="muted">{p.title}</div>}
                     </td>

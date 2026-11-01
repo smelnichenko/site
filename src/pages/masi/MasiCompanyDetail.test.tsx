@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
@@ -22,8 +22,16 @@ vi.mock('../../services/api', () => ({
   fetchMasiCompanyFigures: vi.fn(),
   patchMasiContact: vi.fn(),
   fetchMasiCompanyVisits: vi.fn(),
+  fetchMasiContactPictures: vi.fn(),
+  fetchMasiContactPictureBlob: vi.fn(),
 }));
 const api = await import('../../services/api');
+
+beforeAll(() => {
+  // jsdom has no object URLs; the page makes one per picture
+  URL.createObjectURL = vi.fn(() => 'blob:picture');
+  URL.revokeObjectURL = vi.fn();
+});
 
 const company = {
   id: 3,
@@ -817,5 +825,33 @@ describe('MasiCompanyDetail', () => {
     expect(within(people).queryByText("the company's own address")).not.toBeInTheDocument();
     await userEvent.click(within(people).getByRole('button', { name: 'ok to contact' }));
     expect(await screen.findByText('saving refused')).toBeInTheDocument();
+  });
+
+  /**
+   * A small picture stands before the name of every person the table can find one for.
+   *
+   * An <img> cannot send the token, so the picture is fetched as a blob and drawn from an object URL - the same way
+   * the people list does it. A person with no tied contact, or no picture, is drawn without one.
+   */
+  it('draws a person picture before the name, and none for a person without one', async () => {
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([kati]);
+    vi.mocked(api.fetchMasiContactPictures).mockResolvedValue([{ id: 501, contactId: 5 } as never]);
+    vi.mocked(api.fetchMasiContactPictureBlob).mockResolvedValue(
+      new Blob(['x'], { type: 'image/jpeg' }),
+    );
+
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+
+    await waitFor(() => expect(api.fetchMasiContactPictures).toHaveBeenCalled());
+    expect(await screen.findByTestId('avatar-5')).toHaveAttribute('src', 'blob:picture');
+    // the pictures were asked for the contact the person is tied to, not the person id
+    expect(vi.mocked(api.fetchMasiContactPictures).mock.calls[0][0]).toBe(5);
   });
 });
