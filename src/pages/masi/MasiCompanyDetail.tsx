@@ -4,7 +4,7 @@ import {
   fetchMasiCompany,
   fetchMasiCompanyContacts,
   fetchMasiContactPictureBlob,
-  fetchMasiContactPictures,
+  fetchMasiContactPicturesFor,
   fetchMasiCompanyPersons,
   fetchMasiJobs,
   MasiCompany,
@@ -45,31 +45,49 @@ export default function MasiCompanyDetail() {
   /**
    * A small picture before each person's name.
    *
-   * An <img> cannot send the token, so each picture is fetched as a blob and shown from an object URL - the same way
-   * the people list does it. A person without a picture is drawn without one, and a picture that fails to load costs
-   * the table nothing.
+   * One request asks which of these people's contacts have a picture, and the pictures themselves are fetched together
+   * rather than one after another: a table of fifty names should not wait out fifty round trips in a queue. An <img>
+   * cannot send the token, so each picture comes back as a blob and is shown from an object URL.
    */
   useEffect(() => {
     const controller = new AbortController();
     let alive = true;
     void (async () => {
-      const found = new Map<number, string>();
+      const byContact = new Map<number, number>();
       for (const p of people) {
         const contactId = p.ties.find((t) => t.contactId != null)?.contactId;
-        if (contactId == null) continue;
-        try {
-          const rows = await fetchMasiContactPictures(contactId, controller.signal);
-          if (rows.length === 0) continue;
-          const blob = await fetchMasiContactPictureBlob(contactId, rows[0].id, controller.signal);
-          found.set(p.id, URL.createObjectURL(blob));
-        } catch {
-          // no picture is not a problem to report
-        }
+        if (contactId != null) byContact.set(contactId, p.id);
       }
+      if (byContact.size === 0) {
+        setAvatars(new Map());
+        return;
+      }
+      let found: Record<number, number>;
+      try {
+        found = await fetchMasiContactPicturesFor([...byContact.keys()], controller.signal);
+      } catch {
+        return; // no faces is not a reason to report an error on the page
+      }
+      const blobs = await Promise.all(
+        Object.entries(found).map(async ([contactId, pictureId]) => {
+          const personId = byContact.get(Number(contactId));
+          if (personId == null) return null;
+          try {
+            const blob = await fetchMasiContactPictureBlob(
+              Number(contactId),
+              pictureId,
+              controller.signal,
+            );
+            return [personId, URL.createObjectURL(blob)] as const;
+          } catch {
+            return null; // one picture that will not load costs only itself
+          }
+        }),
+      );
       if (!alive) return;
       setAvatars((before) => {
         before.forEach((url) => URL.revokeObjectURL(url));
-        return found;
+        return new Map(blobs.filter((b): b is readonly [number, string] => b != null));
       });
     })();
     return () => {

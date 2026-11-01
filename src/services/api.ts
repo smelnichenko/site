@@ -2355,6 +2355,20 @@ export interface MasiContactPicture {
   capturedAt: string;
 }
 
+/**
+ * Which of these contacts have a picture: contact id to the newest picture's id, in one request.
+ *
+ * A list of people showing faces asks once for all of them; asking per person made fifty names cost fifty round trips.
+ */
+export function fetchMasiContactPicturesFor(
+  contactIds: number[],
+  signal?: AbortSignal,
+): Promise<Record<number, number>> {
+  if (contactIds.length === 0) return Promise.resolve({});
+  const q = contactIds.map((id) => `contactIds=${id}`).join('&');
+  return masiGet(`/contacts/pictures/for?${q}`, signal, 'load the pictures');
+}
+
 /** The pictures collected for a contact, newest first. */
 export function fetchMasiContactPictures(
   contactId: number,

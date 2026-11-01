@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
@@ -22,16 +22,10 @@ vi.mock('../../services/api', () => ({
   fetchMasiCompanyFigures: vi.fn(),
   patchMasiContact: vi.fn(),
   fetchMasiCompanyVisits: vi.fn(),
-  fetchMasiContactPictures: vi.fn(),
+  fetchMasiContactPicturesFor: vi.fn(),
   fetchMasiContactPictureBlob: vi.fn(),
 }));
 const api = await import('../../services/api');
-
-beforeAll(() => {
-  // jsdom has no object URLs; the page makes one per picture
-  URL.createObjectURL = vi.fn(() => 'blob:picture');
-  URL.revokeObjectURL = vi.fn();
-});
 
 const company = {
   id: 3,
@@ -106,7 +100,12 @@ const kati: MasiPerson = {
 };
 
 beforeEach(() => {
+  // jsdom has no object URLs; the page makes one per picture
+  URL.createObjectURL = vi.fn(() => 'blob:picture');
+  URL.revokeObjectURL = vi.fn();
   vi.mocked(api.fetchMasiCompany).mockReset();
+  vi.mocked(api.fetchMasiContactPicturesFor).mockReset();
+  vi.mocked(api.fetchMasiContactPictureBlob).mockReset();
   vi.mocked(api.fetchMasiJobs).mockReset();
   vi.mocked(api.fetchMasiCompanyPersons).mockReset();
   vi.mocked(api.patchMasiCompany).mockReset();
@@ -842,16 +841,17 @@ describe('MasiCompanyDetail', () => {
       totalElements: 0,
     });
     vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([kati]);
-    vi.mocked(api.fetchMasiContactPictures).mockResolvedValue([{ id: 501, contactId: 5 } as never]);
+    vi.mocked(api.fetchMasiContactPicturesFor).mockResolvedValue({ 5: 501 });
     vi.mocked(api.fetchMasiContactPictureBlob).mockResolvedValue(
       new Blob(['x'], { type: 'image/jpeg' }),
     );
 
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
 
-    await waitFor(() => expect(api.fetchMasiContactPictures).toHaveBeenCalled());
+    await waitFor(() => expect(api.fetchMasiContactPicturesFor).toHaveBeenCalled());
     expect(await screen.findByTestId('avatar-5')).toHaveAttribute('src', 'blob:picture');
-    // the pictures were asked for the contact the person is tied to, not the person id
-    expect(vi.mocked(api.fetchMasiContactPictures).mock.calls[0][0]).toBe(5);
+    // asked once for every contact behind these people, not once per person
+    expect(vi.mocked(api.fetchMasiContactPicturesFor).mock.calls).toHaveLength(1);
+    expect(vi.mocked(api.fetchMasiContactPicturesFor).mock.calls[0][0]).toEqual([5]);
   });
 });
