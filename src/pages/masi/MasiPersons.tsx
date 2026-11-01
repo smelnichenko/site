@@ -179,7 +179,6 @@ export default function MasiPersons() {
                     Name{sortMark('nameNorm')}
                   </button>
                 </th>
-                <th>Picture</th>
                 <th>
                   <button type="button" className="sortable-th" onClick={() => sortBy('emailNorm')}>
                     Address{sortMark('emailNorm')}
@@ -202,56 +201,61 @@ export default function MasiPersons() {
               {page.content.map((p) => (
                 <tr key={p.id}>
                   <td>
-                    <Link to={`/masi/persons/${p.id}`}>{p.name ?? 'unnamed'}</Link>
-                    {p.title && <div className="muted">{p.title}</div>}
-                  </td>
-                  <td>
-                    {(() => {
-                      const url = p.ties
-                        .map((t) => t.contactId)
-                        .filter((id): id is number => id != null)
-                        .map((id) => pictures.get(id))
-                        .find((x) => x != null);
-                      if (url == null) {
-                        return null;
-                      }
-                      const all = p.ties
-                        .map((t) =>
-                          t.contactId != null && pictures.get(t.contactId)
-                            ? {
-                                url: pictures.get(t.contactId) as string,
-                                alt: p.name ?? 'person',
-                              }
-                            : null,
-                        )
-                        .filter((x): x is ViewerPicture => x != null);
-                      return (
-                        <button
-                          type="button"
-                          className="picture-thumb"
-                          aria-label={`Open the picture of ${p.name ?? 'this person'}`}
-                          onClick={() => {
-                            const index = Math.max(
-                              0,
-                              all.findIndex((x) => x.url === url),
-                            );
-                            setViewer({ pictures: all, index });
-                          }}
-                        >
-                          <img
-                            src={url}
-                            alt={p.name ?? 'person'}
-                            style={{
-                              width: 80,
-                              height: 80,
-                              objectFit: 'cover',
-                              borderRadius: 8,
-                              cursor: 'zoom-in',
-                            }}
-                          />
-                        </button>
-                      );
-                    })()}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span className="picture-thumb">
+                        {(() => {
+                          const url = p.ties
+                            .map((t) => t.contactId)
+                            .filter((id): id is number => id != null)
+                            .map((id) => pictures.get(id))
+                            .find((x) => x != null);
+                          const all = p.ties
+                            .map((t) =>
+                              t.contactId != null && pictures.get(t.contactId)
+                                ? {
+                                    url: pictures.get(t.contactId) as string,
+                                    alt: p.name ?? 'person',
+                                  }
+                                : null,
+                            )
+                            .filter((x): x is ViewerPicture => x != null);
+                          return url ? (
+                            <button
+                              type="button"
+                              className="picture-thumb"
+                              aria-label={`Open the picture of ${p.name ?? 'this person'}`}
+                              onClick={() => {
+                                const index = Math.max(
+                                  0,
+                                  all.findIndex((x) => x.url === url),
+                                );
+                                setViewer({ pictures: all, index });
+                              }}
+                            >
+                              <img
+                                src={url}
+                                alt=""
+                                data-testid={`avatar-${p.id}`}
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  objectFit: 'cover',
+                                  borderRadius: '50%',
+                                  cursor: 'zoom-in',
+                                }}
+                              />
+                            </button>
+                          ) : (
+                            // a name with no face keeps the same indent, so the names stay in one line
+                            <span style={{ display: 'inline-block', width: 32, height: 32 }} />
+                          );
+                        })()}
+                      </span>
+                      <span>
+                        <Link to={`/masi/persons/${p.id}`}>{p.name ?? 'unnamed'}</Link>
+                        {p.title && <div className="muted">{p.title}</div>}
+                      </span>
+                    </span>
                   </td>
                   <td>{p.email ?? ''}</td>
                   <td>

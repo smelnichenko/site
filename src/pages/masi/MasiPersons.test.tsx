@@ -5,7 +5,12 @@ import MasiPersons from './MasiPersons';
 import { renderAt } from './testUtils';
 import type { MasiPerson } from '../../services/api';
 
-vi.mock('../../services/api', () => ({ fetchMasiPersons: vi.fn(), patchMasiPerson: vi.fn() }));
+vi.mock('../../services/api', () => ({
+  fetchMasiPersons: vi.fn(),
+  patchMasiPerson: vi.fn(),
+  fetchMasiContactPictures: vi.fn(),
+  fetchMasiContactPictureBlob: vi.fn(),
+}));
 const api = await import('../../services/api');
 
 const anna: MasiPerson = {
@@ -67,6 +72,8 @@ const page = (content: MasiPerson[], total = content.length) => ({
 beforeEach(() => {
   vi.mocked(api.fetchMasiPersons).mockReset(); // a body, not an expression: a returned mock would run as the test's cleanup
   vi.mocked(api.patchMasiPerson).mockReset();
+  vi.mocked(api.fetchMasiContactPictures).mockReset();
+  vi.mocked(api.fetchMasiContactPictureBlob).mockReset();
 });
 
 describe('MasiPersons', () => {
@@ -84,6 +91,32 @@ describe('MasiPersons', () => {
     );
     expect(within(row).getAllByText('agency')).toHaveLength(1); // Grafton's, not EY's
     expect(screen.getByRole('link', { name: 'People' })).toHaveClass('active');
+  });
+
+  /**
+   * The picture stands in the name's own cell, before the name, not in a column of its own.
+   *
+   * A person with no picture keeps the same indent, so the names stay in one line instead of jumping left and right.
+   */
+  it('draws the picture before the name, and keeps the line for a person without one', async () => {
+    const faceless: MasiPerson = { ...anna, id: 21, name: 'Toomas Ilma', ties: [] };
+    vi.mocked(api.fetchMasiPersons).mockResolvedValue(page([anna, faceless]));
+    vi.mocked(api.fetchMasiContactPictures).mockResolvedValue([{ id: 501, contactId: 5 } as never]);
+    vi.mocked(api.fetchMasiContactPictureBlob).mockResolvedValue(
+      new Blob(['x'], { type: 'image/jpeg' }),
+    );
+    URL.createObjectURL = vi.fn(() => 'blob:person');
+    URL.revokeObjectURL = vi.fn();
+
+    renderAt('/masi/persons', '/masi/persons', <MasiPersons />);
+
+    const withFace = await screen.findByTestId('avatar-20', {}, { timeout: 3000 });
+    expect(withFace).toHaveAttribute('src', 'blob:person');
+    // it sits in the same row as the name, and no separate Picture column is left behind
+    const row = screen.getByRole('row', { name: /Taima-Riin Uutma/ });
+    expect(within(row).getByTestId('avatar-20')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Picture' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('avatar-21')).not.toBeInTheDocument();
   });
 
   it('asks the server with the URL: a search, the agency filter and one company, each starting on page one', async () => {
