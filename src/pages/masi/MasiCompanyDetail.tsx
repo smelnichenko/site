@@ -62,12 +62,15 @@ export default function MasiCompanyDetail() {
         setAvatars(new Map());
         return;
       }
-      let found: Record<number, number>;
+      let found: Record<number, number> | null;
       try {
         found = await fetchMasiContactPicturesFor([...byContact.keys()], controller.signal);
       } catch {
         return; // no faces is not a reason to report an error on the page
       }
+      // an answer with nothing in it - or not an object at all - means no pictures, not a throw outside every catch:
+      // this line ran per row and left six unhandled rejections that failed the whole build
+      if (!found || typeof found !== 'object') return;
       const blobs = await Promise.all(
         Object.entries(found).map(async ([contactId, pictureId]) => {
           const personId = byContact.get(Number(contactId));
