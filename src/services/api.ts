@@ -2393,6 +2393,32 @@ export async function fetchMasiContactPictureBlob(
   return response.blob();
 }
 
+/** What the contact-picture lane has come to: switched on, what it stored, and how many contacts wait. */
+export interface MasiPictureStatus {
+  enabled: boolean;
+  face: boolean;
+  perTick: number;
+  tick: string;
+  revisit: string;
+  contactsWithAPicture: number;
+  lookupsByOutcome: Record<string, number>;
+  askedToday: number;
+  dueNow: number;
+}
+
+/**
+ * Whether the picture lane is working, in one answer: "off", "nothing found" and "everything failing" all looked the
+ * same in the UI until this existed.
+ */
+export function fetchMasiPictureStatus(signal?: AbortSignal): Promise<MasiPictureStatus> {
+  return masiGet('/contacts/pictures/status', signal, 'load the picture status');
+}
+
+/** The operator's force pass: visits every contact due right now, up to limit, on the server's own thread. */
+export function collectMasiPictures(limit = 200): Promise<{ started: number }> {
+  return masiSend(`/contacts/pictures/collect?limit=${limit}`, 'POST', undefined, 'start the picture pass');
+}
+
 /** The people tied to one company: who posted for it, who represents it, who was spoken to. */
 export function fetchMasiCompanyPersons(id: number, signal?: AbortSignal): Promise<MasiPerson[]> {
   return masiGet(`/persons/of-company/${id}`, signal, 'load the people');

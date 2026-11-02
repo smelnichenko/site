@@ -15,6 +15,7 @@ import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDateTime } from './format';
 import MasiTable from '../../components/MasiTable';
+import PictureStatus from './PictureStatus';
 
 /** A draft the operator is still editing (differs from what the server had) survives the reload every action triggers. */
 function keepEdits(
@@ -272,6 +273,7 @@ export default function MasiSources() {
               </label>
               <span className="muted">{assistantNote(assistant)}</span>
             </div>
+            <PictureStatus />
             <MasiTable label="Sources">
               <thead>
                 <tr>
