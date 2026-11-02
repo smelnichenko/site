@@ -1,9 +1,48 @@
 import { OIDC_CONFIG } from '../config/oidc';
 
-// Module-scoped token storage (memory only — most secure for SPA)
-let accessToken: string | null = null;
-let refreshToken: string | null = null;
-let expiresAt: number = 0;
+/**
+ * The tokens, kept in sessionStorage as well as in memory.
+ *
+ * In memory alone they did not survive a reload: the refresh token was gone after the first navigation, getAccessToken()
+ * answered null, the request went out without an Authorization header and masi answered 401 - on a page the operator
+ * was logged in to (measured 2026-11-02: GET /contacts/9671/pictures 401 at 18:57, right after a login at 18:50).
+ * sessionStorage ends with the tab, which is what a login should do; it is not shared with another tab.
+ */
+const STORAGE_KEY = 'oidc_tokens';
+
+interface StoredTokens {
+  accessToken: string;
+  refreshToken: string | null;
+  expiresAt: number;
+}
+
+function readStored(): StoredTokens | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const t = JSON.parse(raw) as StoredTokens;
+    return typeof t.accessToken === 'string' && typeof t.expiresAt === 'number' ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+function persist(): void {
+  try {
+    if (!accessToken) {
+      sessionStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ accessToken, refreshToken, expiresAt } satisfies StoredTokens));
+  } catch {
+    // a browser that refuses storage still works for this page: the tokens stay in memory
+  }
+}
+
+const restored = readStored();
+let accessToken: string | null = restored?.accessToken ?? null;
+let refreshToken: string | null = restored?.refreshToken ?? null;
+let expiresAt: number = restored?.expiresAt ?? 0;
 let refreshTimer: number | null = null;
 
 export interface UserInfo {
@@ -122,6 +161,7 @@ async function silentRefresh(): Promise<boolean> {
       refreshToken = data.refresh_token;
     }
     expiresAt = Date.now() + data.expires_in * 1000;
+    persist();
     scheduleRefresh();
     return true;
   } catch {
@@ -129,6 +169,7 @@ async function silentRefresh(): Promise<boolean> {
     accessToken = null;
     refreshToken = null;
     expiresAt = 0;
+    persist();
     return false;
   }
 }
@@ -197,6 +238,7 @@ export async function handleCallback(code: string): Promise<UserInfo> {
   accessToken = data.access_token;
   refreshToken = data.refresh_token ?? null;
   expiresAt = Date.now() + data.expires_in * 1000;
+  persist();
   scheduleRefresh();
   return extractUserInfo(accessToken);
 }
@@ -214,6 +256,7 @@ export function logout(): void {
   accessToken = null;
   refreshToken = null;
   expiresAt = 0;
+  persist();
   cancelRefresh();
 
   const logoutUrl = `${OIDC_CONFIG.authority}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(OIDC_CONFIG.postLogoutRedirectUri)}&client_id=${OIDC_CONFIG.clientId}`;

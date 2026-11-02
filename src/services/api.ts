@@ -97,7 +97,7 @@ export interface PageStats {
   };
 }
 
-import { getAccessToken } from './oidcClient';
+import { getAccessToken, login } from './oidcClient';
 
 const API_BASE = '/api';
 
@@ -115,8 +115,14 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
   const response = await fetch(url, { ...options, headers });
 
   if (response.status === 401) {
-    console.error('API 401:', url);
-    // Don't auto-redirect — let the UI handle it
+    if (token) {
+      // A token that the server refused: it is expired or was minted for another realm. The page says so.
+      console.error('API 401:', url);
+    } else {
+      // No token at all, and the refresh token went with it: the login is over. Send the operator back to Keycloak and
+      // return here afterwards; the caller's catch still sees the error as the browser leaves for the login.
+      void login(globalThis.location.pathname + globalThis.location.search);
+    }
     throw new Error('Unauthorized');
   }
 
