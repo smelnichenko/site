@@ -2422,7 +2422,12 @@ export function fetchMasiPictureStatus(signal?: AbortSignal): Promise<MasiPictur
 
 /** The operator's force pass: visits every contact due right now, up to limit, on the server's own thread. */
 export function collectMasiPictures(limit = 200): Promise<{ started: number }> {
-  return masiSend(`/contacts/pictures/collect?limit=${limit}`, 'POST', undefined, 'start the picture pass');
+  return masiSend(
+    `/contacts/pictures/collect?limit=${limit}`,
+    'POST',
+    undefined,
+    'start the picture pass',
+  );
 }
 
 /** The people tied to one company: who posted for it, who represents it, who was spoken to. */
