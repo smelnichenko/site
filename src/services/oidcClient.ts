@@ -33,7 +33,10 @@ function persist(): void {
       sessionStorage.removeItem(STORAGE_KEY);
       return;
     }
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ accessToken, refreshToken, expiresAt } satisfies StoredTokens));
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ accessToken, refreshToken, expiresAt } satisfies StoredTokens),
+    );
   } catch {
     // a browser that refuses storage still works for this page: the tokens stay in memory
   }

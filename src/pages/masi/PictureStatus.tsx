@@ -23,7 +23,8 @@ export default function PictureStatus() {
       try {
         setStatus(await fetchMasiPictureStatus(controller.signal));
       } catch (e: unknown) {
-        if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load the picture status'));
+        if (!controller.signal.aborted)
+          setError(errorMessage(e, 'Failed to load the picture status'));
       }
     })();
     return () => controller.abort();
@@ -35,7 +36,9 @@ export default function PictureStatus() {
     try {
       const started = await collectMasiPictures();
       const plural = started.started === 1 ? '' : 's';
-      setMessage(`A pass over ${started.started} contact${plural} started; it runs in the background.`);
+      setMessage(
+        `A pass over ${started.started} contact${plural} started; it runs in the background.`,
+      );
       setStatus(await fetchMasiPictureStatus());
       setError(null);
     } catch (e: unknown) {
@@ -76,8 +79,8 @@ export default function PictureStatus() {
         </span>
       </h3>
       <p className="muted">
-        {status.perTick} contacts every {status.tick}, each revisited after {status.revisit}. Face matching{' '}
-        {status.face ? 'on' : 'off'}.
+        {status.perTick} contacts every {status.tick}, each revisited after {status.revisit}. Face
+        matching {status.face ? 'on' : 'off'}.
       </p>
       <table className="table">
         <tbody>
@@ -99,15 +102,28 @@ export default function PictureStatus() {
             <th>Waiting to be asked</th>
             <td>
               {status.dueNow}
-              {days === null ? null : <span className="muted"> — about {days} day{days === 1 ? '' : 's'} at this rate</span>}
+              {days === null ? null : (
+                <span className="muted">
+                  {' '}
+                  — about {days} day{days === 1 ? '' : 's'} at this rate
+                </span>
+              )}
             </td>
           </tr>
         </tbody>
       </table>
       {status.enabled ? (
-        <LoadingButton loading={busy} loadingLabel="Starting…" label="Collect pictures now" onClick={() => void collect()} />
+        <LoadingButton
+          loading={busy}
+          loadingLabel="Starting…"
+          label="Collect pictures now"
+          onClick={() => void collect()}
+        />
       ) : (
-        <p className="muted">Nothing is collected while the lane is off: contact-pictures.enabled is false in the chart.</p>
+        <p className="muted">
+          Nothing is collected while the lane is off: contact-pictures.enabled is false in the
+          chart.
+        </p>
       )}
       {message === null ? null : <p className="muted">{message}</p>}
       {error === null ? null : <p className="error">{error}</p>}
