@@ -11,6 +11,8 @@ vi.mock('../../services/api', () => ({
   fetchMasiPerson: vi.fn(),
   fetchMasiActivity: vi.fn(),
   patchMasiPerson: vi.fn(),
+  fetchMasiContactPictures: vi.fn(),
+  fetchMasiContactPictureBlob: vi.fn(),
 }));
 const api = await import('../../services/api');
 
@@ -73,6 +75,8 @@ beforeEach(() => {
   vi.mocked(api.fetchMasiPerson).mockReset();
   vi.mocked(api.fetchMasiActivity).mockReset();
   vi.mocked(api.patchMasiPerson).mockReset();
+  vi.mocked(api.fetchMasiContactPictures).mockReset().mockResolvedValue([]);
+  vi.mocked(api.fetchMasiContactPictureBlob).mockReset();
 });
 
 describe('MasiPersonDetail', () => {
@@ -286,5 +290,114 @@ describe('MasiPersonDetail', () => {
       await screen.findByText('Mari Maasikas', { selector: '.card-title' }),
     ).toBeInTheDocument();
     expect(screen.queryByText('Marked: do not contact')).not.toBeInTheDocument();
+  });
+
+  it('says where masi found them: the profile, what it said, the posting that named them, and their picture', async () => {
+    const seen = { firstSeenAt: '2026-10-23T08:00:00Z', lastSeenAt: '2026-11-07T02:00:00Z' };
+    const filippos: MasiPerson = {
+      ...kadri,
+      id: 21,
+      name: 'Filippos Malandrakis',
+      email: null,
+      phone: null,
+      title: null,
+      ties: [],
+      found: [
+        {
+          contactId: 719,
+          origin: 'FROM_WEB',
+          source: 'github',
+          sourceName: 'GitHub people',
+          profileUrl: 'https://github.com/filippos47',
+          linkedinUrl: null,
+          title: 'Backend developer, Go and Kubernetes',
+          email: null,
+          companyId: null,
+          companyName: null,
+          listingId: null,
+          listingUrl: null,
+          listingTitle: null,
+          ...seen,
+          pictures: 1,
+        },
+        {
+          contactId: 720,
+          origin: 'FROM_LISTING',
+          source: 'cvee',
+          sourceName: 'cv.ee',
+          profileUrl: null,
+          linkedinUrl: 'https://www.linkedin.com/in/filippos',
+          title: 'Recruiter',
+          email: 'filippos@nortal.example',
+          companyId: 3,
+          companyName: 'Nortal AS',
+          listingId: 77,
+          listingUrl: 'https://cv.ee/job/77',
+          listingTitle: 'Java developer',
+          ...seen,
+          pictures: 0,
+        },
+      ],
+    };
+    vi.mocked(api.fetchMasiPerson).mockResolvedValue(filippos);
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiContactPictures).mockResolvedValue([
+      {
+        id: 5,
+        source: 'GITHUB',
+        sourceUrl: 'https://github.com/filippos47.png',
+        contentType: 'image/png',
+        size: 3,
+        capturedAt: '2026-11-07T02:00:00Z',
+      },
+    ] as never);
+    vi.mocked(api.fetchMasiContactPictureBlob).mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3])]),
+    );
+    URL.createObjectURL = vi.fn(() => 'blob:filippos');
+    renderAt('/masi/persons/21', '/masi/persons/:id', <MasiPersonDetail />);
+
+    const found = await screen.findByTestId('person-found');
+    const github = within(found).getByRole('link', { name: 'github.com/filippos47' });
+    expect(github).toHaveAttribute('href', 'https://github.com/filippos47');
+    expect(github).toHaveAttribute('target', '_blank');
+    expect(within(found).getByText('Backend developer, Go and Kubernetes')).toBeInTheDocument();
+    expect(within(found).getByText('GitHub people')).toBeInTheDocument();
+    expect(within(found).getByRole('link', { name: 'Java developer' })).toHaveAttribute(
+      'href',
+      'https://cv.ee/job/77',
+    );
+    expect(within(found).getByRole('link', { name: 'Nortal AS' })).toHaveAttribute(
+      'href',
+      '/masi/companies/3',
+    );
+    expect(within(found).getByRole('link', { name: 'LinkedIn' })).toHaveAttribute(
+      'href',
+      'https://www.linkedin.com/in/filippos',
+    );
+    expect(within(found).getByText('filippos@nortal.example')).toBeInTheDocument();
+    // the picture: asked of the record that has one, not of the one that has none, and shown beside the name
+    expect(
+      await screen.findByRole('button', { name: 'Open the picture of Filippos Malandrakis' }),
+    ).toBeInTheDocument();
+    expect(api.fetchMasiContactPictures).toHaveBeenCalledWith(719, expect.anything());
+    expect(api.fetchMasiContactPictures).not.toHaveBeenCalledWith(720, expect.anything());
+  });
+
+  it('says so when masi holds no record of where it found them', async () => {
+    vi.mocked(api.fetchMasiPerson).mockResolvedValue({ ...kadri, found: [] });
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    renderAt('/masi/persons/20', '/masi/persons/:id', <MasiPersonDetail />);
+    expect(await screen.findByText('No record of where masi found them.')).toBeInTheDocument();
   });
 });

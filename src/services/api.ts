@@ -1602,6 +1602,31 @@ export interface MasiPerson {
   firstSeenAt: string;
   lastSeenAt: string;
   ties: MasiPersonTie[];
+  /** Where masi found them, one record each: the person's own page carries it, a list of people does not. */
+  found?: MasiPersonFound[];
+}
+
+/**
+ * One record masi found a person by: its source and how (a posting, the register, the web), the page that shows them, what
+ * it said of them, their address and company there, the posting that named them, when it was seen, how many pictures.
+ */
+export interface MasiPersonFound {
+  contactId: number;
+  origin: string | null;
+  source: string | null;
+  sourceName: string | null;
+  profileUrl: string | null;
+  linkedinUrl: string | null;
+  title: string | null;
+  email: string | null;
+  companyId: number | null;
+  companyName: string | null;
+  listingId: number | null;
+  listingUrl: string | null;
+  listingTitle: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  pictures: number;
 }
 
 /** A registered company an employer might be; `sure` is the one masi would attach without asking. */
