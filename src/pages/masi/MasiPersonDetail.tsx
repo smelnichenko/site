@@ -48,19 +48,22 @@ export default function MasiPersonDetail() {
         setActivity(log.content);
         setError(null);
         setMessage(null); // a message about the person this page showed before is not about this one
-        // the contact's pictures, the first of each shown on its tie: the bytes come as blobs, an <img> cannot send the token
+        // the contacts' pictures, the first of each: a record that gave one (beside the name), and each tie's contact. The
+        // bytes come as blobs - an <img> cannot send the token
         const urls = new Map<number, string>();
-        for (const tie of p.ties) {
-          if (tie.contactId == null || urls.has(tie.contactId)) continue;
+        const withPictures = (p.found ?? []).filter((f) => f.pictures > 0).map((f) => f.contactId);
+        const ofTies = p.ties.map((t) => t.contactId).filter((id): id is number => id != null);
+        for (const contactId of [...withPictures, ...ofTies]) {
+          if (urls.has(contactId)) continue;
           try {
-            const rows = await fetchMasiContactPictures(tie.contactId, controller.signal);
+            const rows = await fetchMasiContactPictures(contactId, controller.signal);
             if (rows.length > 0) {
               const blob = await fetchMasiContactPictureBlob(
-                tie.contactId,
+                contactId,
                 rows[0].id,
                 controller.signal,
               );
-              urls.set(tie.contactId, URL.createObjectURL(blob));
+              urls.set(contactId, URL.createObjectURL(blob));
             }
           } catch {
             // one contact without a picture is no reason to fail the page
@@ -144,12 +147,43 @@ export default function MasiPersonDetail() {
       )}
     </div>
   );
+  const found = person.found ?? [];
+  // every picture the person's records gave, the first beside the name: the lightbox walks them all
+  const faces: ViewerPicture[] = [
+    ...new Set([...found.map((f) => f.contactId), ...person.ties.map((t) => t.contactId)]),
+  ]
+    .filter((id): id is number => id != null && pictures.has(id))
+    .map((id) => ({ url: pictures.get(id) as string, alt: person.name ?? 'person' }));
+  const face = faces[0]?.url;
   return (
     <div className="masi">
       <MasiNav />
       <div className="card">
         <div className="card-header">
-          <span className="card-title">{person.name ?? 'Unnamed person'}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {face && (
+              <button
+                type="button"
+                className="picture-thumb"
+                aria-label={`Open the picture of ${person.name ?? 'this person'}`}
+                onClick={() => setViewer({ pictures: faces, index: 0 })}
+              >
+                <img
+                  src={face}
+                  alt=""
+                  className="masi-contact-picture"
+                  style={{
+                    width: 72,
+                    height: 72,
+                    objectFit: 'cover',
+                    borderRadius: '50%',
+                    cursor: 'zoom-in',
+                  }}
+                />
+              </button>
+            )}
+            <span className="card-title">{person.name ?? 'Unnamed person'}</span>
+          </span>
           {person.doNotContact && <span className="status-badge error">do not contact</span>}
         </div>
         <div className="muted">
@@ -186,6 +220,75 @@ export default function MasiPersonDetail() {
             />
           </div>
         </form>
+      </div>
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">Where masi found them</span>
+          <span className="muted">{found.length}</span>
+        </div>
+        {found.length === 0 && (
+          <div className="empty-state">No record of where masi found them.</div>
+        )}
+        {found.length > 0 && (
+          <MasiTable label="Where masi found the person" testId="person-found">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>What it says</th>
+                <th>Their page</th>
+                <th>Company</th>
+                <th>Posting</th>
+                <th>Address</th>
+                <th>Seen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {found.map((f) => (
+                <tr key={f.contactId}>
+                  <td>
+                    <div>{f.sourceName ?? f.source ?? '—'}</div>
+                    <div className="muted">{originLabel(f.origin)}</div>
+                  </td>
+                  <td>{f.title}</td>
+                  <td>
+                    {f.profileUrl && (
+                      <div>
+                        <a href={f.profileUrl} target="_blank" rel="noopener noreferrer">
+                          {pageLabel(f.profileUrl)}
+                        </a>
+                      </div>
+                    )}
+                    {f.linkedinUrl && (
+                      <div>
+                        <a href={f.linkedinUrl} target="_blank" rel="noopener noreferrer">
+                          LinkedIn
+                        </a>
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    {f.companyId !== null && (
+                      <Link to={`/masi/companies/${f.companyId}`}>
+                        {f.companyName ?? `company ${f.companyId}`}
+                      </Link>
+                    )}
+                  </td>
+                  <td>
+                    {f.listingUrl && (
+                      <a href={f.listingUrl} target="_blank" rel="noopener noreferrer">
+                        {f.listingTitle ?? 'the posting'}
+                      </a>
+                    )}
+                  </td>
+                  <td>{f.email}</td>
+                  <td>
+                    {formatDate(f.firstSeenAt)} – {formatDate(f.lastSeenAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </MasiTable>
+        )}
       </div>
       <div className="card">
         <div className="card-header">
@@ -331,4 +434,32 @@ export default function MasiPersonDetail() {
       )}
     </div>
   );
+}
+
+/** How a record came to masi, in words. */
+function originLabel(origin: string | null): string {
+  switch (origin) {
+    case 'FROM_LISTING':
+      return 'a posting';
+    case 'FROM_REGISTER':
+      return 'the e-Business Register';
+    case 'FROM_WEB':
+      return 'the web';
+    case 'MANUAL':
+      return 'you, by hand';
+    case 'FROM_PARTNER':
+      return 'a partner';
+    case 'FROM_MAIL':
+      return 'a mail';
+    default:
+      return origin ?? '';
+  }
+}
+
+/** A page's address as it reads: no scheme, no "www.", no trailing slash - github.com/filippos47. */
+function pageLabel(url: string): string {
+  return url
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/$/, '');
 }
