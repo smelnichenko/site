@@ -5,14 +5,17 @@ import {
   fetchMasiContactPictureBlob,
   fetchMasiContactPictures,
   fetchMasiPerson,
+  GitHubProfile,
   MasiActivity,
   MasiPerson,
+  MasiPersonConnection,
   patchMasiPerson,
 } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import MasiTable from '../../components/MasiTable';
 import PictureLightbox, { ViewerPicture } from './PictureLightbox';
+import GitHubProfileCard from './GitHubProfileCard';
 import { errorMessage, formatDate, formatDateTime } from './format';
 import { changes, Draft, draftOf, evidenceLabel, roleLabel, whereLabel } from './people';
 
@@ -148,6 +151,7 @@ export default function MasiPersonDetail() {
     </div>
   );
   const found = person.found ?? [];
+  const connections = person.connections ?? [];
   // every picture the person's records gave, the first beside the name: the lightbox walks them all
   const faces: ViewerPicture[] = [
     ...new Set([...found.map((f) => f.contactId), ...person.ties.map((t) => t.contactId)]),
@@ -284,6 +288,46 @@ export default function MasiPersonDetail() {
                   <td>
                     {formatDate(f.firstSeenAt)} – {formatDate(f.lastSeenAt)}
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </MasiTable>
+        )}
+      </div>
+      {found
+        .filter((f) => f.githubLogin && f.profile)
+        .map((f) => (
+          <GitHubProfileCard
+            key={f.contactId}
+            login={f.githubLogin as string}
+            profile={f.profile as GitHubProfile}
+          />
+        ))}
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">Connections</span>
+          <span className="muted">{connections.length}</span>
+        </div>
+        {connections.length === 0 && (
+          <div className="empty-state">No connections masi knows of.</div>
+        )}
+        {connections.length > 0 && (
+          <MasiTable label="People connected to the person" testId="person-connections">
+            <thead>
+              <tr>
+                <th>Person</th>
+                <th>How</th>
+              </tr>
+            </thead>
+            <tbody>
+              {connections.map((c) => (
+                <tr key={c.personId}>
+                  <td>
+                    <Link to={`/masi/persons/${c.personId}`}>
+                      {c.name ?? `person ${c.personId}`}
+                    </Link>
+                  </td>
+                  <td>{connectionLabel(c)}</td>
                 </tr>
               ))}
             </tbody>
@@ -462,4 +506,14 @@ function pageLabel(url: string): string {
     .replace(/^https?:\/\//, '')
     .replace(/^www\./, '')
     .replace(/\/$/, '');
+}
+
+/** How someone is connected to the person, in words: both ways, one way, or the same commit address. */
+function connectionLabel(c: MasiPersonConnection): string {
+  const how = [];
+  if (c.follows && c.followedBy) how.push('follow each other');
+  else if (c.follows) how.push('followed by this person');
+  else if (c.followedBy) how.push('follows this person');
+  if (c.sameAddress) how.push('same commit address');
+  return how.join(', ');
 }
