@@ -456,7 +456,7 @@ describe('MasiPersonDetail', () => {
                 {
                   name: 'site',
                   url: 'https://github.com/vello/site',
-                  stargazerCount: 3,
+                  stargazerCount: 50,
                   primaryLanguage: { name: 'TypeScript' },
                 },
               ],
@@ -496,7 +496,7 @@ describe('MasiPersonDetail', () => {
     expect(within(gh).getByTestId('github-languages')).toHaveTextContent('Go 2, TypeScript 1');
     // repositories by stars, the most first, each a link
     const repos = within(gh).getAllByRole('link', { name: /^(bus-api|site|tiny)$/ });
-    expect(repos.map((a) => a.textContent)).toEqual(['bus-api', 'site', 'tiny']);
+    expect(repos.map((a) => a.textContent)).toEqual(['site', 'bus-api', 'tiny']);
     expect(within(gh).getByRole('link', { name: 'Bolt' })).toHaveAttribute(
       'href',
       'https://github.com/bolt',
