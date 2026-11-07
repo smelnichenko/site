@@ -1579,6 +1579,22 @@ a.muted,
   background: #fff3cd;
   color: #664d03;
 }
+/* a source's or a run's note: amber beside a run that worked (a refused request, a page gone), red beside a failure */
+.masi-note {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.masi-note-warning {
+  background: #fff3cd;
+  color: #664d03;
+}
+.masi-note-error {
+  background: #f8d7da;
+  color: #721c24;
+}
 .masi-send-fields {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);

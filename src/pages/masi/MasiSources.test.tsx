@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MasiSources from './MasiSources';
 import { renderAt } from './testUtils';
@@ -194,5 +194,76 @@ describe('MasiSources', () => {
     await userEvent.tab();
     expect(api.patchMasiSource).not.toHaveBeenCalled();
     expect(cap).toBeInvalid();
+  });
+
+  it('shows a run that worked its note as a warning, a run that failed its error as an error', async () => {
+    const guard = 'guard aborted 1 request(s) to www.googletagmanager.com';
+    const run = {
+      sourceId: 1,
+      finishedAt: '2026-09-18T09:26:45Z',
+      complete: true,
+      fetched: 1,
+      parsed: 15,
+      newJobs: 0,
+      updatedListings: 15,
+      closedListings: 0,
+      newCompanies: 0,
+      newContacts: 0,
+    };
+    vi.mocked(api.fetchMasiSources).mockResolvedValue([
+      { ...cvee, health: 'OK', lastError: guard },
+      {
+        ...cvee,
+        id: 2,
+        key: 'ibkr',
+        name: 'IBKR',
+        health: 'FAILING',
+        consecutiveFailures: 3,
+        lastError: 'returned 404',
+      },
+    ]);
+    vi.mocked(api.fetchMasiSourceRuns).mockResolvedValue({
+      content: [
+        { ...run, id: 1, startedAt: '2026-09-18T09:26:00Z', status: 'OK', error: guard },
+        {
+          ...run,
+          id: 2,
+          startedAt: '2026-09-18T08:26:00Z',
+          status: 'SKIPPED_BUDGET',
+          error: 'the budget is spent',
+        },
+        {
+          ...run,
+          id: 3,
+          startedAt: '2026-09-18T07:26:00Z',
+          status: 'ERROR',
+          error: 'returned 500',
+        },
+        {
+          ...run,
+          id: 4,
+          startedAt: '2026-09-18T06:26:00Z',
+          status: 'TIMEOUT',
+          error: 'deadline exceeded',
+        },
+      ],
+      page: 0,
+      size: 20,
+      totalElements: 4,
+    });
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+    // the health column: a healthy source's last note is a warning, a failing one's an error
+    const health = await screen.findAllByText(guard);
+    expect(health[0]).toHaveClass('masi-note', 'masi-note-warning');
+    expect(screen.getByText('returned 404')).toHaveClass('masi-note', 'masi-note-error');
+    await userEvent.click(screen.getByRole('button', { name: 'cv.ee' }));
+    const runs = await screen.findByTestId('runs-cvee');
+    const note = (text: string) => within(runs).getByText(text);
+    expect(note(guard)).toHaveClass('masi-note-warning');
+    expect(note('the budget is spent')).toHaveClass('masi-note-warning');
+    expect(note('returned 500')).toHaveClass('masi-note-error');
+    expect(note('deadline exceeded')).toHaveClass('masi-note-error');
+    expect(note(guard)).not.toHaveClass('masi-note-error');
+    expect(note('returned 500')).not.toHaveClass('masi-note-warning');
   });
 });
