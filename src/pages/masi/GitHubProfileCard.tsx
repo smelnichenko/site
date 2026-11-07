@@ -125,7 +125,7 @@ export default function GitHubProfileCard({
       </dl>
       {counts.length > 0 && <div className="muted">{counts.join(' · ')}</div>}
       {repos.length > 0 && (
-        <ul>
+        <ul style={{ paddingLeft: 20, margin: '8px 0' }}>
           {repos.slice(0, 8).map((r) => (
             <li key={r.url ?? r.name}>
               <a href={r.url} target="_blank" rel="noopener noreferrer">
