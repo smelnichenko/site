@@ -82,6 +82,24 @@ export function badgeClass(status: string | null | undefined): string {
   }
 }
 
+/**
+ * A source's or a run's note, styled by what it says of the run: an error only beside a failure (a run that errored,
+ * timed out or found its board gone; a source failing), a warning beside a run that worked or was only skipped - a
+ * request the guard refused, a posting page gone, a day's budget spent.
+ */
+export function noteClass(status: string | null | undefined): string {
+  switch (status) {
+    case 'ERROR':
+    case 'TIMEOUT':
+    case 'BOARD_GONE':
+    case 'FAILING':
+    case 'DISABLED_AUTO':
+      return 'masi-note masi-note-error';
+    default:
+      return 'masi-note masi-note-warning';
+  }
+}
+
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }

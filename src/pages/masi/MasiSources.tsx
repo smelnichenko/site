@@ -13,7 +13,7 @@ import {
 } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
-import { badgeClass, errorMessage, formatDateTime } from './format';
+import { badgeClass, errorMessage, formatDateTime, noteClass } from './format';
 import MasiTable from '../../components/MasiTable';
 import PictureStatus from './PictureStatus';
 
@@ -392,7 +392,7 @@ export default function MasiSources() {
                         {s.consecutiveFailures > 0 && (
                           <div className="muted">{s.consecutiveFailures} failure(s) in a row</div>
                         )}
-                        {s.lastError && <div className="muted">{s.lastError}</div>}
+                        {s.lastError && <div className={noteClass(s.health)}>{s.lastError}</div>}
                       </td>
                       <td>{formatDateTime(s.lastSuccessAt)}</td>
                       <td className="badge-group">
@@ -452,7 +452,11 @@ export default function MasiSources() {
                                     <td>{r.newJobs}</td>
                                     <td>{r.closedListings}</td>
                                     <td>{r.newCompanies}</td>
-                                    <td className="muted">{r.error ?? ''}</td>
+                                    <td>
+                                      {r.error && (
+                                        <span className={noteClass(r.status)}>{r.error}</span>
+                                      )}
+                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
