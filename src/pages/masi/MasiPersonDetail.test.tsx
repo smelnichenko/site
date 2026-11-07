@@ -400,4 +400,142 @@ describe('MasiPersonDetail', () => {
     renderAt('/masi/persons/20', '/masi/persons/:id', <MasiPersonDetail />);
     expect(await screen.findByText('No record of where masi found them.')).toBeInTheDocument();
   });
+
+  it('shows their GitHub: where they are, what they write, their repositories, and the people they are connected to', async () => {
+    const vello: MasiPerson = {
+      ...kadri,
+      id: 22,
+      name: 'Vello Dev',
+      ties: [],
+      found: [
+        {
+          contactId: 801,
+          origin: 'FROM_WEB',
+          source: 'github',
+          sourceName: 'GitHub people',
+          profileUrl: 'https://github.com/vello',
+          linkedinUrl: null,
+          title: 'Go and Kubernetes',
+          email: null,
+          companyId: null,
+          companyName: null,
+          listingId: null,
+          listingUrl: null,
+          listingTitle: null,
+          firstSeenAt: '2026-10-23T08:00:00Z',
+          lastSeenAt: '2026-11-07T02:00:00Z',
+          pictures: 0,
+          githubLogin: 'vello',
+          profile: {
+            location: 'Tallinn',
+            websiteUrl: 'https://vello.dev',
+            isHireable: true,
+            status: { message: 'Open to work', indicatesLimitedAvailability: false },
+            followers: { totalCount: 120 },
+            following: { totalCount: 40 },
+            socialAccounts: {
+              nodes: [{ provider: 'LINKEDIN', url: 'https://www.linkedin.com/in/vello' }],
+            },
+            organizations: { nodes: [{ login: 'bolt', name: 'Bolt' }] },
+            repositories: {
+              totalCount: 3,
+              nodes: [
+                {
+                  name: 'tiny',
+                  url: 'https://github.com/vello/tiny',
+                  stargazerCount: 1,
+                  primaryLanguage: { name: 'Go' },
+                },
+                {
+                  name: 'bus-api',
+                  url: 'https://github.com/vello/bus-api',
+                  description: 'Tallinn buses',
+                  stargazerCount: 42,
+                  primaryLanguage: { name: 'Go' },
+                },
+                {
+                  name: 'site',
+                  url: 'https://github.com/vello/site',
+                  stargazerCount: 50,
+                  primaryLanguage: { name: 'TypeScript' },
+                },
+              ],
+            },
+            contributionsCollection: { contributionCalendar: { totalContributions: 812 } },
+            readme: { object: { text: '# Hi, I am Vello' } },
+          },
+        },
+      ],
+      connections: [
+        { personId: 30, name: 'Anna Tamm', follows: true, followedBy: true, sameAddress: false },
+        { personId: 31, name: 'Carl Kask', follows: false, followedBy: true, sameAddress: false },
+        { personId: 32, name: 'V. Dev', follows: false, followedBy: false, sameAddress: true },
+        { personId: 33, name: 'Dora Mets', follows: true, followedBy: false, sameAddress: false },
+      ],
+    };
+    vi.mocked(api.fetchMasiPerson).mockResolvedValue(vello);
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    renderAt('/masi/persons/22', '/masi/persons/:id', <MasiPersonDetail />);
+
+    const gh = await screen.findByTestId('person-github');
+    expect(within(gh).getByText('Tallinn')).toBeInTheDocument();
+    expect(within(gh).getByRole('link', { name: 'vello.dev' })).toHaveAttribute(
+      'href',
+      'https://vello.dev',
+    );
+    expect(within(gh).getByText('open to hire')).toBeInTheDocument();
+    expect(within(gh).getByText('Open to work')).toBeInTheDocument();
+    expect(within(gh).getByText(/120 followers/)).toBeInTheDocument();
+    expect(within(gh).getByText(/812 contributions/)).toBeInTheDocument();
+    // languages by how many of their repositories use them, the most first
+    expect(within(gh).getByTestId('github-languages')).toHaveTextContent('Go 2, TypeScript 1');
+    // repositories by stars, the most first, each a link
+    const repos = within(gh).getAllByRole('link', { name: /^(bus-api|site|tiny)$/ });
+    expect(repos.map((a) => a.textContent)).toEqual(['site', 'bus-api', 'tiny']);
+    expect(within(gh).getByRole('link', { name: 'Bolt' })).toHaveAttribute(
+      'href',
+      'https://github.com/bolt',
+    );
+    expect(within(gh).getByRole('link', { name: 'LinkedIn' })).toHaveAttribute(
+      'href',
+      'https://www.linkedin.com/in/vello',
+    );
+    expect(within(gh).getByText('# Hi, I am Vello')).toBeInTheDocument();
+
+    const connections = screen.getByTestId('person-connections');
+    const anna = within(connections).getByRole('row', { name: /Anna Tamm/ });
+    expect(within(anna).getByRole('link', { name: 'Anna Tamm' })).toHaveAttribute(
+      'href',
+      '/masi/persons/30',
+    );
+    expect(within(anna).getByText('follow each other')).toBeInTheDocument();
+    expect(
+      within(within(connections).getByRole('row', { name: /Carl Kask/ })).getByText(
+        'follows this person',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(within(connections).getByRole('row', { name: /V\. Dev/ })).getByText(
+        'same commit address',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows no GitHub card for a record GitHub has not given a profile, and says when there are no connections', async () => {
+    vi.mocked(api.fetchMasiPerson).mockResolvedValue({ ...kadri, found: [], connections: [] });
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    renderAt('/masi/persons/20', '/masi/persons/:id', <MasiPersonDetail />);
+    expect(await screen.findByText('No connections masi knows of.')).toBeInTheDocument();
+    expect(screen.queryByTestId('person-github')).not.toBeInTheDocument();
+  });
 });

@@ -1604,6 +1604,8 @@ export interface MasiPerson {
   ties: MasiPersonTie[];
   /** Where masi found them, one record each: the person's own page carries it, a list of people does not. */
   found?: MasiPersonFound[];
+  /** The people masi knows they are connected to through GitHub: the person's own page only. */
+  connections?: MasiPersonConnection[];
 }
 
 /**
@@ -1627,6 +1629,48 @@ export interface MasiPersonFound {
   firstSeenAt: string;
   lastSeenAt: string;
   pictures: number;
+  /** The record's GitHub login, when it is a GitHub person's. */
+  githubLogin?: string | null;
+  /** Their public GitHub profile as GitHub's GraphQL gave it; null until the collector has read it. */
+  profile?: GitHubProfile | null;
+}
+
+/** The parts of GitHub's answer the page reads: each one may be absent. */
+export interface GitHubProfile {
+  login?: string;
+  location?: string | null;
+  websiteUrl?: string | null;
+  twitterUsername?: string | null;
+  isHireable?: boolean;
+  createdAt?: string;
+  status?: { message?: string | null; indicatesLimitedAvailability?: boolean } | null;
+  socialAccounts?: { nodes?: { provider?: string; url?: string }[] };
+  followers?: { totalCount?: number };
+  following?: { totalCount?: number };
+  organizations?: { nodes?: { login?: string; name?: string | null }[] };
+  repositories?: {
+    totalCount?: number;
+    nodes?: {
+      name?: string;
+      url?: string;
+      description?: string | null;
+      stargazerCount?: number;
+      primaryLanguage?: { name?: string } | null;
+    }[];
+  };
+  contributionsCollection?: { contributionCalendar?: { totalContributions?: number } };
+  gists?: { totalCount?: number };
+  starredRepositories?: { totalCount?: number };
+  readme?: { object?: { text?: string | null } | null } | null;
+}
+
+/** Someone masi knows, connected through GitHub: whom the person follows, who follows them, who shares a commit address. */
+export interface MasiPersonConnection {
+  personId: number;
+  name: string | null;
+  follows: boolean;
+  followedBy: boolean;
+  sameAddress: boolean;
 }
 
 /** A registered company an employer might be; `sure` is the one masi would attach without asking. */
