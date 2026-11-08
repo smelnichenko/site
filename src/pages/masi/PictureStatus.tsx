@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import LoadingButton from '../../components/LoadingButton';
 import { collectMasiPictures, fetchMasiPictureStatus, MasiPictureStatus } from '../../services/api';
 import { badgeClass, errorMessage } from './format';
-import { daysToClear } from './pictureRate';
+import { daysToClear, readable } from './pictureRate';
 
 /**
  * What the contact-picture lane is doing, on the Sources page.
@@ -79,8 +79,8 @@ export default function PictureStatus() {
         </span>
       </h3>
       <p className="muted">
-        {status.perTick} contacts every {status.tick}, each revisited after {status.revisit}. Face
-        matching {status.face ? 'on' : 'off'}.
+        {status.perTick} contacts every {readable(status.tick)}, each revisited after{' '}
+        {readable(status.revisit)}. Face matching {status.face ? 'on' : 'off'}.
       </p>
       <table className="table">
         <tbody>
