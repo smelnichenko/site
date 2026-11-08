@@ -178,10 +178,27 @@ describe('MasiSources', () => {
   /** Nothing running: nothing polls, so an idle page costs no requests. */
   it('shows no token field: tokens live in Vault, not on the page - not even for a source whose config holds one', async () => {
     vi.mocked(api.fetchMasiSources).mockResolvedValue([
-      { ...cvee, id: 2, key: 'github', name: 'GitHub', configJson: '{"token":"********","perPage":100}' },
-      { ...cvee, id: 3, key: 'meetfrankpeople', name: 'MeetFrank people', configJson: '{"token":"********"}' },
+      {
+        ...cvee,
+        id: 2,
+        key: 'github',
+        name: 'GitHub',
+        configJson: '{"token":"********","perPage":100}',
+      },
+      {
+        ...cvee,
+        id: 3,
+        key: 'meetfrankpeople',
+        name: 'MeetFrank people',
+        configJson: '{"token":"********"}',
+      },
     ]);
-    vi.mocked(api.fetchMasiSourceRuns).mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0 });
+    vi.mocked(api.fetchMasiSourceRuns).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
     renderAt('/masi/sources', '/masi/sources', <MasiSources />);
     expect(await screen.findByText('0 of 2 enabled')).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Token' })).not.toBeInTheDocument();
