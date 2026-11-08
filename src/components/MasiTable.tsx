@@ -64,8 +64,9 @@ export default function MasiTable({
         {columns && (
           <colgroup>
             {columns.map((width, i) => (
-              // the columns are positional: their order is the header's
-              <col key={i} style={{ width }} />
+              // the columns are positional: their order is the header's, fixed per page and never reordered, so the
+              // position IS the column's identity (two columns may share a width - the width is no key)
+              <col key={i} style={{ width }} /> // NOSONAR typescript:S6479
             ))}
           </colgroup>
         )}
