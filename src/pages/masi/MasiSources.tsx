@@ -56,36 +56,6 @@ function withCap(configJson: string | null, cap: string): string {
   return JSON.stringify(config);
 }
 
-/** The operator's token a source's config carries (the GitHub PAT), or '' for none. Shown for sources that use one. */
-function tokenOf(configJson: string | null): string {
-  try {
-    const token: unknown = configJson
-      ? (JSON.parse(configJson) as Record<string, unknown>).token
-      : undefined;
-    return typeof token === 'string' ? token : '';
-  } catch {
-    return '';
-  }
-}
-
-/** The config with the token set or removed (''); the other keys as they were. */
-function withToken(configJson: string | null, token: string): string {
-  let config: Record<string, unknown> = {};
-  try {
-    config = configJson ? (JSON.parse(configJson) as Record<string, unknown>) : {};
-  } catch {
-    config = {};
-  }
-  if (token === '') delete config.token;
-  else config.token = token;
-  return JSON.stringify(config);
-}
-
-/** Whether the source reads an operator token from its config. */
-function takesToken(s: MasiSource): boolean {
-  return s.key === 'github' || tokenOf(s.configJson) !== '';
-}
-
 /** The assistant's state beside its switch: off, or on and whether its Gmail and LinkedIn are ready; nothing until read. */
 function assistantNote(assistant: MasiAssistant | null): string {
   if (!assistant) {
@@ -140,7 +110,6 @@ export default function MasiSources() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [cronDraft, setCronDraft] = useState<Record<number, string>>({});
   const [capDraft, setCapDraft] = useState<Record<number, string>>({});
-  const [tokenDraft, setTokenDraft] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -281,7 +250,6 @@ export default function MasiSources() {
                   <th>Kind</th>
                   <th>Cron</th>
                   <th>Requests/day</th>
-                  <th>Token</th>
                   <th>Health</th>
                   <th>Last success</th>
                   <th>Actions</th>
@@ -351,34 +319,6 @@ export default function MasiSources() {
                           }}
                           style={{ width: '6em' }}
                         />
-                      </td>
-                      <td>
-                        {takesToken(s) ? (
-                          <input
-                            type="password"
-                            aria-label={`Token for ${s.key}`}
-                            placeholder="no token"
-                            value={tokenDraft[s.id] ?? tokenOf(s.configJson)}
-                            onChange={(e) =>
-                              setTokenDraft((cur) => ({ ...cur, [s.id]: e.target.value }))
-                            }
-                            onBlur={() => {
-                              const next = (tokenDraft[s.id] ?? tokenOf(s.configJson)).trim();
-                              if (next !== tokenOf(s.configJson))
-                                void act(
-                                  s.id,
-                                  () =>
-                                    patchMasiSource(s.id, {
-                                      configJson: withToken(s.configJson, next),
-                                    }),
-                                  next === '' ? `${s.key}: token removed` : `${s.key}: token saved`,
-                                );
-                            }}
-                            style={{ width: '10em', fontFamily: 'monospace' }}
-                          />
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
                       </td>
                       <td>
                         <span className={badgeClass(s.health)}>
