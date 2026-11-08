@@ -129,6 +129,7 @@ describe('MasiPersons', () => {
       agency: undefined,
       page: 2,
       size: 50,
+      sort: 'id,desc',
     });
 
     await userEvent.type(screen.getByLabelText('Name or address'), 'uutma');
@@ -140,6 +141,7 @@ describe('MasiPersons', () => {
         agency: undefined,
         page: 0,
         size: 50,
+        sort: 'id,desc',
       }),
     );
 

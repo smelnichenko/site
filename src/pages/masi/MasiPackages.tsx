@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { SortableHeader } from '../../components/SortableHeader';
+import { sortRows, useUrlSort, type SortValue } from '../../components/sorting';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   fetchMasiPackages,
@@ -16,7 +18,17 @@ import { figureParams, PACKAGE_EVENTS } from './figureLinks';
 const EVENT_WORDS = { REQUESTED: 'requested', APPLIED: 'applied' } as const;
 
 /** The review queue: every package of the caller by state, and the explicit backlog re-tune with its estimate first. */
+/** What each column of the packages list sorts by (ops plan 112): what its cell shows. */
+const PACKAGE_SORTS: Record<string, (p: MasiPackage) => SortValue> = {
+  job: (p) => p.jobTitle,
+  company: (p) => p.companyName,
+  status: (p) => p.status,
+  cost: (p) => p.costUsd,
+  updatedAt: (p) => p.updatedAt,
+};
+
 export default function MasiPackages() {
+  const { sort, setSort } = useUrlSort('updatedAt,desc');
   const [params, setParams] = useSearchParams();
   // a report's funnel figure: the packages requested or applied in its period, in whatever state they are now
   const figure = figureParams(params, PACKAGE_EVENTS);
@@ -127,15 +139,15 @@ export default function MasiPackages() {
           <MasiTable label="Packages" columns={['34%', '22%', '16%', '12%', '16%']} minWidth={760}>
             <thead>
               <tr>
-                <th>Job</th>
-                <th>Company</th>
-                <th>State</th>
-                <th>Cost</th>
-                <th>Updated</th>
+                <SortableHeader column="job" label="Job" sort={sort} onSort={setSort} />
+                <SortableHeader column="company" label="Company" sort={sort} onSort={setSort} />
+                <SortableHeader column="status" label="State" sort={sort} onSort={setSort} />
+                <SortableHeader column="cost" label="Cost" sort={sort} onSort={setSort} />
+                <SortableHeader column="updatedAt" label="Updated" sort={sort} onSort={setSort} />
               </tr>
             </thead>
             <tbody>
-              {list.map((p) => (
+              {sortRows(list, sort, PACKAGE_SORTS).map((p) => (
                 <tr key={p.id}>
                   <td>
                     <Link to={`/masi/jobs/${p.jobId}`}>{p.jobTitle ?? `job ${p.jobId}`}</Link>

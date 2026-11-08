@@ -34,6 +34,7 @@ describe('MasiBookings', () => {
       from,
       to,
       language: 'et',
+      sort: 'startsAt,desc',
       page: 0,
       size: 50,
     });
@@ -67,7 +68,7 @@ describe('MasiBookings', () => {
     await userEvent.click(within(note).getByRole('button', { name: 'clear the report filter' }));
     await waitFor(() =>
       expect(api.fetchMasiBookings).toHaveBeenLastCalledWith(
-        { page: 0, size: 50 },
+        { sort: 'startsAt,desc', page: 0, size: 50 },
         expect.anything(),
       ),
     );

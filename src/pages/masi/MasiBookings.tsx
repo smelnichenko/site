@@ -6,6 +6,8 @@ import MasiTable from '../../components/MasiTable';
 import { errorMessage, formatDateTime, pageParam } from './format';
 import FigureFilterNote from './FigureFilterNote';
 import { BOOKING_EVENTS, figureParams, NO_LANGUAGE } from './figureLinks';
+import { SortableHeader } from '../../components/SortableHeader';
+import { useUrlSort } from '../../components/sorting';
 
 const PAGE_SIZE = 50;
 
@@ -20,6 +22,7 @@ export default function MasiBookings() {
   const figure = figureParams(params, BOOKING_EVENTS);
   const language = params.get('language') ?? '';
   const pageNo = pageParam(params.get('page'));
+  const { sort, setSort } = useUrlSort('startsAt,desc');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -29,6 +32,7 @@ export default function MasiBookings() {
         from: figure?.from,
         to: figure?.to,
         language: language || undefined,
+        sort,
         page: pageNo,
         size: PAGE_SIZE,
       },
@@ -43,7 +47,7 @@ export default function MasiBookings() {
       });
     return () => controller.abort();
     // the figure's parts, not the object: a new one each render would refetch for ever
-  }, [figure?.event, figure?.from, figure?.to, language, pageNo]);
+  }, [figure?.event, figure?.from, figure?.to, language, pageNo, sort]);
 
   function set(values: Record<string, string>) {
     const next = new URLSearchParams(params);
@@ -89,11 +93,11 @@ export default function MasiBookings() {
           <MasiTable label="Bookings" columns={['16%', '28%', '22%', '18%', '16%']} minWidth={800}>
             <thead>
               <tr>
-                <th>When</th>
-                <th>Booking</th>
-                <th>Job</th>
-                <th>Company</th>
-                <th>Outcome</th>
+                <SortableHeader column="startsAt" label="When" sort={sort} onSort={setSort} />
+                <SortableHeader column="title" label="Booking" sort={sort} onSort={setSort} />
+                <SortableHeader column="job" label="Job" sort={sort} onSort={setSort} />
+                <SortableHeader column="company" label="Company" sort={sort} onSort={setSort} />
+                <SortableHeader column="outcome" label="Outcome" sort={sort} onSort={setSort} />
               </tr>
             </thead>
             <tbody>

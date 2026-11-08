@@ -4,6 +4,8 @@ import { fetchMasiCompanies, MasiCompany, Paged } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import { badgeClass, errorMessage, formatDate, pageParam } from './format';
 import MasiTable from '../../components/MasiTable';
+import { SortableHeader } from '../../components/SortableHeader';
+import { useUrlSort } from '../../components/sorting';
 
 const PAGE_SIZE = 50;
 
@@ -11,7 +13,7 @@ const PAGE_SIZE = 50;
 export default function MasiCompanies() {
   const [params, setParams] = useSearchParams();
   const q = params.get('q') ?? '';
-  const sort = params.get('sort') ?? '';
+  const { sort, setSort } = useUrlSort('lastSeenAt,desc');
   const status = params.get('status') ?? '';
   const hiring = params.get('hiring') === 'true';
   const pageNo = pageParam(params.get('page'));
@@ -27,7 +29,7 @@ export default function MasiCompanies() {
         hiring,
         page: pageNo,
         size: PAGE_SIZE,
-        sort: sort || undefined,
+        sort,
       },
       controller.signal,
     )
@@ -40,20 +42,6 @@ export default function MasiCompanies() {
       });
     return () => controller.abort();
   }, [q, status, hiring, pageNo, sort]);
-
-  function sortBy(column: string) {
-    const next = new URLSearchParams(params);
-    const asc = `${column},asc`;
-    next.set('sort', sort === asc ? `${column},desc` : asc);
-    next.delete('page');
-    setParams(next);
-  }
-
-  function sortMark(column: string): string {
-    if (sort === `${column},asc`) return ' ▲';
-    if (sort === `${column},desc`) return ' ▼';
-    return '';
-  }
 
   function set(key: string, value: string) {
     const next = new URLSearchParams(params);
@@ -125,32 +113,22 @@ export default function MasiCompanies() {
           >
             <thead>
               <tr>
-                <th>
-                  <button type="button" className="sortable-th" onClick={() => sortBy('name')}>
-                    Name{sortMark('name')}
-                  </button>
-                </th>
-                <th>
-                  <button
-                    type="button"
-                    className="sortable-th"
-                    onClick={() => sortBy('registryCode')}
-                  >
-                    Registry code{sortMark('registryCode')}
-                  </button>
-                </th>
-                <th>City</th>
-                <th>ATS</th>
-                <th>Status</th>
-                <th>
-                  <button
-                    type="button"
-                    className="sortable-th"
-                    onClick={() => sortBy('lastSeenAt')}
-                  >
-                    Last seen{sortMark('lastSeenAt')}
-                  </button>
-                </th>
+                <SortableHeader column="name" label="Name" sort={sort} onSort={setSort} />
+                <SortableHeader
+                  column="registryCode"
+                  label="Registry code"
+                  sort={sort}
+                  onSort={setSort}
+                />
+                <SortableHeader column="hqCity" label="City" sort={sort} onSort={setSort} />
+                <SortableHeader column="atsVendor" label="ATS" sort={sort} onSort={setSort} />
+                <SortableHeader column="status" label="Status" sort={sort} onSort={setSort} />
+                <SortableHeader
+                  column="lastSeenAt"
+                  label="Last seen"
+                  sort={sort}
+                  onSort={setSort}
+                />
               </tr>
             </thead>
             <tbody>

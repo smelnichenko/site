@@ -34,6 +34,7 @@ describe('MasiListings', () => {
       from,
       to,
       source: 'cvee',
+      sort: 'firstSeenAt,desc',
       page: 0,
       size: 50,
     });
@@ -76,7 +77,7 @@ describe('MasiListings', () => {
     await userEvent.click(within(note).getByRole('button', { name: 'clear the report filter' }));
     await waitFor(() =>
       expect(api.fetchMasiListings).toHaveBeenLastCalledWith(
-        { page: 0, size: 50 },
+        { sort: 'firstSeenAt,desc', page: 0, size: 50 },
         expect.anything(),
       ),
     );
@@ -95,7 +96,7 @@ describe('MasiListings', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() =>
       expect(api.fetchMasiListings).toHaveBeenLastCalledWith(
-        { event: 'NEW', from, to, page: 1, size: 50 },
+        { event: 'NEW', from, to, sort: 'firstSeenAt,desc', page: 1, size: 50 },
         expect.anything(),
       ),
     );

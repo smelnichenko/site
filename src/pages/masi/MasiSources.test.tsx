@@ -20,6 +20,7 @@ const cvee = {
   scope: 'JOBS',
   baseUrl: 'https://cv.ee',
   cron: '0 17 * * * *',
+  nextRunAt: '2026-11-09T00:17:00Z',
   enabled: false,
   configJson: null,
   termsNote: null,

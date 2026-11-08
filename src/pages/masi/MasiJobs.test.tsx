@@ -267,8 +267,8 @@ describe('MasiJobs', () => {
     expect(
       screen.getByText(/how much of what the posting asks for your CV shows/),
     ).toBeInTheDocument();
-    // newest first until asked: no sort is sent at all
-    expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0].sort).toBeUndefined();
+    // newest first until asked: the list's own order, said
+    expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0].sort).toBe('firstSeenAt,desc');
     await userEvent.selectOptions(screen.getByLabelText('Order'), 'match,desc');
     await waitFor(() =>
       expect(api.fetchMasiJobs).toHaveBeenLastCalledWith(
@@ -291,16 +291,12 @@ describe('MasiJobs', () => {
     expect(screen.getByLabelText('Order')).toHaveValue('match,desc');
   });
 
-  it('does not pass on an order the page does not offer', async () => {
-    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
-      content: [],
-      page: 0,
-      size: 50,
-      totalElements: 0,
-    });
+  it("asks masi for the URL's order as it is, and says so when masi refuses one it does not know", async () => {
+    // one rule for every list (ops plan 112): masi answers an unknown column with a 400, never a silent other order
+    vi.mocked(api.fetchMasiJobs).mockRejectedValue(new Error("unknown sort column 'salary'"));
     renderAt('/masi/jobs?sort=salary,asc', '/masi/jobs', <MasiJobs />);
-    await screen.findByText('No jobs match.');
-    expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0].sort).toBeUndefined();
+    expect(await screen.findByText("unknown sort column 'salary'")).toBeInTheDocument();
+    expect(vi.mocked(api.fetchMasiJobs).mock.calls[0][0].sort).toBe('salary,asc');
   });
 
   describe("a report figure's jobs", () => {
