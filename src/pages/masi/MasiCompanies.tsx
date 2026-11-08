@@ -118,7 +118,11 @@ export default function MasiCompanies() {
         {!page && !error && <div className="loading">Loading companies...</div>}
         {page?.content.length === 0 && <div className="empty-state">No companies match.</div>}
         {page && page.content.length > 0 && (
-          <MasiTable label="Companies">
+          <MasiTable
+            label="Companies"
+            columns={['32%', '12%', '12%', '12%', '16%', '16%']}
+            minWidth={900}
+          >
             <thead>
               <tr>
                 <th>

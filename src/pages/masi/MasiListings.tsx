@@ -85,7 +85,11 @@ export default function MasiListings() {
         {!page && !error && <div className="loading">Loading listings...</div>}
         {page?.content.length === 0 && <div className="empty-state">No listings match.</div>}
         {page && page.content.length > 0 && (
-          <MasiTable label="Listings">
+          <MasiTable
+            label="Listings"
+            columns={['28%', '18%', '18%', '14%', '11%', '11%']}
+            minWidth={900}
+          >
             <thead>
               <tr>
                 <th>Job</th>

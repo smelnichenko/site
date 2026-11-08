@@ -118,7 +118,7 @@ export default function MasiReports() {
           </div>
         )}
         {reports !== null && reports.length > 0 && (
-          <MasiTable label="Reports">
+          <MasiTable label="Reports" columns={['20%', '50%', '30%']} minWidth={520}>
             <thead>
               <tr>
                 <th>Kind</th>

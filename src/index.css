@@ -343,6 +343,17 @@ a.card-title {
   background: #f9f9f9;
 }
 
+/* masi lists whose rows change with a sort, a filter or a page: the widths come from the table's <colgroup>, never from
+   the rows on show, and a long value wraps inside its cell instead of widening its column */
+.masi-table-fixed {
+  table-layout: fixed;
+}
+
+.masi-table-fixed th,
+.masi-table-fixed td {
+  overflow-wrap: anywhere;
+}
+
 .time-ago {
   color: #888;
   font-size: 0.85rem;

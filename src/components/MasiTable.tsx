@@ -4,13 +4,26 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
  * A masi table that scrolls sideways inside its card instead of pushing the page wider than a phone. While it
  * overflows, the scroller is a labelled, focusable region, so a keyboard can reach what is off-screen; while the table
  * fits it is neither — a tab stop that scrolls nothing is only in the way.
+ *
+ * With {@code columns} (each column's share, e.g. '24%') the columns keep their widths whatever rows the page shows:
+ * sized from the rows, they jumped every time a sort, a filter or a page brought other rows (the operator, 2026-11-08).
+ * {@code minWidth} is the narrowest the table may be; below it the table scrolls inside its card.
  */
 export default function MasiTable({
   label,
   className,
   testId,
+  columns,
+  minWidth,
   children,
-}: Readonly<{ label: string; className?: string; testId?: string; children: ReactNode }>) {
+}: Readonly<{
+  label: string;
+  className?: string;
+  testId?: string;
+  columns?: readonly string[];
+  minWidth?: number;
+  children: ReactNode;
+}>) {
   const scroller = useRef<HTMLElement>(null);
   const table = useRef<HTMLTableElement>(null);
   const [overflows, setOverflows] = useState(false);
@@ -42,9 +55,20 @@ export default function MasiTable({
     >
       <table
         ref={table}
-        className={className ? `table ${className}` : 'table'}
+        className={['table', columns ? 'masi-table-fixed' : '', className ?? '']
+          .filter(Boolean)
+          .join(' ')}
         data-testid={testId}
+        style={columns && minWidth ? { minWidth } : undefined}
       >
+        {columns && (
+          <colgroup>
+            {columns.map((width, i) => (
+              // the columns are positional: their order is the header's
+              <col key={i} style={{ width }} />
+            ))}
+          </colgroup>
+        )}
         {children}
       </table>
     </section>

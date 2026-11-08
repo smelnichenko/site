@@ -20,6 +20,7 @@ import MasiJobs from '../src/pages/masi/MasiJobs';
 import MasiListings from '../src/pages/masi/MasiListings';
 import MasiPackages from '../src/pages/masi/MasiPackages';
 import MasiPersonDetail from '../src/pages/masi/MasiPersonDetail';
+import MasiPersons from '../src/pages/masi/MasiPersons';
 import MasiReportDetail from '../src/pages/masi/MasiReportDetail';
 
 const path = new URLSearchParams(location.search).get('path') ?? '/masi/cv';
@@ -40,6 +41,7 @@ if (root) {
             <Route path="/masi/activity" element={<MasiActivity />} />
             <Route path="/masi/packages" element={<MasiPackages />} />
             <Route path="/masi/reports/:id" element={<MasiReportDetail />} />
+            <Route path="/masi/persons" element={<MasiPersons />} />
             <Route path="/masi/persons/:id" element={<MasiPersonDetail />} />
             <Route path="/rss/:feedName" element={<RssFeedDetail />} />
             <Route

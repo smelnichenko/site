@@ -806,6 +806,30 @@ function monitorAnswer(path: string): Answer | undefined {
   return hit ? hit[1]() : undefined;
 }
 
+/**
+ * The people list as two sorts show it: by name a page of short rows, by when seen a page with a long address and a long
+ * company list - the rows that made the columns jump before they kept their widths (2026-11-08).
+ */
+function personsPage(sort: string) {
+  const long = sort.startsWith('lastSeenAt');
+  const content: MasiPerson[] = [1, 2, 3].map((i) => ({
+    ...person,
+    id: 100 + i,
+    name: long ? `Kati Kask-Maasikas-Mustikas ${i}` : `Ann ${i}`,
+    email: long
+      ? `kati.kask-maasikas-mustikas.${i}@${'recruiting'.repeat(5)}.example`
+      : `ann${i}@x.ee`,
+    ties: long ? person.ties.concat(person.ties).concat(person.ties) : person.ties.slice(0, 1),
+  }));
+  return {
+    content,
+    pageable: { pageNumber: 0, pageSize: 50 },
+    totalElements: 3,
+    totalPages: 1,
+    last: true,
+  };
+}
+
 export function answer(url: URL): Answer | undefined {
   if (!url.pathname.startsWith('/api/masi')) {
     return monitorAnswer(url.pathname.replace(/^\/api/, ''));
@@ -871,6 +895,7 @@ export function answer(url: URL): Answer | undefined {
       /^\/companies\/\d+\/figures$/,
       () => ({ status: 200, body: figures[path.split('/')[2]] ?? { quarters: [] } }),
     ],
+    [/^\/persons$/, () => ({ status: 200, body: personsPage(url.searchParams.get('sort') ?? '') })],
     [/^\/persons\/of-company\/\d+$/, () => ({ status: 200, body: [] })],
     [/^\/persons\/\d+$/, () => ({ status: 200, body: person })],
     // the person page asks for each contact's pictures: none collected
