@@ -86,7 +86,7 @@ export default function MasiBookings() {
         {!page && !error && <div className="loading">Loading bookings...</div>}
         {page?.content.length === 0 && <div className="empty-state">No bookings match.</div>}
         {page && page.content.length > 0 && (
-          <MasiTable label="Bookings">
+          <MasiTable label="Bookings" columns={['16%', '28%', '22%', '18%', '16%']} minWidth={800}>
             <thead>
               <tr>
                 <th>When</th>

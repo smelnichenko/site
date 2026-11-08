@@ -124,7 +124,7 @@ export default function MasiPackages() {
           </div>
         )}
         {list && list.length > 0 && (
-          <MasiTable label="Packages">
+          <MasiTable label="Packages" columns={['34%', '22%', '16%', '12%', '16%']} minWidth={760}>
             <thead>
               <tr>
                 <th>Job</th>

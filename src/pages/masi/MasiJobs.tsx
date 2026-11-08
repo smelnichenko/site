@@ -278,7 +278,11 @@ export default function MasiJobs() {
           </p>
         )}
         {page && page.content.length > 0 && (
-          <MasiTable label="Jobs">
+          <MasiTable
+            label="Jobs"
+            columns={['26%', '16%', '14%', '14%', '11%', '8%', '11%']}
+            minWidth={1000}
+          >
             <thead>
               <tr>
                 <th>

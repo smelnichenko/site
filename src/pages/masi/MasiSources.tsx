@@ -243,7 +243,11 @@ export default function MasiSources() {
               <span className="muted">{assistantNote(assistant)}</span>
             </div>
             <PictureStatus />
-            <MasiTable label="Sources">
+            <MasiTable
+              label="Sources"
+              columns={['26%', '10%', '14%', '12%', '10%', '14%', '14%']}
+              minWidth={1000}
+            >
               <thead>
                 <tr>
                   <th>Source</th>

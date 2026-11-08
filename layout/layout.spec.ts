@@ -1292,3 +1292,40 @@ for (const width of [375, 1366]) {
     expect(m.chipBorder, 'the chip is flat').toBe('none');
   });
 }
+
+/** Each column's rendered width, in header order. */
+async function columnWidths(page: import('@playwright/test').Page): Promise<number[]> {
+  return page
+    .locator('table.masi-table-fixed thead th')
+    .evaluateAll((ths) => ths.map((th) => th.getBoundingClientRect().width));
+}
+
+for (const width of [1366, 1920]) {
+  test(`the people list keeps its column widths whatever rows a sort brings, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/persons?sort=nameNorm,asc', 'table.masi-table-fixed tbody tr');
+    const byName = await columnWidths(page);
+    await open(page, '/masi/persons?sort=lastSeenAt,desc', 'text=Kati Kask-Maasikas-Mustikas 1');
+    const bySeen = await columnWidths(page);
+    expect(byName).toHaveLength(5);
+    byName.forEach((w, i) => expect(Math.abs(w - bySeen[i])).toBeLessThan(1));
+    // a long address wraps inside its cell: nothing spills past the table
+    const overflow = await page
+      .locator('table.masi-table-fixed td')
+      .evaluateAll((tds) => tds.filter((td) => td.scrollWidth > td.clientWidth + 1).length);
+    expect(overflow).toBe(0);
+  });
+}
+
+test('the people list scrolls inside its card on a phone, the page never sideways', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, '/masi/persons?sort=lastSeenAt,desc', 'text=Kati Kask-Maasikas-Mustikas 1');
+  const pageScrolls = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  );
+  expect(pageScrolls).toBe(false);
+});

@@ -171,7 +171,7 @@ export default function MasiPersons() {
         {!page && !error && <div className="loading">Loading people...</div>}
         {page?.content.length === 0 && <div className="empty-state">Nobody matches.</div>}
         {page && page.content.length > 0 && (
-          <MasiTable label="People">
+          <MasiTable label="People" columns={['24%', '20%', '30%', '14%', '12%']} minWidth={860}>
             <thead>
               <tr>
                 <th>
