@@ -47,7 +47,9 @@ export function SourceConfig({
               <strong>{FIELD[c.field] ?? c.field}</strong> by {c.changedBy}
               {c.field === 'config' || c.field === 'created' ? (
                 <details>
-                  <summary>{c.field === 'created' ? 'what it started with' : 'the config before and after'}</summary>
+                  <summary>
+                    {c.field === 'created' ? 'what it started with' : 'the config before and after'}
+                  </summary>
                   {c.oldValue !== null && <pre className="masi-config">{pretty(c.oldValue)}</pre>}
                   <pre className="masi-config">{pretty(c.newValue)}</pre>
                 </details>
