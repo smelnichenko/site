@@ -38,7 +38,7 @@ describe('SourceConfig', () => {
     const [enabled, config] = within(changes).getAllByRole('listitem');
     expect(enabled).toHaveTextContent('enabled by the operator: false → true');
     expect(config).toHaveTextContent('config by a migration');
-    await userEvent.click(within(config).getByText('from, to'));
+    await userEvent.click(within(config).getByText('the config before and after'));
     expect(within(config).getByText(/"bolt"/)).toBeVisible();
     expect(api.fetchMasiSourceHistory).toHaveBeenCalledWith(7, expect.anything());
   });
