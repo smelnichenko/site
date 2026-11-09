@@ -1375,3 +1375,69 @@ for (const width of [390, 1366]) {
     });
   }
 }
+
+/**
+ * The live stats' charts (the operator, 2026-11-08: "these should be charts") as drawn: four charts, each with its plot,
+ * the pairs with both lines and their end names inside the chart, nothing past the page's width - on a desktop and a phone.
+ */
+for (const width of [390, 1366]) {
+  test(`the live stats are charted day by day, every chart whole, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(
+      page,
+      '/masi/reports?from=2026-03-23&to=2026-04-05',
+      '.masi-daily .recharts-surface',
+    );
+    const charts = await page.locator('.masi-daily').evaluateAll((sections) =>
+      sections.map((s) => {
+        // the plot, not a legend icon (recharts draws those as surfaces too)
+        const svg = s.querySelector<SVGSVGElement>('.recharts-wrapper > svg.recharts-surface');
+        const box = svg?.getBoundingClientRect();
+        const card = s.getBoundingClientRect();
+        const ends = [...s.querySelectorAll('.recharts-label-list text, .recharts-line text')].map(
+          (t) => (t as SVGTextElement).getBoundingClientRect(),
+        );
+        return {
+          name: s.getAttribute('aria-label'),
+          drawn: !!svg && (box?.width ?? 0) > 200 && (box?.height ?? 0) > 150,
+          lines: s.querySelectorAll('.recharts-line-curve').length,
+          bars: s.querySelectorAll('.recharts-bar-rectangle').length,
+          endsInside: ends.every((r) => r.right <= card.right + 1 && r.left >= card.left - 1),
+          ends: ends.length,
+          // two names that end close together must not print one over the other
+          endsApart:
+            ends.length < 2 ||
+            ends[0].bottom <= ends[1].top ||
+            ends[1].bottom <= ends[0].top ||
+            ends[0].right <= ends[1].left ||
+            ends[1].right <= ends[0].left,
+          legend: [...s.querySelectorAll('.recharts-legend-item-text')].map((t) => t.textContent),
+        };
+      }),
+    );
+    expect(charts.map((c) => c.name)).toEqual([
+      'Jobs per day',
+      'Listings per day',
+      'Your applications per day',
+      'LLM spend per day',
+    ]);
+    for (const c of charts) expect(c.drawn, `${c.name}: drawn`).toBe(true);
+    for (const pair of charts.slice(0, 2)) {
+      expect(pair.lines, `${pair.name}: two lines`).toBe(2);
+      expect(pair.ends, `${pair.name}: each line named at its end`).toBe(2);
+      expect(pair.endsInside, `${pair.name}: the names inside the card`).toBe(true);
+      expect(pair.legend, `${pair.name}: the legend in the series' order`).toEqual([
+        'new',
+        'closed',
+      ]);
+      expect(pair.endsApart, `${pair.name}: the two end names apart`).toBe(true);
+    }
+    expect(charts[3].bars, 'a bar a day').toBe(14);
+    const pageScrolls = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    );
+    expect(pageScrolls).toBe(false);
+  });
+}

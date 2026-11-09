@@ -5,9 +5,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   fetchMasiReports,
   fetchMasiStats,
+  fetchMasiStatsDaily,
   generateMasiReport,
   MasiReportSummary,
   MasiStats,
+  MasiStatsDay,
 } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
@@ -31,9 +33,12 @@ export default function MasiReports() {
   const to = params.get('to') ?? initial.to;
   const [reports, setReports] = useState<MasiReportSummary[] | null>(null);
   // the stats carry the range they answer: a range change shows "loading" without a reset in the effect
-  const [loaded, setLoaded] = useState<{ range: string; stats?: MasiStats; error?: string } | null>(
-    null,
-  );
+  const [loaded, setLoaded] = useState<{
+    range: string;
+    stats?: MasiStats;
+    days?: MasiStatsDay[];
+    error?: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -60,8 +65,11 @@ export default function MasiReports() {
     const range = `${from}..${to}`;
     void (async () => {
       try {
-        const stats = await fetchMasiStats(from, to, controller.signal);
-        setLoaded({ range, stats });
+        const [stats, days] = await Promise.all([
+          fetchMasiStats(from, to, controller.signal),
+          fetchMasiStatsDaily(from, to, controller.signal),
+        ]);
+        setLoaded({ range, stats, days });
       } catch (e: unknown) {
         if (!controller.signal.aborted)
           setLoaded({ range, error: errorMessage(e, 'Failed to load stats') });
@@ -196,7 +204,7 @@ export default function MasiReports() {
           </div>
         )}
         {!current && <div className="loading">Loading stats...</div>}
-        {current?.stats && <StatsPanel stats={current.stats} />}
+        {current?.stats && <StatsPanel stats={current.stats} days={current.days} />}
       </div>
     </div>
   );

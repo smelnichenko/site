@@ -2896,6 +2896,29 @@ export interface MasiReport extends MasiReportSummary {
 }
 
 /** Calendar days in the registry's zone, both ends inclusive. */
+/** One day of the live stats, counted as the window's totals are (masi GET /stats/daily). */
+export interface MasiStatsDay {
+  day: string;
+  newJobs: number;
+  closedJobs: number;
+  repostedJobs: number;
+  newListings: number;
+  closedListings: number;
+  /** The caller's own applications that day. */
+  applied: number;
+  llmUsd: number;
+  llmCalls: Record<string, number>;
+}
+
+/** The live stats' window day by day, for its charts. */
+export function fetchMasiStatsDaily(
+  from: string,
+  to: string,
+  signal?: AbortSignal,
+): Promise<MasiStatsDay[]> {
+  return masiGet(`/stats/daily${query({ from, to })}`, signal, 'load the days');
+}
+
 export function fetchMasiStats(from: string, to: string, signal?: AbortSignal): Promise<MasiStats> {
   return masiGet(`/stats${query({ from, to })}`, signal, 'load stats');
 }

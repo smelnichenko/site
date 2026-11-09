@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
-import type { MasiOutcomes, MasiStats } from '../../services/api';
+import DailyCharts from './DailyCharts';
+import type { MasiOutcomes, MasiStats, MasiStatsDay } from '../../services/api';
 import { formatDateTime, formatUsd } from './format';
 import { formatAmount } from './salary';
 import MasiTable from '../../components/MasiTable';
@@ -266,7 +267,10 @@ function OutcomesCard({
 }
 
 /** The figures of one period, live or stored: registry, sources, market, the caller's funnel, the LLM spend. */
-export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
+export default function StatsPanel({
+  stats,
+  days,
+}: Readonly<{ stats: MasiStats; days?: MasiStatsDay[] }>) {
   const runs = stats.sources.map((s) => ({
     label: s.name,
     value: Object.values(s.runs).reduce((a, b) => a + b, 0),
@@ -370,6 +374,7 @@ export default function StatsPanel({ stats }: Readonly<{ stats: MasiStats }>) {
           </span>
         </div>
       </div>
+      {days && <DailyCharts days={days} />}
       {stats.outcomes && <OutcomesCard outcomes={stats.outcomes} window={w} />}
       <div className="grid masi-stats-grid">
         <Bars
