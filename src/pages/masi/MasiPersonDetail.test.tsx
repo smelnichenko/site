@@ -12,6 +12,7 @@ vi.mock('../../services/api', () => ({
   fetchMasiActivity: vi.fn(),
   patchMasiPerson: vi.fn(),
   fetchMasiContactPictures: vi.fn(),
+  fetchMasiPictureTries: vi.fn(),
   fetchMasiContactPictureBlob: vi.fn(),
 }));
 const api = await import('../../services/api');
@@ -76,6 +77,9 @@ beforeEach(() => {
   vi.mocked(api.fetchMasiActivity).mockReset();
   vi.mocked(api.patchMasiPerson).mockReset();
   vi.mocked(api.fetchMasiContactPictures).mockReset().mockResolvedValue([]);
+  vi.mocked(api.fetchMasiPictureTries)
+    .mockReset()
+    .mockResolvedValue({ triesLeft: 0, contacts: [] });
   vi.mocked(api.fetchMasiContactPictureBlob).mockReset();
 });
 

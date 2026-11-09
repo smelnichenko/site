@@ -698,6 +698,26 @@ const none = { content: [], page: 0, size: 200, totalElements: 0 };
 
 /** A recruiter with a long address, tied to the long-named company: Save beside the red "Do not contact". */
 const person: MasiPerson = {
+  found: [
+    {
+      contactId: 71,
+      origin: 'FROM_LISTING',
+      source: 'cvee',
+      sourceName: 'CV.ee',
+      profileUrl: null,
+      linkedinUrl: null,
+      title: 'Recruiter',
+      email: 'kati@example.ee',
+      companyId: 1,
+      companyName: 'Example OÜ',
+      listingId: null,
+      listingUrl: null,
+      listingTitle: null,
+      firstSeenAt: '2026-09-01T09:00:00Z',
+      lastSeenAt: '2026-09-20T09:00:00Z',
+      pictures: 3,
+    },
+  ],
   connections: [
     {
       personId: 61,
@@ -755,7 +775,86 @@ const person: MasiPerson = {
 export interface Answer {
   status: number;
   body?: unknown;
+  /** An image answer: a small picture in place of a JSON body. */
+  png?: boolean;
 }
+
+const personPictures = [
+  {
+    id: 701,
+    source: 'GRAVATAR',
+    sourceUrl: 'https://gravatar.example/a',
+    contentType: 'image/png',
+    size: 41230,
+    capturedAt: '2026-09-22T06:00:00Z',
+    createdAt: '2026-09-01T09:00:00Z',
+  },
+  {
+    id: 702,
+    source: 'GRAVATAR',
+    sourceUrl: 'https://gravatar.example/a',
+    contentType: 'image/png',
+    size: 52310,
+    capturedAt: '2026-09-15T06:00:00Z',
+    createdAt: '2026-09-15T06:00:00Z',
+  },
+  {
+    id: 703,
+    source: 'NAME_SEARCH',
+    sourceUrl: 'https://duckduckgo.example/b',
+    contentType: 'image/jpeg',
+    size: 18400,
+    capturedAt: '2026-09-10T12:00:00Z',
+    createdAt: '2026-09-10T12:00:00Z',
+  },
+];
+
+const personPictureTries = {
+  triesLeft: 8,
+  contacts: [
+    {
+      contactId: 71,
+      sources: [
+        {
+          source: 'GRAVATAR',
+          tries: 0,
+          max: 3,
+          left: 3,
+          lastTriedAt: '2026-09-22T06:00:00Z',
+          lastOutcome: 'FOUND',
+          nextAskAt: '2026-10-22T06:00:00Z',
+        },
+        {
+          source: 'UNAVATAR',
+          tries: 3,
+          max: 3,
+          left: 0,
+          lastTriedAt: '2026-09-12T06:00:00Z',
+          lastOutcome: 'NONE',
+          nextAskAt: null,
+        },
+        {
+          source: 'GITHUB',
+          tries: 0,
+          max: 3,
+          left: 3,
+          lastTriedAt: null,
+          lastOutcome: null,
+          nextAskAt: '1970-01-01T00:00:00Z',
+        },
+        {
+          source: 'NAME_SEARCH',
+          tries: 1,
+          max: 3,
+          left: 2,
+          lastTriedAt: '2026-09-21T06:00:00Z',
+          lastOutcome: 'FAILED',
+          nextAskAt: '2026-09-24T06:00:00Z',
+        },
+      ],
+    },
+  ],
+};
 
 /** masi's answer to a GET of the pages under test; undefined for a request no fixture covers. */
 /** An RSS feed as the monitor answers it: a name and an address longer than a settings line, two collections. */
@@ -1087,8 +1186,11 @@ export function answer(url: URL): Answer | undefined {
         },
       }),
     ],
+    [/^\/contacts\/71\/pictures\/\d+$/, () => ({ status: 200, png: true })],
+    [/^\/contacts\/71\/pictures$/, () => ({ status: 200, body: personPictures })],
     // the person page asks for each contact's pictures: none collected
     [/^\/contacts\/\d+\/pictures$/, () => ({ status: 200, body: [] })],
+    [/^\/persons\/\d+\/picture-tries$/, () => ({ status: 200, body: personPictureTries })],
     [/^\/activity$/, () => ({ status: 200, body: activityPage })],
     [/^\/packages\/retune$/, () => ({ status: 200, body: { count: 12, estimatedUsd: 3.42 } })],
     [/^\/reports$/, () => ({ status: 200, body: [report] })],

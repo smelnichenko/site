@@ -184,6 +184,12 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
   ];
 
 /** Opens a page with masi answered from the fixtures; returns the API calls no fixture answered. */
+/** A 200 x 200 picture, larger than any thumbnail: one drawn at its own size fails the layout test. */
+const LARGE_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAAAAACIM/FCAAAC0klEQVR42t3PBVYQABRFwbtOu7DFQBQbVEy6u7u72Rvv/GXc2cFwLa7HjbgZt+J23Im7cS/ux4NoiIfxKB7Hk3gaz+J5vIjGeBmv4nW8iaZ4G83xLt5HS3yIj/EpPseX+BrfojXa4nv8iJ/RHr/id/yJv/Ev/geSRweSRyKORweSR0UMj04kj0Qcj04kj4oYHl1IHok4Hl1IHhUxPLqRPBJxPLqRPCpiePQgeSTiePQgeVTE8OhF8kjE8ehF8qiI4dGH5JGI49GH5FERw6MfySMRx6MfyaMihscAkkcijscAkkdFDI9BJI9EHI9BJI+KGB5DSB6JOB5DSB4VMTyGkTwScTyGkTwqYniMIHkk4niMIHlUxPAYRfJIxPEYRfKoiOExhuSRiOMxhuRREcNjHMkjEcdjHMmjIobHBJJHIo7HBJJHRQyPSSSPRByPSSSPihgeU0geiTgeU0geFTE8ppE8EnE8ppE8KmJ4zCB5JOJ4zCB5VMTwmEXySMTxmEXyqIjhMYfkkYjjMYfkURHDYx7JIxHHYx7JoyKGxwKSRyKOxwKSR0UMj0Ukj0Qcj0Ukj4oYHktIHok4HktIHhUxPJaRPBJxPJaRPCpieKwgeSTieKwgeVTE8FhF8kjE8VhF8qiI4bGG5JGI47GG5FERw2MdySMRx2MdyaMihscGkkcijscGkkdFDI9NJI9EHI9NJI+KGB5bSB6JOB5bSB4VMTy2kTwScTy2kTwqYnjsIHkk4njsIHlUxPDYRfJIxPHYRfKoiOGxh+SRiOOxh+RREcNjH8kjEcdjH8mjIobHAZJHIo7HAZJHRQyPQySPRByPQySPihgeR0geiTgeR0geFTE8jpE8EnE8jpE8KmJ4nCB5JOJ4nCB5VMTwOEXySMTxOEXyqIjhcYbkkYjjcYbkURHD4xzJIxHH4xzJoyKGxwWSRyKOxwWSR0UMj0skj0Qcj8srWX4WVFSu2BsAAAAASUVORK5CYII=',
+  'base64',
+);
+
 async function open(
   page: Page,
   path: string,
@@ -209,6 +215,10 @@ async function open(
     if (!a) {
       unanswered.push(`${route.request().method()} ${url.pathname}${url.search}`);
       await route.fulfill({ status: 599, json: { error: 'no fixture' } });
+      return;
+    }
+    if (a.png) {
+      await route.fulfill({ status: a.status, contentType: 'image/png', body: LARGE_PNG });
       return;
     }
     await route.fulfill({ status: a.status, json: a.body ?? {} });
@@ -1486,5 +1496,34 @@ for (const width of [390, 1366]) {
     expect(m.switchGroups).toBe(6);
     expect(m.changes).toBe(3);
     expect(m.cutSwitches, 'no switch cut').toBe(0);
+  });
+}
+
+/**
+ * A person's pictures and what each source has left (the operator, 2026-11-09): every image kept, sortable by when it was
+ * added, inside the page at a phone's width and a desktop's.
+ */
+for (const width of [390, 1366]) {
+  test(`a person's pictures sort by date added, and each source's tries show, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/persons/5', '[data-testid="person-pictures"] tbody tr');
+    const added = () =>
+      page.locator('[data-testid="person-pictures"] tbody tr td:nth-child(3)').allTextContents();
+    const newestFirst = await added();
+    expect(newestFirst, 'newest added first').toHaveLength(3);
+    await page.getByRole('button', { name: 'Added' }).click();
+    await expect.poll(added).toEqual([...newestFirst].reverse());
+    await expect(page.locator('[data-testid="person-picture-tries"] tbody tr')).toHaveCount(4);
+    const m = await page.evaluate(() => ({
+      pageScrolls: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      thumbs: [...document.querySelectorAll('[data-testid="person-pictures"] img')].map(
+        (i) => (i as HTMLImageElement).getBoundingClientRect().width,
+      ),
+    }));
+    expect(m.pageScrolls, 'the page never sideways').toBe(false);
+    expect(m.thumbs, 'every picture drawn').toHaveLength(3);
+    expect(Math.max(...m.thumbs), 'a thumbnail, not a poster').toBeLessThanOrEqual(120);
   });
 }

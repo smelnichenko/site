@@ -2437,7 +2437,35 @@ export interface MasiContactPicture {
   sourceUrl: string | null;
   contentType: string | null;
   size: number;
+  /** When a source last gave this image. */
   capturedAt: string;
+  /** When masi first added it. */
+  createdAt: string;
+}
+
+/** One source for one contact: how often it came back empty, its limit, and when it is asked next (null: not again). */
+export interface MasiPictureSourceTries {
+  source: string;
+  tries: number;
+  max: number;
+  left: number;
+  lastTriedAt: string | null;
+  lastOutcome: string | null;
+  nextAskAt: string | null;
+}
+
+/** What a person has left, across the sources masi asks today. */
+export interface MasiPictureTries {
+  triesLeft: number;
+  contacts: { contactId: number; sources: MasiPictureSourceTries[] }[];
+}
+
+/** What each source has come to for this person's pictures. */
+export function fetchMasiPictureTries(
+  personId: number,
+  signal?: AbortSignal,
+): Promise<MasiPictureTries> {
+  return masiGet(`/persons/${personId}/picture-tries`, signal, 'load the picture tries');
 }
 
 /**

@@ -15,6 +15,7 @@ import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
 import MasiTable from '../../components/MasiTable';
 import PictureLightbox, { ViewerPicture } from './PictureLightbox';
+import { PictureHistory } from './PictureHistory';
 import GitHubProfileCard from './GitHubProfileCard';
 import { errorMessage, formatDate, formatDateTime } from './format';
 import { changes, Draft, draftOf, evidenceLabel, roleLabel, whereLabel } from './people';
@@ -334,6 +335,10 @@ export default function MasiPersonDetail() {
           </MasiTable>
         )}
       </div>
+      <PictureHistory
+        personId={personId}
+        contactIds={found.filter((f) => f.pictures > 0).map((f) => f.contactId)}
+      />
       <div className="card">
         <div className="card-header">
           <span className="card-title">Companies</span>
