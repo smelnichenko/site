@@ -62,6 +62,11 @@ function endLabel(name: string, color: string, last: number, above: boolean) {
   };
 }
 
+/** A legend's name in ink, the line beside it in the series' colour: text never wears the series colour. */
+function legendName(value: string) {
+  return <span style={{ color: INK }}>{value}</span>;
+}
+
 function Pair({
   title,
   days,
@@ -100,8 +105,7 @@ function Pair({
               height={24}
               iconType="plainline"
               itemSorter={null}
-              // the name in ink, the line beside it in the series' colour: text never wears the series colour
-              formatter={(value: string) => <span style={{ color: INK }}>{value}</span>}
+              formatter={legendName}
             />
             {series.map((s, i) => (
               <Line
