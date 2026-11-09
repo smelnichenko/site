@@ -2503,6 +2503,18 @@ a.muted,
   font-size: 0.95rem;
   margin: 12px 0 6px;
 }
+/* An opened source spans the sources table (1000 px, scrolling inside its card on a phone): a cell across the table is
+   as wide as the table, so its changes ran past the screen. The panel takes the visible box's width instead - the box
+   is a size container for it - and stays in view while the table scrolls; the runs table scrolls inside the panel. */
+.masi-table-scroll:has(> .masi-sources-table) {
+  container-type: inline-size;
+}
+.masi-source-detail {
+  position: sticky;
+  left: 12px;
+  width: calc(100cqw - 24px);
+  overflow-x: auto;
+}
 .masi-config {
   max-height: 320px;
   overflow: auto;
