@@ -9,6 +9,8 @@ vi.mock('../../services/api', () => ({
   fetchMasiSourceRuns: vi.fn(),
   patchMasiSource: vi.fn(),
   runMasiSource: vi.fn(),
+  fetchMasiSwitches: vi.fn(() => Promise.resolve({})),
+  fetchMasiSourceHistory: vi.fn(() => Promise.resolve([])),
 }));
 const api = await import('../../services/api');
 

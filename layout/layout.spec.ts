@@ -1441,3 +1441,38 @@ for (const width of [390, 1366]) {
     expect(pageScrolls).toBe(false);
   });
 }
+
+/**
+ * Nothing about collection is invisible (ops plan 110 PR 4): the deployment's switches on the Sources page, a source's
+ * whole config and its changes when opened - a long config scrolls inside its own box, the page never sideways.
+ */
+for (const width of [390, 1366]) {
+  test(`the Sources page shows the switches, and an opened source its config and changes, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/sources', '.masi-switches dd');
+    await page.getByRole('button', { name: 'GitHub — IT specialists in Estonia' }).click();
+    await page.getByRole('list', { name: 'Changes' }).waitFor();
+    const m = await page.evaluate(() => {
+      const config = document.querySelector('.masi-config') as HTMLElement;
+      return {
+        pageScrolls:
+          document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+        configScrollsInside: getComputedStyle(config).overflowX === 'auto',
+        configHeight: config.getBoundingClientRect().height,
+        switchGroups: document.querySelectorAll('.masi-switch-group').length,
+        changes: document.querySelectorAll('.masi-changes li').length,
+        cutSwitches: [...document.querySelectorAll('.masi-switch-group dd')].filter(
+          (d) => (d as HTMLElement).scrollWidth > (d as HTMLElement).clientWidth + 1,
+        ).length,
+      };
+    });
+    expect(m.pageScrolls, 'the page never sideways').toBe(false);
+    expect(m.configScrollsInside, 'a long config scrolls in its box').toBe(true);
+    expect(m.configHeight, 'the box bounded').toBeLessThanOrEqual(322);
+    expect(m.switchGroups).toBe(6);
+    expect(m.changes).toBe(3);
+    expect(m.cutSwitches, 'no switch cut').toBe(0);
+  });
+}

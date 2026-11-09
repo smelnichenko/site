@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { SortableHeader } from '../../components/SortableHeader';
 import { sortRows, useUrlSort, type SortValue } from '../../components/sorting';
+import { DeploymentSwitches, SourceConfig } from './SourceConfig';
 import {
   fetchMasiAssistant,
   fetchMasiSourceRuns,
@@ -272,6 +273,7 @@ export default function MasiSources() {
               <span className="muted">{assistantNote(assistant)}</span>
             </div>
             <PictureStatus />
+            <DeploymentSwitches />
             <MasiTable
               label="Sources"
               columns={['26%', '10%', '14%', '12%', '10%', '14%', '14%']}
@@ -399,6 +401,8 @@ export default function MasiSources() {
                     {openId === s.id && (
                       <tr>
                         <td colSpan={7}>
+                          <SourceConfig id={s.id} configJson={s.configJson} />
+                          <h3 className="masi-subtitle">Runs</h3>
                           {!runs[s.id] && <div className="loading">Loading runs...</div>}
                           {runs[s.id]?.length === 0 && (
                             <div className="empty-state">No runs yet.</div>
