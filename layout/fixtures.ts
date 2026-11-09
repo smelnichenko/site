@@ -841,21 +841,27 @@ function statsDays(from: string, to: string) {
     d <= new Date(`${to}T12:00:00Z`);
     d.setUTCDate(d.getUTCDate() + 1)
   ) {
-    const weekday = d.getUTCDay() % 6 !== 0;
-    const n = d.getUTCDate();
-    days.push({
-      day: d.toISOString().slice(0, 10),
-      newJobs: weekday ? 18 + (n % 7) * 3 : 2,
-      closedJobs: weekday ? 12 + (n % 5) * 4 : 1,
-      repostedJobs: n % 4 === 0 ? 1 : 0,
-      newListings: weekday ? 40 + (n % 6) * 5 : 6,
-      closedListings: weekday ? 30 + (n % 4) * 6 : 3,
-      applied: n % 3 === 0 ? 1 : 0,
-      llmUsd: weekday ? 0.35 + (n % 5) * 0.11 : 0.02,
-      llmCalls: { OK: weekday ? 20 : 1 },
-    });
+    days.push(statsDay(d));
   }
   return days;
+}
+
+/** One fixture day: busy on a weekday, quiet at the weekend, varied by the date so the lines move. */
+function statsDay(d: Date) {
+  const busy = d.getUTCDay() % 6 !== 0;
+  const n = d.getUTCDate();
+  const pick = (weekday: number, weekend: number) => (busy ? weekday : weekend);
+  return {
+    day: d.toISOString().slice(0, 10),
+    newJobs: pick(18 + (n % 7) * 3, 2),
+    closedJobs: pick(12 + (n % 5) * 4, 1),
+    repostedJobs: n % 4 === 0 ? 1 : 0,
+    newListings: pick(40 + (n % 6) * 5, 6),
+    closedListings: pick(30 + (n % 4) * 6, 3),
+    applied: n % 3 === 0 ? 1 : 0,
+    llmUsd: pick(0.35 + (n % 5) * 0.11, 0.02),
+    llmCalls: { OK: pick(20, 1) },
+  };
 }
 
 export function answer(url: URL): Answer | undefined {

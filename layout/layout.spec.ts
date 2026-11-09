@@ -1393,9 +1393,7 @@ for (const width of [390, 1366]) {
     const charts = await page.locator('.masi-daily').evaluateAll((sections) =>
       sections.map((s) => {
         // the plot, not a legend icon (recharts draws those as surfaces too)
-        const svg = s.querySelector(
-          '.recharts-wrapper > svg.recharts-surface',
-        ) as SVGSVGElement | null;
+        const svg = s.querySelector<SVGSVGElement>('.recharts-wrapper > svg.recharts-surface');
         const box = svg?.getBoundingClientRect();
         const card = s.getBoundingClientRect();
         const ends = [...s.querySelectorAll('.recharts-label-list text, .recharts-line text')].map(
