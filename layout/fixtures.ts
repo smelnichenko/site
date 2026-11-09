@@ -698,6 +698,35 @@ const none = { content: [], page: 0, size: 200, totalElements: 0 };
 
 /** A recruiter with a long address, tied to the long-named company: Save beside the red "Do not contact". */
 const person: MasiPerson = {
+  connections: [
+    {
+      personId: 61,
+      name: 'Stanislav Tamm',
+      follows: false,
+      followedBy: false,
+      sameAddress: false,
+      faceDistance: 0.322,
+      samePicture: false,
+    },
+    {
+      personId: 62,
+      name: 'Mari Kask',
+      follows: false,
+      followedBy: false,
+      sameAddress: false,
+      faceDistance: null,
+      samePicture: true,
+    },
+    {
+      personId: 63,
+      name: 'Jaan Lepik',
+      follows: true,
+      followedBy: true,
+      sameAddress: false,
+      faceDistance: 0.58,
+      samePicture: false,
+    },
+  ],
   id: 5,
   name: 'Kati Kask-Maasikas-Mustikas',
   email: `kati.kask-maasikas-mustikas@${'recruiting'.repeat(4)}.example`,

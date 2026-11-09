@@ -515,5 +515,9 @@ function connectionLabel(c: MasiPersonConnection): string {
   else if (c.follows) how.push('followed by this person');
   else if (c.followedBy) how.push('follows this person');
   if (c.sameAddress) how.push('same commit address');
+  if (typeof c.faceDistance === 'number') {
+    how.push(`possible connection: similar face (distance ${c.faceDistance.toFixed(2)})`);
+  }
+  if (c.samePicture) how.push('possible connection: same picture');
   return how.join(', ');
 }

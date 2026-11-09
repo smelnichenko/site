@@ -471,6 +471,24 @@ describe('MasiPersonDetail', () => {
         { personId: 31, name: 'Carl Kask', follows: false, followedBy: true, sameAddress: false },
         { personId: 32, name: 'V. Dev', follows: false, followedBy: false, sameAddress: true },
         { personId: 33, name: 'Dora Mets', follows: true, followedBy: false, sameAddress: false },
+        {
+          personId: 34,
+          name: 'Eva Face',
+          follows: false,
+          followedBy: false,
+          sameAddress: false,
+          faceDistance: 0.322,
+          samePicture: false,
+        },
+        {
+          personId: 35,
+          name: 'Fred Picture',
+          follows: true,
+          followedBy: false,
+          sameAddress: false,
+          faceDistance: null,
+          samePicture: true,
+        },
       ],
     };
     vi.mocked(api.fetchMasiPerson).mockResolvedValue(vello);
@@ -522,6 +540,17 @@ describe('MasiPersonDetail', () => {
     expect(
       within(within(connections).getByRole('row', { name: /V\. Dev/ })).getByText(
         'same commit address',
+      ),
+    ).toBeInTheDocument();
+    // a picture only says "possibly", and says how near; two ways of being connected are both said
+    expect(
+      within(within(connections).getByRole('row', { name: /Eva Face/ })).getByText(
+        'possible connection: similar face (distance 0.32)',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(within(connections).getByRole('row', { name: /Fred Picture/ })).getByText(
+        'followed by this person, possible connection: same picture',
       ),
     ).toBeInTheDocument();
   });
