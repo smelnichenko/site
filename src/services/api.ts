@@ -2553,6 +2553,28 @@ export function runMasiSource(id: number): Promise<void> {
   return masiSend(`/sources/${id}/run`, 'POST', undefined, 'start the run');
 }
 
+/** One change of a source's config, switch or schedule: what, from what to what, by whom, when (ops plan 110 PR 4). */
+export interface MasiSourceChange {
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
+  changedBy: string;
+  changedAt: string;
+}
+
+/** A source's changes, newest first. */
+export function fetchMasiSourceHistory(
+  id: number,
+  signal?: AbortSignal,
+): Promise<MasiSourceChange[]> {
+  return masiGet(`/sources/${id}/history`, signal, 'load the changes');
+}
+
+/** The deployment's own switches, as the running masi has them. */
+export function fetchMasiSwitches(signal?: AbortSignal): Promise<Record<string, unknown>> {
+  return masiGet('/sources/switches', signal, 'load the switches');
+}
+
 export function fetchMasiSourceRuns(
   id: number,
   signal?: AbortSignal,

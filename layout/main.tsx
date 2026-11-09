@@ -21,6 +21,7 @@ import MasiListings from '../src/pages/masi/MasiListings';
 import MasiPackages from '../src/pages/masi/MasiPackages';
 import MasiPersonDetail from '../src/pages/masi/MasiPersonDetail';
 import MasiPersons from '../src/pages/masi/MasiPersons';
+import MasiSources from '../src/pages/masi/MasiSources';
 import MasiReportDetail from '../src/pages/masi/MasiReportDetail';
 import MasiReports from '../src/pages/masi/MasiReports';
 
@@ -44,6 +45,7 @@ if (root) {
             <Route path="/masi/reports" element={<MasiReports />} />
             <Route path="/masi/reports/:id" element={<MasiReportDetail />} />
             <Route path="/masi/persons" element={<MasiPersons />} />
+            <Route path="/masi/sources" element={<MasiSources />} />
             <Route path="/masi/persons/:id" element={<MasiPersonDetail />} />
             <Route path="/rss/:feedName" element={<RssFeedDetail />} />
             <Route

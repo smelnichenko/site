@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { SortableHeader } from '../../components/SortableHeader';
 import { sortRows, useUrlSort, type SortValue } from '../../components/sorting';
+import { DeploymentSwitches, SourceConfig } from './SourceConfig';
 import {
   fetchMasiAssistant,
   fetchMasiSourceRuns,
@@ -272,8 +273,10 @@ export default function MasiSources() {
               <span className="muted">{assistantNote(assistant)}</span>
             </div>
             <PictureStatus />
+            <DeploymentSwitches />
             <MasiTable
               label="Sources"
+              className="masi-sources-table"
               columns={['26%', '10%', '14%', '12%', '10%', '14%', '14%']}
               minWidth={1000}
             >
@@ -399,82 +402,86 @@ export default function MasiSources() {
                     {openId === s.id && (
                       <tr>
                         <td colSpan={7}>
-                          {!runs[s.id] && <div className="loading">Loading runs...</div>}
-                          {runs[s.id]?.length === 0 && (
-                            <div className="empty-state">No runs yet.</div>
-                          )}
-                          {runs[s.id] && runs[s.id].length > 0 && (
-                            <table className="table masi-runs" data-testid={`runs-${s.key}`}>
-                              <thead>
-                                <tr>
-                                  <SortableHeader
-                                    column="startedAt"
-                                    label="Started"
-                                    sort={runsSort}
-                                    onSort={setRunsSort}
-                                  />
-                                  <SortableHeader
-                                    column="status"
-                                    label="Status"
-                                    sort={runsSort}
-                                    onSort={setRunsSort}
-                                  />
-                                  <SortableHeader
-                                    column="parsed"
-                                    label="Parsed"
-                                    sort={runsSort}
-                                    onSort={setRunsSort}
-                                  />
-                                  <SortableHeader
-                                    column="newJobs"
-                                    label="New jobs"
-                                    sort={runsSort}
-                                    onSort={setRunsSort}
-                                  />
-                                  <SortableHeader
-                                    column="closedListings"
-                                    label="Closed"
-                                    sort={runsSort}
-                                    onSort={setRunsSort}
-                                  />
-                                  <SortableHeader
-                                    column="newCompanies"
-                                    label="Companies"
-                                    sort={runsSort}
-                                    onSort={setRunsSort}
-                                  />
-                                  <SortableHeader
-                                    column="error"
-                                    label="Error"
-                                    sort={runsSort}
-                                    onSort={setRunsSort}
-                                  />
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {sortRows(runs[s.id], runsSort, RUN_SORTS).map((r) => (
-                                  <tr key={r.id}>
-                                    <td>{formatDateTime(r.startedAt)}</td>
-                                    <td>
-                                      <span className={badgeClass(r.status)}>
-                                        {r.status.toLowerCase().replace('_', ' ')}
-                                      </span>
-                                      {!r.complete && r.status === 'OK' ? ' (incomplete)' : ''}
-                                    </td>
-                                    <td>{r.parsed}</td>
-                                    <td>{r.newJobs}</td>
-                                    <td>{r.closedListings}</td>
-                                    <td>{r.newCompanies}</td>
-                                    <td>
-                                      {r.error && (
-                                        <span className={noteClass(r.status)}>{r.error}</span>
-                                      )}
-                                    </td>
+                          <div className="masi-source-detail">
+                            <SourceConfig id={s.id} configJson={s.configJson} />
+                            <h3 className="masi-subtitle">Runs</h3>
+                            {!runs[s.id] && <div className="loading">Loading runs...</div>}
+                            {runs[s.id]?.length === 0 && (
+                              <div className="empty-state">No runs yet.</div>
+                            )}
+                            {runs[s.id] && runs[s.id].length > 0 && (
+                              <table className="table masi-runs" data-testid={`runs-${s.key}`}>
+                                <thead>
+                                  <tr>
+                                    <SortableHeader
+                                      column="startedAt"
+                                      label="Started"
+                                      sort={runsSort}
+                                      onSort={setRunsSort}
+                                    />
+                                    <SortableHeader
+                                      column="status"
+                                      label="Status"
+                                      sort={runsSort}
+                                      onSort={setRunsSort}
+                                    />
+                                    <SortableHeader
+                                      column="parsed"
+                                      label="Parsed"
+                                      sort={runsSort}
+                                      onSort={setRunsSort}
+                                    />
+                                    <SortableHeader
+                                      column="newJobs"
+                                      label="New jobs"
+                                      sort={runsSort}
+                                      onSort={setRunsSort}
+                                    />
+                                    <SortableHeader
+                                      column="closedListings"
+                                      label="Closed"
+                                      sort={runsSort}
+                                      onSort={setRunsSort}
+                                    />
+                                    <SortableHeader
+                                      column="newCompanies"
+                                      label="Companies"
+                                      sort={runsSort}
+                                      onSort={setRunsSort}
+                                    />
+                                    <SortableHeader
+                                      column="error"
+                                      label="Error"
+                                      sort={runsSort}
+                                      onSort={setRunsSort}
+                                    />
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          )}
+                                </thead>
+                                <tbody>
+                                  {sortRows(runs[s.id], runsSort, RUN_SORTS).map((r) => (
+                                    <tr key={r.id}>
+                                      <td>{formatDateTime(r.startedAt)}</td>
+                                      <td>
+                                        <span className={badgeClass(r.status)}>
+                                          {r.status.toLowerCase().replace('_', ' ')}
+                                        </span>
+                                        {!r.complete && r.status === 'OK' ? ' (incomplete)' : ''}
+                                      </td>
+                                      <td>{r.parsed}</td>
+                                      <td>{r.newJobs}</td>
+                                      <td>{r.closedListings}</td>
+                                      <td>{r.newCompanies}</td>
+                                      <td>
+                                        {r.error && (
+                                          <span className={noteClass(r.status)}>{r.error}</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )}

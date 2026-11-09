@@ -864,6 +864,103 @@ function statsDay(d: Date) {
   };
 }
 
+/** The Sources page's sources: GitHub's config is long - the box it shows in scrolls, never the page. */
+const SOURCES = [
+  {
+    id: 1,
+    key: 'github',
+    name: 'GitHub — IT specialists in Estonia',
+    kind: 'DETERMINISTIC',
+    scope: 'PEOPLE',
+    baseUrl: 'https://api.github.com',
+    cron: '0 23 * * * *',
+    nextRunAt: '2026-09-22T09:23:00Z',
+    enabled: true,
+    configJson: JSON.stringify({
+      token: '****',
+      locations: ['Estonia', 'Tallinn', 'Tartu', 'Narva', 'Pärnu'],
+      queries: [
+        'location:Estonia language:Java',
+        'location:Tallinn language:Kotlin',
+        'location:Tartu language:TypeScript',
+      ],
+      requestsPerDay: 4500,
+      orgs: [],
+    }),
+    termsNote: null,
+    health: 'OK',
+    consecutiveFailures: 0,
+    lastRunAt: '2026-09-22T08:23:00Z',
+    lastSuccessAt: '2026-09-22T08:23:00Z',
+    lastError: null,
+    running: false,
+  },
+  {
+    id: 2,
+    key: 'cvee',
+    name: 'cv.ee',
+    kind: 'DETERMINISTIC',
+    scope: 'JOBS',
+    baseUrl: 'https://cv.ee',
+    cron: '0 17 * * * *',
+    nextRunAt: '2026-09-22T09:17:00Z',
+    enabled: true,
+    configJson: null,
+    termsNote: null,
+    health: 'OK',
+    consecutiveFailures: 0,
+    lastRunAt: '2026-09-22T08:17:00Z',
+    lastSuccessAt: '2026-09-22T08:17:00Z',
+    lastError: null,
+    running: false,
+  },
+];
+
+const SOURCE_CHANGES = [
+  {
+    field: 'enabled',
+    oldValue: 'false',
+    newValue: 'true',
+    changedBy: 'the operator',
+    changedAt: '2026-09-21T10:00:00Z',
+  },
+  {
+    field: 'config',
+    oldValue: JSON.stringify({ orgs: ['bolt', 'wise', 'pipedrive'] }),
+    newValue: SOURCES[0].configJson,
+    changedBy: 'a migration',
+    changedAt: '2026-09-20T03:00:00Z',
+  },
+  {
+    field: 'cron',
+    oldValue: '0 0 3 * * *',
+    newValue: '0 23 * * * *',
+    changedBy: 'masi',
+    changedAt: '2026-09-19T12:00:00Z',
+  },
+];
+
+const SWITCHES = {
+  companyVisits: { enabled: true, perTick: 20, revisit: 'PT720H' },
+  contactPictures: {
+    enabled: true,
+    perTick: 40,
+    tick: 'PT10M',
+    revisit: 'PT720H',
+    maxRequestsPerDay: 2000,
+    gravatar: true,
+    unavatar: true,
+    companySite: true,
+    linkedin: false,
+    nameSearch: true,
+    face: false,
+  },
+  analysis: { auto: true, perTick: 4, matchAuto: true },
+  tuning: { auto: false, minMatch: 60 },
+  mail: { enabled: true, weeklyAuto: false },
+  allowedHosts: ['cv.ee', 'cvkeskus.ee', 'api.github.com', 'boards.greenhouse.io', 'api.lever.co'],
+};
+
 export function answer(url: URL): Answer | undefined {
   if (!url.pathname.startsWith('/api/masi')) {
     return monitorAnswer(url.pathname.replace(/^\/api/, ''));
@@ -932,6 +1029,35 @@ export function answer(url: URL): Answer | undefined {
     [/^\/persons$/, () => ({ status: 200, body: personsPage(url.searchParams.get('sort') ?? '') })],
     [/^\/persons\/of-company\/\d+$/, () => ({ status: 200, body: [] })],
     [/^\/persons\/\d+$/, () => ({ status: 200, body: person })],
+    // the Sources page: two sources (one with a long config), their changes, the deployment's switches
+    [/^\/sources$/, () => ({ status: 200, body: SOURCES })],
+    [/^\/sources\/switches$/, () => ({ status: 200, body: SWITCHES })],
+    [/^\/sources\/\d+\/history$/, () => ({ status: 200, body: SOURCE_CHANGES })],
+    [
+      /^\/sources\/\d+\/runs$/,
+      () => ({ status: 200, body: { content: [], page: 0, size: 20, totalElements: 0 } }),
+    ],
+    [
+      /^\/assistant$/,
+      () => ({ status: 200, body: { enabled: false, gmailReady: false, linkedinReady: false } }),
+    ],
+    [
+      /^\/contacts\/pictures\/status$/,
+      () => ({
+        status: 200,
+        body: {
+          enabled: true,
+          face: false,
+          perTick: 40,
+          tick: 'PT10M',
+          revisit: 'PT720H',
+          contactsWithAPicture: 697,
+          lookupsByOutcome: { FOUND: 697, NONE: 1200 },
+          askedToday: 320,
+          dueNow: 15,
+        },
+      }),
+    ],
     // the person page asks for each contact's pictures: none collected
     [/^\/contacts\/\d+\/pictures$/, () => ({ status: 200, body: [] })],
     [/^\/activity$/, () => ({ status: 200, body: activityPage })],
