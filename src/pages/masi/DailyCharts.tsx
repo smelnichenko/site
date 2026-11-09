@@ -95,7 +95,14 @@ function Pair({
               cursor={{ stroke: INK, strokeDasharray: '3 3' }}
             />
             {/* the series' own order, blue first: recharts sorts a legend by name unless told not to */}
-            <Legend verticalAlign="top" height={24} iconType="plainline" itemSorter={null} />
+            <Legend
+              verticalAlign="top"
+              height={24}
+              iconType="plainline"
+              itemSorter={null}
+              // the name in ink, the line beside it in the series' colour: text never wears the series colour
+              formatter={(value: string) => <span style={{ color: INK }}>{value}</span>}
+            />
             {series.map((s, i) => (
               <Line
                 key={s.key}
