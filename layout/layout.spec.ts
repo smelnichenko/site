@@ -1329,3 +1329,49 @@ test('the people list scrolls inside its card on a phone, the page never sideway
   );
   expect(pageScrolls).toBe(false);
 });
+
+/**
+ * Every masi list's sortable headers (ops plan 112) as a person meets them: each reads as the other headers do
+ * (uppercase - a button drops it unless told), fills its header so the press is at least a finger's 44 px, and shows
+ * its whole label - wrapped inside the column's steady width, never cut.
+ */
+const SORTED_LISTS = [
+  '/masi/persons?sort=lastSeenAt,desc',
+  '/masi/jobs',
+  '/masi/packages',
+  '/masi/bookings?event=INTERVIEW_HELD&language=et&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+  '/masi/listings?event=CLOSED&source=cvee&from=2026-03-22T22:00:00Z&to=2026-03-29T21:00:00Z',
+];
+for (const width of [390, 1366]) {
+  for (const path of SORTED_LISTS) {
+    test(`the sortable headers of ${path.split('?')[0]} read as headers, fill them and cut nothing, at ${width} px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await open(page, path, 'table th[aria-sort] button');
+      const headers = await page.locator('table th[aria-sort]').evaluateAll((ths) =>
+        ths.map((th) => {
+          const button = th.querySelector('button') as HTMLButtonElement;
+          const t = th.getBoundingClientRect();
+          const b = button.getBoundingClientRect();
+          return {
+            label: button.textContent,
+            transform: getComputedStyle(button).textTransform,
+            buttonHeight: b.height,
+            widthGap: Math.abs(t.width - b.width),
+            cut:
+              button.scrollWidth > button.clientWidth + 1 ||
+              button.scrollHeight > button.clientHeight + 1,
+          };
+        }),
+      );
+      expect(headers.length).toBeGreaterThan(1);
+      for (const h of headers) {
+        expect(h.transform, `${h.label}: uppercase, as the other headers`).toBe('uppercase');
+        expect(h.buttonHeight, `${h.label}: a 44 px press`).toBeGreaterThanOrEqual(44);
+        expect(h.widthGap, `${h.label}: the button fills its header`).toBeLessThan(1);
+        expect(h.cut, `${h.label}: nothing cut`).toBe(false);
+      }
+    });
+  }
+}

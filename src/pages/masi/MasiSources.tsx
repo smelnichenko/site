@@ -1,4 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { SortableHeader } from '../../components/SortableHeader';
+import { sortRows, useUrlSort, type SortValue } from '../../components/sorting';
 import {
   fetchMasiAssistant,
   fetchMasiSourceRuns,
@@ -103,6 +105,30 @@ function progressOf(row: MasiSourceRun | undefined, now: number): string {
   return parts.join(' · ');
 }
 
+/** Health from the best to the worst, as the Health column sorts it. */
+const HEALTH_ORDER = ['OK', 'DEGRADED', 'FAILING', 'DISABLED_AUTO'];
+
+/** What each column of the sources list sorts by (ops plan 112): what its cell shows. */
+const SOURCE_SORTS: Record<string, (s: MasiSource) => SortValue> = {
+  name: (s) => s.name,
+  kind: (s) => `${s.kind} ${s.scope}`,
+  nextRunAt: (s) => s.nextRunAt,
+  cap: (s) => (capOf(s.configJson) === '' ? null : Number(capOf(s.configJson))),
+  health: (s) => HEALTH_ORDER.indexOf(s.health),
+  lastSuccessAt: (s) => s.lastSuccessAt,
+};
+
+/** What each column of a source's runs sorts by; the error by whether there is one. */
+const RUN_SORTS: Record<string, (r: MasiSourceRun) => SortValue> = {
+  startedAt: (r) => r.startedAt,
+  status: (r) => r.status,
+  parsed: (r) => r.parsed,
+  newJobs: (r) => r.newJobs,
+  closedListings: (r) => r.closedListings,
+  newCompanies: (r) => r.newCompanies,
+  error: (r) => (r.error ? 1 : 0),
+};
+
 /** Every collector agent: enable, cron, run now, and its last runs; a source without a bean (FAILING) cannot be enabled. */
 export default function MasiSources() {
   const [sources, setSources] = useState<MasiSource[] | null>(null);
@@ -114,6 +140,9 @@ export default function MasiSources() {
   const [message, setMessage] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [assistant, setAssistant] = useState<MasiAssistant | null>(null);
+  const { sort, setSort } = useUrlSort('name,asc');
+  // a source's last runs: the 20 newest, sorted here - the page's poll reads their newest first
+  const { sort: runsSort, setSort: setRunsSort } = useUrlSort('startedAt,desc', 'runsSort');
 
   const serverCron = useRef<Map<number, string>>(new Map());
   const reload = useCallback(async (signal?: AbortSignal) => {
@@ -250,17 +279,22 @@ export default function MasiSources() {
             >
               <thead>
                 <tr>
-                  <th>Source</th>
-                  <th>Kind</th>
-                  <th>Cron</th>
-                  <th>Requests/day</th>
-                  <th>Health</th>
-                  <th>Last success</th>
+                  <SortableHeader column="name" label="Source" sort={sort} onSort={setSort} />
+                  <SortableHeader column="kind" label="Kind" sort={sort} onSort={setSort} />
+                  <SortableHeader column="nextRunAt" label="Cron" sort={sort} onSort={setSort} />
+                  <SortableHeader column="cap" label="Requests/day" sort={sort} onSort={setSort} />
+                  <SortableHeader column="health" label="Health" sort={sort} onSort={setSort} />
+                  <SortableHeader
+                    column="lastSuccessAt"
+                    label="Last success"
+                    sort={sort}
+                    onSort={setSort}
+                  />
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {sources.map((s) => (
+                {sortRows(sources, sort, SOURCE_SORTS).map((s) => (
                   <Fragment key={s.id}>
                     <tr>
                       <td>
@@ -373,17 +407,52 @@ export default function MasiSources() {
                             <table className="table masi-runs" data-testid={`runs-${s.key}`}>
                               <thead>
                                 <tr>
-                                  <th>Started</th>
-                                  <th>Status</th>
-                                  <th>Parsed</th>
-                                  <th>New jobs</th>
-                                  <th>Closed</th>
-                                  <th>Companies</th>
-                                  <th>Error</th>
+                                  <SortableHeader
+                                    column="startedAt"
+                                    label="Started"
+                                    sort={runsSort}
+                                    onSort={setRunsSort}
+                                  />
+                                  <SortableHeader
+                                    column="status"
+                                    label="Status"
+                                    sort={runsSort}
+                                    onSort={setRunsSort}
+                                  />
+                                  <SortableHeader
+                                    column="parsed"
+                                    label="Parsed"
+                                    sort={runsSort}
+                                    onSort={setRunsSort}
+                                  />
+                                  <SortableHeader
+                                    column="newJobs"
+                                    label="New jobs"
+                                    sort={runsSort}
+                                    onSort={setRunsSort}
+                                  />
+                                  <SortableHeader
+                                    column="closedListings"
+                                    label="Closed"
+                                    sort={runsSort}
+                                    onSort={setRunsSort}
+                                  />
+                                  <SortableHeader
+                                    column="newCompanies"
+                                    label="Companies"
+                                    sort={runsSort}
+                                    onSort={setRunsSort}
+                                  />
+                                  <SortableHeader
+                                    column="error"
+                                    label="Error"
+                                    sort={runsSort}
+                                    onSort={setRunsSort}
+                                  />
                                 </tr>
                               </thead>
                               <tbody>
-                                {runs[s.id].map((r) => (
+                                {sortRows(runs[s.id], runsSort, RUN_SORTS).map((r) => (
                                   <tr key={r.id}>
                                     <td>{formatDateTime(r.startedAt)}</td>
                                     <td>

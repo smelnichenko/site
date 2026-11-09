@@ -1338,18 +1338,32 @@ a.muted,
   outline-offset: 2px;
 }
 
-/* a sortable column header: the whole header is the press, the table keeps its own text style */
+/* a sortable column header (SortableHeader, ops plan 112): the button fills the header - its padding is the header's, a
+   finger's 44 px at least - and reads as the other headers do (a button would drop their uppercase); a long label wraps
+   inside the column's steady width, its mark kept to the last word */
+.table th[aria-sort] {
+  padding: 0;
+}
 .sortable-th {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px;
   background: none;
   border: none;
-  padding: 0;
   font: inherit;
   color: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
   cursor: pointer;
-  white-space: nowrap;
 }
 .sortable-th:hover {
   color: #4a90d9;
+}
+.sortable-th:focus-visible {
+  outline: 2px solid #4a90d9;
+  outline-offset: -2px;
 }
 
 /* an input in a masi table (a cron, a request cap) is a control, not a 19 px text slot */

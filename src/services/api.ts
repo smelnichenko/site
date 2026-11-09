@@ -1718,6 +1718,8 @@ export interface MasiSource {
   scope: string;
   baseUrl: string | null;
   cron: string;
+  /** When the cron next fires (masi's scheduler zone); null when it cannot be read. */
+  nextRunAt: string | null;
   enabled: boolean;
   configJson: string | null;
   termsNote: string | null;
@@ -1922,6 +1924,8 @@ export interface MasiListingFilter {
   event?: MasiListingEvent;
   from?: string;
   to?: string;
+  /** `column,asc|desc` (ops plan 112); the list's own order when absent. */
+  sort?: string;
   page?: number;
   size?: number;
 }
@@ -2093,6 +2097,8 @@ export interface MasiBookingFilter {
   to?: string;
   /** The language applied in; 'none' for the interviews whose language is not known. */
   language?: string;
+  /** `column,asc|desc` (ops plan 112); the list's own order when absent. */
+  sort?: string;
   page?: number;
   size?: number;
 }
@@ -2550,8 +2556,9 @@ export function runMasiSource(id: number): Promise<void> {
 export function fetchMasiSourceRuns(
   id: number,
   signal?: AbortSignal,
+  sort?: string,
 ): Promise<Paged<MasiSourceRun>> {
-  return masiGet(`/sources/${id}/runs?size=20`, signal, 'load runs');
+  return masiGet(`/sources/${id}/runs${query({ size: 20, sort })}`, signal, 'load runs');
 }
 
 /** The caller's packages; with an event and the period's from/to, exactly the ones a report's funnel figure counts. */

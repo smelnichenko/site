@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { SortableHeader } from '../../components/SortableHeader';
+import { sortRows, useUrlSort, type SortValue } from '../../components/sorting';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   fetchMasiReports,
@@ -14,7 +16,15 @@ import { defaultRange, errorMessage, formatDateTime, periodLabel } from './forma
 import MasiTable from '../../components/MasiTable';
 
 /** Stored weekly and monthly reports, and live stats over any range of days. */
+/** What each column of the reports list sorts by (ops plan 112): the period by where it starts. */
+const REPORT_SORTS: Record<string, (r: MasiReportSummary) => SortValue> = {
+  kind: (r) => r.kind,
+  period: (r) => r.periodStart,
+  generatedAt: (r) => r.generatedAt,
+};
+
 export default function MasiReports() {
+  const { sort, setSort } = useUrlSort('generatedAt,desc');
   const [params, setParams] = useSearchParams();
   const initial = defaultRange();
   const from = params.get('from') ?? initial.from;
@@ -121,13 +131,18 @@ export default function MasiReports() {
           <MasiTable label="Reports" columns={['20%', '50%', '30%']} minWidth={520}>
             <thead>
               <tr>
-                <th>Kind</th>
-                <th>Period</th>
-                <th>Generated</th>
+                <SortableHeader column="kind" label="Kind" sort={sort} onSort={setSort} />
+                <SortableHeader column="period" label="Period" sort={sort} onSort={setSort} />
+                <SortableHeader
+                  column="generatedAt"
+                  label="Generated"
+                  sort={sort}
+                  onSort={setSort}
+                />
               </tr>
             </thead>
             <tbody>
-              {reports.map((r) => (
+              {sortRows(reports, sort, REPORT_SORTS).map((r) => (
                 <tr key={r.id}>
                   <td>{r.kind.toLowerCase()}</td>
                   <td>

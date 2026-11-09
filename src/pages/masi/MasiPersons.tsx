@@ -14,6 +14,8 @@ import MasiTable from '../../components/MasiTable';
 import PictureLightbox, { ViewerPicture } from './PictureLightbox';
 import { errorMessage, formatDateTime, pageParam } from './format';
 import { byCompany, rolesText } from './people';
+import { SortableHeader } from '../../components/SortableHeader';
+import { useUrlSort } from '../../components/sorting';
 
 const PAGE_SIZE = 50;
 
@@ -25,7 +27,7 @@ export default function MasiPersons() {
   const [params, setParams] = useSearchParams();
   const pageNo = pageParam(params.get('page'));
   const q = params.get('q') ?? '';
-  const sort = params.get('sort') ?? '';
+  const { sort, setSort } = useUrlSort('id,desc');
   const agencyOnly = params.get('agency') === 'true';
   const companyParam = params.get('company');
   const company = companyParam ? Number(companyParam) : undefined;
@@ -45,7 +47,7 @@ export default function MasiPersons() {
         agency: agencyOnly ? true : undefined,
         page: pageNo,
         size: PAGE_SIZE,
-        sort: sort || undefined,
+        sort,
       },
       controller.signal,
     )
@@ -77,21 +79,6 @@ export default function MasiPersons() {
       });
     return () => controller.abort();
   }, [q, company, agencyOnly, pageNo, sort]);
-
-  /** A header press sorts by that column, toggling the direction; the first press of another column is ascending. */
-  function sortBy(column: string) {
-    const next = new URLSearchParams(params);
-    const asc = `${column},asc`;
-    next.set('sort', sort === asc ? `${column},desc` : asc);
-    next.delete('page');
-    setParams(next);
-  }
-
-  function sortMark(column: string): string {
-    if (sort === `${column},asc`) return ' ▲';
-    if (sort === `${column},desc`) return ' ▼';
-    return '';
-  }
 
   function setParam(key: string, value: string | null) {
     const next = new URLSearchParams(params);
@@ -174,27 +161,16 @@ export default function MasiPersons() {
           <MasiTable label="People" columns={['24%', '20%', '30%', '14%', '12%']} minWidth={860}>
             <thead>
               <tr>
-                <th>
-                  <button type="button" className="sortable-th" onClick={() => sortBy('nameNorm')}>
-                    Name{sortMark('nameNorm')}
-                  </button>
-                </th>
-                <th>
-                  <button type="button" className="sortable-th" onClick={() => sortBy('emailNorm')}>
-                    Address{sortMark('emailNorm')}
-                  </button>
-                </th>
-                <th>Companies</th>
-                <th>
-                  <button
-                    type="button"
-                    className="sortable-th"
-                    onClick={() => sortBy('lastSeenAt')}
-                  >
-                    Seen{sortMark('lastSeenAt')}
-                  </button>
-                </th>
-                <th>Contact?</th>
+                <SortableHeader column="nameNorm" label="Name" sort={sort} onSort={setSort} />
+                <SortableHeader column="emailNorm" label="Address" sort={sort} onSort={setSort} />
+                <SortableHeader column="companies" label="Companies" sort={sort} onSort={setSort} />
+                <SortableHeader column="lastSeenAt" label="Seen" sort={sort} onSort={setSort} />
+                <SortableHeader
+                  column="doNotContact"
+                  label="Contact?"
+                  sort={sort}
+                  onSort={setSort}
+                />
               </tr>
             </thead>
             <tbody>
@@ -259,13 +235,20 @@ export default function MasiPersons() {
                   </td>
                   <td>{p.email ?? ''}</td>
                   <td>
-                    {byCompany(p.ties).map((c) => (
-                      <div key={c.companyId}>
-                        <Link to={`/masi/companies/${c.companyId}`}>{c.companyName}</Link>
-                        {c.agency && <span className="masi-tag">agency</span>}{' '}
-                        <span className="muted">{rolesText(c.roles)}</span>
-                      </div>
-                    ))}
+                    {byCompany(p.ties)
+                      // A to Z, as the Companies column sorts by the first of them
+                      .sort((a, b) =>
+                        a.companyName.localeCompare(b.companyName, undefined, {
+                          sensitivity: 'base',
+                        }),
+                      )
+                      .map((c) => (
+                        <div key={c.companyId}>
+                          <Link to={`/masi/companies/${c.companyId}`}>{c.companyName}</Link>
+                          {c.agency && <span className="masi-tag">agency</span>}{' '}
+                          <span className="muted">{rolesText(c.roles)}</span>
+                        </div>
+                      ))}
                   </td>
                   <td>{formatDateTime(p.lastSeenAt)}</td>
                   <td>

@@ -7,6 +7,8 @@ import MasiTable from '../../components/MasiTable';
 import SourceMarks from './SourceMarks';
 import FigureFilterNote from './FigureFilterNote';
 import { figureParams, JOB_EVENTS, SALARY_FIGURES } from './figureLinks';
+import { SortableHeader } from '../../components/SortableHeader';
+import { useUrlSort } from '../../components/sorting';
 
 const PAGE_SIZE = 50;
 /** The forms of work masi tells apart, as the filter offers them; anything else in the URL is not passed on. */
@@ -25,6 +27,8 @@ function employmentParam(value: string | null): MasiEmploymentType | '' {
 
 /** The orders the page offers; anything else in the URL is not passed on. Newest first is the server's default: no parameter. */
 const BY_MATCH = 'match,desc';
+/** The registry's own order, and what the Order menu calls "newest first". */
+const NEWEST_FIRST = 'firstSeenAt,desc';
 
 /** How the report filter reads: "closed 12 Oct 2026 – 18 Oct 2026". */
 const EVENT_WORDS = { NEW: 'first seen', CLOSED: 'closed', REPOSTED: 'reposted' } as const;
@@ -52,15 +56,7 @@ export default function MasiJobs() {
   const employmentType = employmentParam(params.get('employmentType'));
   const country = (params.get('country') ?? '').toUpperCase();
   const company = params.get('company');
-  const offeredSorts = new Set([
-    BY_MATCH,
-    'title,asc',
-    'title,desc',
-    'firstSeenAt,asc',
-    'firstSeenAt,desc',
-  ]);
-  const rawSort = params.get('sort') ?? '';
-  const sort = offeredSorts.has(rawSort) ? rawSort : '';
+  const { sort, setSort } = useUrlSort(NEWEST_FIRST);
   const pageNo = pageParam(params.get('page'));
 
   useEffect(() => {
@@ -74,7 +70,7 @@ export default function MasiJobs() {
         employmentType: employmentType || undefined,
         country: country || undefined,
         company: company ? Number(company) : undefined,
-        sort: sort || undefined,
+        sort,
         event: figure?.event,
         from: figure?.from,
         to: figure?.to,
@@ -114,20 +110,6 @@ export default function MasiJobs() {
     seniority,
     pageNo,
   ]);
-
-  function sortBy(column: string) {
-    const next = new URLSearchParams(params);
-    const asc = `${column},asc`;
-    next.set('sort', sort === asc ? `${column},desc` : asc);
-    next.delete('page');
-    setParams(next);
-  }
-
-  function sortMark(column: string): string {
-    if (sort === `${column},asc`) return ' ▲';
-    if (sort === `${column},desc`) return ' ▼';
-    return '';
-  }
 
   function set(key: string, value: string) {
     setAll({ [key]: value });
@@ -235,9 +217,13 @@ export default function MasiJobs() {
               </option>
             ))}
           </select>
-          <select aria-label="Order" value={sort} onChange={(e) => set('sort', e.target.value)}>
-            <option value="">newest first</option>
+          <select aria-label="Order" value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value={NEWEST_FIRST}>newest first</option>
             <option value={BY_MATCH}>best match first</option>
+            {/* a column header's sort: said, so the menu never claims an order the list is not in */}
+            {sort !== NEWEST_FIRST && sort !== BY_MATCH && (
+              <option value={sort}>as the column header sorts</option>
+            )}
           </select>
           <button type="submit" className="btn-small">
             Search
@@ -285,25 +271,24 @@ export default function MasiJobs() {
           >
             <thead>
               <tr>
-                <th>
-                  <button type="button" className="sortable-th" onClick={() => sortBy('title')}>
-                    Title{sortMark('title')}
-                  </button>
-                </th>
-                <th>Company</th>
-                <th>Sources</th>
-                <th>Location</th>
-                <th>
-                  <button
-                    type="button"
-                    className="sortable-th"
-                    onClick={() => sortBy('firstSeenAt')}
-                  >
-                    First seen{sortMark('firstSeenAt')}
-                  </button>
-                </th>
-                <th className="masi-num">Match</th>
-                <th>Package</th>
+                <SortableHeader column="title" label="Title" sort={sort} onSort={setSort} />
+                <SortableHeader column="company" label="Company" sort={sort} onSort={setSort} />
+                <SortableHeader column="sources" label="Sources" sort={sort} onSort={setSort} />
+                <SortableHeader column="location" label="Location" sort={sort} onSort={setSort} />
+                <SortableHeader
+                  column="firstSeenAt"
+                  label="First seen"
+                  sort={sort}
+                  onSort={setSort}
+                />
+                <SortableHeader
+                  column="match"
+                  label="Match"
+                  sort={sort}
+                  onSort={setSort}
+                  className="masi-num"
+                />
+                <SortableHeader column="package" label="Package" sort={sort} onSort={setSort} />
               </tr>
             </thead>
             <tbody>

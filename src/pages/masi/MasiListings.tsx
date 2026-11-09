@@ -6,6 +6,8 @@ import MasiTable from '../../components/MasiTable';
 import { errorMessage, formatDate, pageParam } from './format';
 import FigureFilterNote from './FigureFilterNote';
 import { figureParams, LISTING_EVENTS } from './figureLinks';
+import { SortableHeader } from '../../components/SortableHeader';
+import { useUrlSort } from '../../components/sorting';
 
 const PAGE_SIZE = 50;
 const EVENT_WORDS = { NEW: 'first seen', CLOSED: 'closed' } as const;
@@ -21,6 +23,7 @@ export default function MasiListings() {
   const figure = figureParams(params, LISTING_EVENTS);
   const source = params.get('source') ?? '';
   const pageNo = pageParam(params.get('page'));
+  const { sort, setSort } = useUrlSort('firstSeenAt,desc');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -30,6 +33,7 @@ export default function MasiListings() {
         from: figure?.from,
         to: figure?.to,
         source: source || undefined,
+        sort,
         page: pageNo,
         size: PAGE_SIZE,
       },
@@ -44,7 +48,7 @@ export default function MasiListings() {
       });
     return () => controller.abort();
     // the figure's parts, not the object: a new one each render would refetch for ever
-  }, [figure?.event, figure?.from, figure?.to, source, pageNo]);
+  }, [figure?.event, figure?.from, figure?.to, source, pageNo, sort]);
 
   function set(values: Record<string, string>) {
     const next = new URLSearchParams(params);
@@ -92,12 +96,17 @@ export default function MasiListings() {
           >
             <thead>
               <tr>
-                <th>Job</th>
-                <th>Company</th>
-                <th>On the board</th>
-                <th>Source</th>
-                <th>First seen</th>
-                <th>Closed</th>
+                <SortableHeader column="job" label="Job" sort={sort} onSort={setSort} />
+                <SortableHeader column="company" label="Company" sort={sort} onSort={setSort} />
+                <SortableHeader column="title" label="On the board" sort={sort} onSort={setSort} />
+                <SortableHeader column="source" label="Source" sort={sort} onSort={setSort} />
+                <SortableHeader
+                  column="firstSeenAt"
+                  label="First seen"
+                  sort={sort}
+                  onSort={setSort}
+                />
+                <SortableHeader column="closedAt" label="Closed" sort={sort} onSort={setSort} />
               </tr>
             </thead>
             <tbody>
