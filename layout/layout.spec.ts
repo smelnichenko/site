@@ -1406,6 +1406,13 @@ for (const width of [390, 1366]) {
           bars: s.querySelectorAll('.recharts-bar-rectangle').length,
           endsInside: ends.every((r) => r.right <= card.right + 1 && r.left >= card.left - 1),
           ends: ends.length,
+          // two names that end close together must not print one over the other
+          endsApart:
+            ends.length < 2 ||
+            ends[0].bottom <= ends[1].top ||
+            ends[1].bottom <= ends[0].top ||
+            ends[0].right <= ends[1].left ||
+            ends[1].right <= ends[0].left,
           legend: [...s.querySelectorAll('.recharts-legend-item-text')].map((t) => t.textContent),
         };
       }),
@@ -1425,6 +1432,7 @@ for (const width of [390, 1366]) {
         'new',
         'closed',
       ]);
+      expect(pair.endsApart, `${pair.name}: the two end names apart`).toBe(true);
     }
     expect(charts[3].bars, 'a bar a day').toBe(14);
     const pageScrolls = await page.evaluate(

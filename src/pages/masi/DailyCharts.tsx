@@ -38,13 +38,23 @@ function dayLabel(day: string): string {
   });
 }
 
-/** The series' name written at its last point: a line is named where the eye ends, not only in the legend. */
-function endLabel(name: string, color: string, last: number) {
+/**
+ * The series' name written at its last point: a line is named where the eye ends, not only in the legend. Two lines that
+ * end close together would print one name over the other, so the one that ends higher is named above its point and the
+ * other below.
+ */
+function endLabel(name: string, color: string, last: number, above: boolean) {
   // recharts hands the label its point; only the last one is named
   return function EndLabel(props: { x?: number | string; y?: number | string; index?: number }) {
     if (props.index !== last || props.x === undefined || props.y === undefined) return null;
     return (
-      <text x={Number(props.x) + 6} y={Number(props.y)} dy={4} fill={INK} fontSize={12}>
+      <text
+        x={Number(props.x) + 6}
+        y={Number(props.y)}
+        dy={above ? -6 : 14}
+        fill={INK}
+        fontSize={12}
+      >
         {name}
         <tspan fill={color}> ●</tspan>
       </text>
@@ -58,6 +68,9 @@ function Pair({
   series,
 }: Readonly<{ title: string; days: MasiStatsDay[]; series: [Series, Series] }>) {
   const last = days.length - 1;
+  const end = (key: keyof MasiStatsDay) => Number(days[last][key]);
+  // the first series is named above when it ends at or over the second, and the second then below - never both on one line
+  const firstAbove = end(series[0].key) >= end(series[1].key);
   return (
     <section className="card masi-daily" aria-label={`${title} per day`}>
       <div className="card-title">{title} per day</div>
@@ -83,7 +96,7 @@ function Pair({
             />
             {/* the series' own order, blue first: recharts sorts a legend by name unless told not to */}
             <Legend verticalAlign="top" height={24} iconType="plainline" itemSorter={null} />
-            {series.map((s) => (
+            {series.map((s, i) => (
               <Line
                 key={s.key}
                 type="monotone"
@@ -94,7 +107,7 @@ function Pair({
                 dot={days.length <= 31 ? { r: 4, strokeWidth: 2, fill: '#fff' } : false}
                 activeDot={{ r: 5 }}
                 isAnimationActive={false}
-                label={endLabel(s.name, s.color, last)}
+                label={endLabel(s.name, s.color, last, i === 0 ? firstAbove : !firstAbove)}
               />
             ))}
           </LineChart>
@@ -177,7 +190,7 @@ export default function DailyCharts({ days }: Readonly<{ days: MasiStatsDay[] }>
         <Single title="Your applications" days={days} dataKey="applied" />
         <Single title="LLM spend" days={days} dataKey="llmUsd" usd />
       </div>
-      <details className="masi-daily-table">
+      <details className="card masi-daily-table">
         <summary>The days as a table</summary>
         <div className="masi-table-scroll">
           <table className="table">
