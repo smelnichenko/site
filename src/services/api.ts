@@ -1671,6 +1671,10 @@ export interface MasiPersonConnection {
   follows: boolean;
   followedBy: boolean;
   sameAddress: boolean;
+  /** How near a face is to this person's, when one possibly connects them; a possible connection only, nobody is merged. */
+  faceDistance?: number | null;
+  /** A picture that looks the same possibly connects them. */
+  samePicture?: boolean;
 }
 
 /** A registered company an employer might be; `sure` is the one masi would attach without asking. */
