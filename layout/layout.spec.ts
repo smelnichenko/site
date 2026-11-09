@@ -183,13 +183,13 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
     },
   ];
 
-/** Opens a page with masi answered from the fixtures; returns the API calls no fixture answered. */
-/** A 200 x 200 picture, larger than any thumbnail: one drawn at its own size fails the layout test. */
+/** A 200 x 120 picture: larger than a thumbnail and not square, so one drawn at its own shape fails the layout test. */
 const LARGE_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAAAAACIM/FCAAAC0klEQVR42t3PBVYQABRFwbtOu7DFQBQbVEy6u7u72Rvv/GXc2cFwLa7HjbgZt+J23Im7cS/ux4NoiIfxKB7Hk3gaz+J5vIjGeBmv4nW8iaZ4G83xLt5HS3yIj/EpPseX+BrfojXa4nv8iJ/RHr/id/yJv/Ev/geSRweSRyKORweSR0UMj04kj0Qcj04kj4oYHl1IHok4Hl1IHhUxPLqRPBJxPLqRPCpiePQgeSTiePQgeVTE8OhF8kjE8ehF8qiI4dGH5JGI49GH5FERw6MfySMRx6MfyaMihscAkkcijscAkkdFDI9BJI9EHI9BJI+KGB5DSB6JOB5DSB4VMTyGkTwScTyGkTwqYniMIHkk4niMIHlUxPAYRfJIxPEYRfKoiOExhuSRiOMxhuRREcNjHMkjEcdjHMmjIobHBJJHIo7HBJJHRQyPSSSPRByPSSSPihgeU0geiTgeU0geFTE8ppE8EnE8ppE8KmJ4zCB5JOJ4zCB5VMTwmEXySMTxmEXyqIjhMYfkkYjjMYfkURHDYx7JIxHHYx7JoyKGxwKSRyKOxwKSR0UMj0Ukj0Qcj0Ukj4oYHktIHok4HktIHhUxPJaRPBJxPJaRPCpieKwgeSTieKwgeVTE8FhF8kjE8VhF8qiI4bGG5JGI47GG5FERw2MdySMRx2MdyaMihscGkkcijscGkkdFDI9NJI9EHI9NJI+KGB5bSB6JOB5bSB4VMTy2kTwScTy2kTwqYnjsIHkk4njsIHlUxPDYRfJIxPHYRfKoiOGxh+SRiOOxh+RREcNjH8kjEcdjH8mjIobHAZJHIo7HAZJHRQyPQySPRByPQySPihgeR0geiTgeR0geFTE8jpE8EnE8jpE8KmJ4nCB5JOJ4nCB5VMTwOEXySMTxOEXyqIjhcYbkkYjjcYbkURHD4xzJIxHH4xzJoyKGxwWSRyKOxwWSR0UMj0skj0Qcj8srWX4WVFSu2BsAAAAASUVORK5CYII=',
+  'iVBORw0KGgoAAAANSUhEUgAAAMgAAAB4CAAAAACS+eI3AAAB3ElEQVR42t3PBVoUABhF0bdOGglBEJSSUAlFQemcIgcG2CX3+5dxzw5O+tCPAQxiCMMYwSg+YAzjmMAkPmIK0/iEGcziM+Ywjy/4igUsYgnLWME3rGIN69jAd/zAT2xiC9vYwS/8xi7+4C/2sI9/+I9IHgeRPIg4HgeRPCpieBxG8iDieBxG8qiI4XEUyYOI43EUyaMihsdxJA8ijsdxJI+KGB4nkTyIOB4nkTwqYnicRvIg4nicRvKoiOFxFsmDiONxFsmjIobHeSQPIo7HeSSPihgeF5E8iDgeF5E8KmJ4XEbyIOJ4XEbyqIjhcRXJg4jjcRXJoyKGx3UkDyKOx3Ukj4oYHo1IHkQcj0Ykj4oYHs1IHkQcj2Ykj4oYHq1IHkQcj1Ykj4oYHu1IHkQcj3Ykj4oYHp1IHkQcj04kj4oYHjeRPIg4HjeRPCpieNxG8iDieNxG8qiI4XEXyYOI43EXyaMihsd9JA8ijsd9JI+KGB4PkTyIOB4PkTwqYng8RvIg4ng8RvKoiOHRjeRBxPHoRvKoiOHxFMmDiOPxFMmjIobHcyQPIo7HcySPihgevUgeRByPXiSPihgeL5E8iDgeL5E8KmJ4vEbyIOJ4vEbyqIjh8RbJg4jj8fYOF2tjqnfWzlIAAAAASUVORK5CYII=',
   'base64',
 );
 
+/** Opens a page with masi answered from the fixtures; returns the API calls no fixture answered. */
 async function open(
   page: Page,
   path: string,
@@ -1512,18 +1512,56 @@ for (const width of [390, 1366]) {
     const added = () =>
       page.locator('[data-testid="person-pictures"] tbody tr td:nth-child(3)').allTextContents();
     const newestFirst = await added();
-    expect(newestFirst, 'newest added first').toHaveLength(3);
-    await page.getByRole('button', { name: 'Added' }).click();
+    expect(newestFirst, 'newest added first').toEqual([
+      '15 Sept 2026, 09:00',
+      '10 Sept 2026, 15:00',
+      '1 Sept 2026, 12:00',
+    ]);
+    await page.getByRole('button', { name: 'Added', exact: true }).click();
     await expect.poll(added).toEqual([...newestFirst].reverse());
     await expect(page.locator('[data-testid="person-picture-tries"] tbody tr')).toHaveCount(4);
+    await expect(page.locator('[data-testid="person-pictures"] img')).toHaveCount(3);
     const m = await page.evaluate(() => ({
       pageScrolls: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-      thumbs: [...document.querySelectorAll('[data-testid="person-pictures"] img')].map(
-        (i) => (i as HTMLImageElement).getBoundingClientRect().width,
-      ),
+      thumbs: [
+        ...document.querySelectorAll<HTMLImageElement>('[data-testid="person-pictures"] img'),
+      ].map((i) => ({
+        width: i.getBoundingClientRect().width,
+        height: i.getBoundingClientRect().height,
+        loaded: i.naturalWidth,
+        fit: getComputedStyle(i).objectFit,
+      })),
+      lastAskedWraps: [
+        ...document.querySelectorAll('[data-testid="person-picture-tries"] tbody td:nth-child(4)'),
+      ].some((c) => getComputedStyle(c).whiteSpace !== 'nowrap'),
+      nextAsk: [
+        ...document.querySelectorAll('[data-testid="person-picture-tries"] tbody td:nth-child(6)'),
+      ].map((c) => c.textContent),
     }));
+    const clipped = await page.evaluate(
+      () =>
+        [
+          ...document.querySelectorAll(
+            '[data-testid="person-pictures"] td, [data-testid="person-picture-tries"] td',
+          ),
+        ].filter((c) => c.scrollWidth > c.clientWidth + 1).length,
+    );
+    expect(clipped, 'no cell cut off').toBe(0);
     expect(m.pageScrolls, 'the page never sideways').toBe(false);
-    expect(m.thumbs, 'every picture drawn').toHaveLength(3);
-    expect(Math.max(...m.thumbs), 'a thumbnail, not a poster').toBeLessThanOrEqual(120);
+    expect(m.thumbs, 'every picture drawn, a square thumbnail cut to fit').toEqual(
+      Array(3).fill({ width: 64, height: 64, loaded: 200, fit: 'cover' }),
+    );
+    const button = await page.evaluate(() => {
+      const b = document.querySelector('[data-testid="person-pictures"] .picture-thumb')!;
+      return { border: getComputedStyle(b).borderTopWidth, width: b.getBoundingClientRect().width };
+    });
+    expect(button, 'no button drawn around the picture').toEqual({ border: '0px', width: 64 });
+    expect(m.lastAskedWraps, 'a date in the tries stays on one line').toBe(false);
+    expect(m.nextAsk, 'when each source is asked next').toEqual([
+      '22 Oct 2026, 09:00',
+      'not again',
+      'not needed',
+      'not needed',
+    ]);
   });
 }

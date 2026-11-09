@@ -1928,6 +1928,19 @@ a.muted,
 .masi-nowrap {
   white-space: nowrap;
 }
+
+/* a picture that opens larger: the picture is the button, with no button drawn around it */
+.picture-thumb {
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+}
+
+.picture-thumb:focus-visible {
+  outline: 2px solid #4a90d9;
+  outline-offset: 2px;
+}
 /* a board's own title may be one unbroken token: it wraps in its cell, never widens the table past the card */
 .masi-listing-url {
   overflow-wrap: anywhere;

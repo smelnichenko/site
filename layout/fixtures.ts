@@ -27,6 +27,8 @@ import type {
   RssFeedMonitorConfig,
   RssFeedResult,
   RssOptions,
+  MasiContactPicture,
+  MasiPictureTries,
 } from '../src/services/api';
 import { readFileSync } from 'node:fs';
 import {
@@ -779,7 +781,7 @@ export interface Answer {
   png?: boolean;
 }
 
-const personPictures = [
+const personPictures: MasiContactPicture[] = [
   {
     id: 701,
     source: 'GRAVATAR',
@@ -809,7 +811,7 @@ const personPictures = [
   },
 ];
 
-const personPictureTries = {
+const personPictureTries: MasiPictureTries = {
   triesLeft: 8,
   contacts: [
     {
@@ -840,7 +842,7 @@ const personPictureTries = {
           left: 3,
           lastTriedAt: null,
           lastOutcome: null,
-          nextAskAt: '1970-01-01T00:00:00Z',
+          nextAskAt: null,
         },
         {
           source: 'NAME_SEARCH',
@@ -849,7 +851,7 @@ const personPictureTries = {
           left: 2,
           lastTriedAt: '2026-09-21T06:00:00Z',
           lastOutcome: 'FAILED',
-          nextAskAt: '2026-09-24T06:00:00Z',
+          nextAskAt: null,
         },
       ],
     },
