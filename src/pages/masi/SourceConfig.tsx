@@ -87,7 +87,7 @@ function pretty(json: string | null): string {
 /** A switch's value in words: on or off, a duration readably, a list joined, a number as it is. */
 function shown(value: unknown): string {
   if (typeof value === 'boolean') return value ? 'on' : 'off';
-  if (typeof value === 'string' && /^P/.test(value)) return readable(value);
+  if (typeof value === 'string' && value.startsWith('P')) return readable(value);
   if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : 'none';
   return String(value);
 }
