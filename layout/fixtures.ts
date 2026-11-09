@@ -830,6 +830,34 @@ function personsPage(sort: string) {
   };
 }
 
+/**
+ * The live stats day by day for any window: a working week's shape (weekdays busy, weekends quiet), so the charts are
+ * drawn with real slopes, pairs crossing and a quiet day of zeros.
+ */
+function statsDays(from: string, to: string) {
+  const days = [];
+  for (
+    let d = new Date(`${from}T12:00:00Z`);
+    d <= new Date(`${to}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1)
+  ) {
+    const weekday = d.getUTCDay() % 6 !== 0;
+    const n = d.getUTCDate();
+    days.push({
+      day: d.toISOString().slice(0, 10),
+      newJobs: weekday ? 18 + (n % 7) * 3 : 2,
+      closedJobs: weekday ? 12 + (n % 5) * 4 : 1,
+      repostedJobs: n % 4 === 0 ? 1 : 0,
+      newListings: weekday ? 40 + (n % 6) * 5 : 6,
+      closedListings: weekday ? 30 + (n % 4) * 6 : 3,
+      applied: n % 3 === 0 ? 1 : 0,
+      llmUsd: weekday ? 0.35 + (n % 5) * 0.11 : 0.02,
+      llmCalls: { OK: weekday ? 20 : 1 },
+    });
+  }
+  return days;
+}
+
 export function answer(url: URL): Answer | undefined {
   if (!url.pathname.startsWith('/api/masi')) {
     return monitorAnswer(url.pathname.replace(/^\/api/, ''));
@@ -902,6 +930,12 @@ export function answer(url: URL): Answer | undefined {
     [/^\/contacts\/\d+\/pictures$/, () => ({ status: 200, body: [] })],
     [/^\/activity$/, () => ({ status: 200, body: activityPage })],
     [/^\/packages\/retune$/, () => ({ status: 200, body: { count: 12, estimatedUsd: 3.42 } })],
+    [/^\/reports$/, () => ({ status: 200, body: [report] })],
+    [/^\/stats$/, () => ({ status: 200, body: report.stats })],
+    [
+      /^\/stats\/daily$/,
+      () => ({ status: 200, body: statsDays(q.get('from') ?? '', q.get('to') ?? '') }),
+    ],
     [/^\/reports\/5$/, () => ({ status: 200, body: report })],
     [/^\/reports\/6$/, () => ({ status: 200, body: bigReport })],
     [/^\/listings$/, () => ({ status: 200, body: listingPage })],

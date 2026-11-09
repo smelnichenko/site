@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MasiReports from './MasiReports';
 import { defaultRange } from './format';
@@ -9,14 +9,29 @@ import { report, stats } from './statsFixture';
 vi.mock('../../services/api', () => ({
   fetchMasiReports: vi.fn(),
   fetchMasiStats: vi.fn(),
+  fetchMasiStatsDaily: vi.fn(),
   generateMasiReport: vi.fn(),
 }));
 const api = await import('../../services/api');
+
+/** The fixture week day by day: two new jobs on its Wednesday, one closed on its Friday, one application. */
+const week = ['23', '24', '25', '26', '27', '28', '29'].map((d) => ({
+  day: `2026-03-${d}`,
+  newJobs: d === '25' ? 2 : 0,
+  closedJobs: d === '27' ? 1 : 0,
+  repostedJobs: 0,
+  newListings: d === '25' ? 3 : 0,
+  closedListings: 0,
+  applied: d === '27' ? 1 : 0,
+  llmUsd: d === '25' ? 0.42 : 0,
+  llmCalls: {},
+}));
 
 beforeEach(() => {
   vi.mocked(api.fetchMasiReports).mockReset();
   vi.mocked(api.fetchMasiStats).mockReset();
   vi.mocked(api.generateMasiReport).mockReset();
+  vi.mocked(api.fetchMasiStatsDaily).mockReset().mockResolvedValue(week);
 });
 
 describe('MasiReports', () => {
@@ -47,6 +62,25 @@ describe('MasiReports', () => {
       ).toEqual(['2026-03-01', '2026-03-29']),
     );
     expect(screen.getByRole('link', { name: 'Reports' })).toHaveClass('active');
+  });
+
+  it('charts the range day by day, its days also a table', async () => {
+    vi.mocked(api.fetchMasiReports).mockResolvedValue([report]);
+    vi.mocked(api.fetchMasiStats).mockResolvedValue(stats);
+    renderAt('/masi/reports?from=2026-03-23&to=2026-03-29', '/masi/reports', <MasiReports />);
+    for (const chart of ['Jobs', 'Listings', 'Your applications', 'LLM spend']) {
+      expect(await screen.findByRole('region', { name: `${chart} per day` })).toBeInTheDocument();
+    }
+    expect(vi.mocked(api.fetchMasiStatsDaily).mock.calls[0].slice(0, 2)).toEqual([
+      '2026-03-23',
+      '2026-03-29',
+    ]);
+    const user = userEvent.setup();
+    await user.click(screen.getByText('The days as a table'));
+    const wednesday = screen.getByRole('row', { name: /25 Mar/ });
+    expect(wednesday).toHaveTextContent('25 Mar' + '2' + '0' + '0' + '3' + '0' + '0' + '$0.42');
+    const table = screen.getByRole('table', { name: 'The live stats day by day' });
+    expect(within(table).getAllByRole('row')).toHaveLength(1 + 7); // its header and the seven days
   });
 
   it('generates last week on request, reloads the list and reports the period', async () => {
