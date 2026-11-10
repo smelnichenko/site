@@ -183,6 +183,12 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
     },
   ];
 
+/** A 200 x 120 picture: larger than a thumbnail and not square, so one drawn at its own shape fails the layout test. */
+const LARGE_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAMgAAAB4CAAAAACS+eI3AAAB3ElEQVR42t3PBVoUABhF0bdOGglBEJSSUAlFQemcIgcG2CX3+5dxzw5O+tCPAQxiCMMYwSg+YAzjmMAkPmIK0/iEGcziM+Ywjy/4igUsYgnLWME3rGIN69jAd/zAT2xiC9vYwS/8xi7+4C/2sI9/+I9IHgeRPIg4HgeRPCpieBxG8iDieBxG8qiI4XEUyYOI43EUyaMihsdxJA8ijsdxJI+KGB4nkTyIOB4nkTwqYnicRvIg4nicRvKoiOFxFsmDiONxFsmjIobHeSQPIo7HeSSPihgeF5E8iDgeF5E8KmJ4XEbyIOJ4XEbyqIjhcRXJg4jjcRXJoyKGx3UkDyKOx3Ukj4oYHo1IHkQcj0Ykj4oYHs1IHkQcj2Ykj4oYHq1IHkQcj1Ykj4oYHu1IHkQcj3Ykj4oYHp1IHkQcj04kj4oYHjeRPIg4HjeRPCpieNxG8iDieNxG8qiI4XEXyYOI43EXyaMihsd9JA8ijsd9JI+KGB4PkTyIOB4PkTwqYng8RvIg4ng8RvKoiOHRjeRBxPHoRvKoiOHxFMmDiOPxFMmjIobHcyQPIo7HcySPihgevUgeRByPXiSPihgeL5E8iDgeL5E8KmJ4vEbyIOJ4vEbyqIjh8RbJg4jj8fYOF2tjqnfWzlIAAAAASUVORK5CYII=',
+  'base64',
+);
+
 /** Opens a page with masi answered from the fixtures; returns the API calls no fixture answered. */
 async function open(
   page: Page,
@@ -209,6 +215,10 @@ async function open(
     if (!a) {
       unanswered.push(`${route.request().method()} ${url.pathname}${url.search}`);
       await route.fulfill({ status: 599, json: { error: 'no fixture' } });
+      return;
+    }
+    if (a.png) {
+      await route.fulfill({ status: a.status, contentType: 'image/png', body: LARGE_PNG });
       return;
     }
     await route.fulfill({ status: a.status, json: a.body ?? {} });
@@ -1486,5 +1496,72 @@ for (const width of [390, 1366]) {
     expect(m.switchGroups).toBe(6);
     expect(m.changes).toBe(3);
     expect(m.cutSwitches, 'no switch cut').toBe(0);
+  });
+}
+
+/**
+ * A person's pictures and what each source has left (the operator, 2026-11-09): every image kept, sortable by when it was
+ * added, inside the page at a phone's width and a desktop's.
+ */
+for (const width of [390, 1366]) {
+  test(`a person's pictures sort by date added, and each source's tries show, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/persons/5', '[data-testid="person-pictures"] tbody tr');
+    const added = () =>
+      page.locator('[data-testid="person-pictures"] tbody tr td:nth-child(3)').allTextContents();
+    const newestFirst = await added();
+    expect(newestFirst, 'newest added first').toEqual([
+      '15 Sept 2026, 09:00',
+      '10 Sept 2026, 15:00',
+      '1 Sept 2026, 12:00',
+    ]);
+    await page.getByRole('button', { name: 'Added', exact: true }).click();
+    await expect.poll(added).toEqual([...newestFirst].reverse());
+    await expect(page.locator('[data-testid="person-picture-tries"] tbody tr')).toHaveCount(4);
+    await expect(page.locator('[data-testid="person-pictures"] img')).toHaveCount(3);
+    const m = await page.evaluate(() => ({
+      pageScrolls: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      thumbs: [
+        ...document.querySelectorAll<HTMLImageElement>('[data-testid="person-pictures"] img'),
+      ].map((i) => ({
+        width: i.getBoundingClientRect().width,
+        height: i.getBoundingClientRect().height,
+        loaded: i.naturalWidth,
+        fit: getComputedStyle(i).objectFit,
+      })),
+      lastAskedWraps: [
+        ...document.querySelectorAll('[data-testid="person-picture-tries"] tbody td:nth-child(4)'),
+      ].some((c) => getComputedStyle(c).whiteSpace !== 'nowrap'),
+      nextAsk: [
+        ...document.querySelectorAll('[data-testid="person-picture-tries"] tbody td:nth-child(6)'),
+      ].map((c) => c.textContent),
+    }));
+    const clipped = await page.evaluate(
+      () =>
+        [
+          ...document.querySelectorAll(
+            '[data-testid="person-pictures"] td, [data-testid="person-picture-tries"] td',
+          ),
+        ].filter((c) => c.scrollWidth > c.clientWidth + 1).length,
+    );
+    expect(clipped, 'no cell cut off').toBe(0);
+    expect(m.pageScrolls, 'the page never sideways').toBe(false);
+    expect(m.thumbs, 'every picture drawn, a square thumbnail cut to fit').toEqual(
+      Array(3).fill({ width: 64, height: 64, loaded: 200, fit: 'cover' }),
+    );
+    const button = await page.evaluate(() => {
+      const b = document.querySelector('[data-testid="person-pictures"] .picture-thumb')!;
+      return { border: getComputedStyle(b).borderTopWidth, width: b.getBoundingClientRect().width };
+    });
+    expect(button, 'no button drawn around the picture').toEqual({ border: '0px', width: 64 });
+    expect(m.lastAskedWraps, 'a date in the tries stays on one line').toBe(false);
+    expect(m.nextAsk, 'when each source is asked next').toEqual([
+      '22 Oct 2026, 09:00',
+      'not again',
+      'not needed',
+      'not needed',
+    ]);
   });
 }

@@ -12,6 +12,7 @@ vi.mock('../../services/api', () => ({
   fetchMasiActivity: vi.fn(),
   patchMasiPerson: vi.fn(),
   fetchMasiContactPictures: vi.fn(),
+  fetchMasiPictureTries: vi.fn(),
   fetchMasiContactPictureBlob: vi.fn(),
 }));
 const api = await import('../../services/api');
@@ -76,6 +77,9 @@ beforeEach(() => {
   vi.mocked(api.fetchMasiActivity).mockReset();
   vi.mocked(api.patchMasiPerson).mockReset();
   vi.mocked(api.fetchMasiContactPictures).mockReset().mockResolvedValue([]);
+  vi.mocked(api.fetchMasiPictureTries)
+    .mockReset()
+    .mockResolvedValue({ triesLeft: 0, contacts: [] });
   vi.mocked(api.fetchMasiContactPictureBlob).mockReset();
 });
 
@@ -387,6 +391,121 @@ describe('MasiPersonDetail', () => {
     ).toBeInTheDocument();
     expect(api.fetchMasiContactPictures).toHaveBeenCalledWith(719, expect.anything());
     expect(api.fetchMasiContactPictures).not.toHaveBeenCalledWith(720, expect.anything());
+    // the two new cards are this person's
+    expect(api.fetchMasiPictureTries).toHaveBeenCalledWith(21, expect.anything());
+    expect(await screen.findByTestId('person-pictures')).toBeInTheDocument();
+  });
+
+  it('a failed picture load stays with its person: the next person starts clean', async () => {
+    const record = {
+      contactId: 719,
+      origin: 'FROM_WEB',
+      source: 'github',
+      sourceName: 'GitHub people',
+      profileUrl: null,
+      linkedinUrl: null,
+      title: null,
+      email: null,
+      companyId: null,
+      companyName: null,
+      listingId: null,
+      listingUrl: null,
+      listingTitle: null,
+      firstSeenAt: '2026-09-01T09:00:00Z',
+      lastSeenAt: '2026-09-20T09:00:00Z',
+      pictures: 1,
+    };
+    const anna = {
+      personId: 30,
+      name: 'Anna Tamm',
+      follows: false,
+      followedBy: false,
+      sameAddress: false,
+    };
+    vi.mocked(api.fetchMasiPerson).mockImplementation((id) =>
+      Promise.resolve(
+        Number(id) === 21
+          ? { ...kadri, id: 21, found: [record], connections: [anna] }
+          : { ...kadri, id: 30, name: 'Anna Tamm', found: [], connections: [] },
+      ),
+    );
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiContactPictures).mockRejectedValue(new Error('down'));
+    renderAt('/masi/persons/21', '/masi/persons/:id', <MasiPersonDetail />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('down');
+
+    await userEvent.click(screen.getByRole('link', { name: 'Anna Tamm' }));
+
+    expect(await screen.findByText('No picture kept.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it("the next person's card never shows the last person's pictures while it loads", async () => {
+    const record = (contactId: number) => ({
+      contactId,
+      origin: 'FROM_WEB',
+      source: 'github',
+      sourceName: 'GitHub people',
+      profileUrl: null,
+      linkedinUrl: null,
+      title: null,
+      email: null,
+      companyId: null,
+      companyName: null,
+      listingId: null,
+      listingUrl: null,
+      listingTitle: null,
+      firstSeenAt: '2026-09-01T09:00:00Z',
+      lastSeenAt: '2026-09-20T09:00:00Z',
+      pictures: 1,
+    });
+    const anna = {
+      personId: 30,
+      name: 'Anna Tamm',
+      follows: false,
+      followedBy: false,
+      sameAddress: false,
+    };
+    vi.mocked(api.fetchMasiPerson).mockImplementation((id) =>
+      Promise.resolve(
+        Number(id) === 21
+          ? { ...kadri, id: 21, found: [record(719)], connections: [anna] }
+          : { ...kadri, id: 30, name: 'Anna Tamm', found: [record(730)], connections: [] },
+      ),
+    );
+    vi.mocked(api.fetchMasiActivity).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiContactPictures).mockImplementation((contactId) =>
+      contactId === 719
+        ? Promise.resolve([
+            {
+              id: 1,
+              source: 'GRAVATAR',
+              sourceUrl: null,
+              contentType: 'image/png',
+              size: 2048,
+              createdAt: '2026-09-01T09:00:00Z',
+              capturedAt: '2026-09-22T09:00:00Z',
+            },
+          ])
+        : new Promise(() => {}),
+    );
+    renderAt('/masi/persons/21', '/masi/persons/:id', <MasiPersonDetail />);
+    await screen.findByTestId('person-pictures');
+
+    await userEvent.click(screen.getByRole('link', { name: 'Anna Tamm' }));
+
+    expect(await screen.findByText('Loading pictures...')).toBeInTheDocument();
+    expect(screen.queryByTestId('person-pictures')).not.toBeInTheDocument();
   });
 
   it('says so when masi holds no record of where it found them', async () => {
