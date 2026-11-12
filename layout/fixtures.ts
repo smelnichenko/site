@@ -942,14 +942,45 @@ function monitorAnswer(path: string): Answer | undefined {
  */
 /** A large employer's people as the people list answers the company card: the first 25 by name, of 103. */
 function companyPeople(companyId: number) {
-  const names = ['Aino', 'Birgit', 'Carmen', 'Diana', 'Eero', 'Fred', 'Grete', 'Hannes', 'Ilmar', 'Jaan', 'Kati', 'Lauri', 'Mari'];
+  const names = [
+    'Aino',
+    'Birgit',
+    'Carmen',
+    'Diana',
+    'Eero',
+    'Fred',
+    'Grete',
+    'Hannes',
+    'Ilmar',
+    'Jaan',
+    'Kati',
+    'Lauri',
+    'Mari',
+  ];
   const content: MasiPerson[] = Array.from({ length: 25 }, (_, i) => ({
     ...person,
     id: 300 + i,
     name: `${names[i % names.length]} ${['Kask', 'Tamm', 'Saar', 'Mets'][i % 4]}`,
     email: `person${i}@example-employer.ee`,
-    ties: person.ties.slice(0, 1).map((t) => ({ ...t, companyId })),
-  })).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));   // by name, as the server orders them
+    ties: [
+      ...person.ties.slice(0, 1).map((t) => ({ ...t, companyId })),
+      // some also post for an agency, some sit on another company's board: the card's "Also at"
+      ...(i % 3 === 0
+        ? [{ ...person.ties[0], companyId: 44, companyName: 'Stafferty OÜ', agency: true }]
+        : []),
+      ...(i % 5 === 0
+        ? [
+            {
+              ...person.ties[0],
+              companyId: 45,
+              companyName: 'Bolt Technology OÜ',
+              agency: false,
+              role: 'REPRESENTS' as const,
+            },
+          ]
+        : []),
+    ],
+  })).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')); // by name, as the server orders them
   return { content, page: 0, size: 25, totalElements: 103 };
 }
 
@@ -1192,9 +1223,17 @@ export function answer(url: URL): Answer | undefined {
       /^\/companies\/\d+\/figures$/,
       () => ({ status: 200, body: figures[path.split('/')[2]] ?? { quarters: [] } }),
     ],
-    [/^\/persons$/, () => ({ status: 200, body: q.get('company') ? companyPeople(Number(q.get('company'))) : personsPage(url.searchParams.get('sort') ?? '') })],
+    [
+      /^\/persons$/,
+      () => ({
+        status: 200,
+        body: q.get('company')
+          ? companyPeople(Number(q.get('company')))
+          : personsPage(url.searchParams.get('sort') ?? ''),
+      }),
+    ],
     [/^\/persons\/of-company\/\d+$/, () => ({ status: 200, body: [] })],
-    [/^\/contacts\/pictures\/for$/, () => ({ status: 200, body: {} })],   // no faces: the names alone
+    [/^\/contacts\/pictures\/for$/, () => ({ status: 200, body: {} })], // no faces: the names alone
     [/^\/persons\/\d+$/, () => ({ status: 200, body: person })],
     // the Sources page: two sources (one with a long config), their changes, the deployment's switches
     [/^\/sources$/, () => ({ status: 200, body: SOURCES })],

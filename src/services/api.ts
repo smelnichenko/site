@@ -2556,7 +2556,11 @@ export function collectMasiPictures(limit = 200): Promise<{ started: number }> {
  * The people tied to one company - who posted for it, who represents it, who was spoken to - by name, the first
  * {@code size} of them, with how many there are: the people list's own query, narrowed to the company.
  */
-export function fetchMasiCompanyPersons(id: number, size: number, signal?: AbortSignal): Promise<Paged<MasiPerson>> {
+export function fetchMasiCompanyPersons(
+  id: number,
+  size: number,
+  signal?: AbortSignal,
+): Promise<Paged<MasiPerson>> {
   return fetchMasiPersons({ company: id, sort: COMPANY_PEOPLE_SORT, size }, signal);
 }
 

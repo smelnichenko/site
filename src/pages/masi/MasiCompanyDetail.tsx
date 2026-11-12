@@ -372,18 +372,27 @@ export default function MasiCompanyDetail() {
           <span className="card-title">People</span>
           <span className="card-header-aside">
             <span className="muted">{peopleTotal}</span>
-            <Link to={`/masi/persons?company=${companyId}&sort=${COMPANY_PEOPLE_SORT}`} className="muted">
+            <Link
+              to={`/masi/persons?company=${companyId}&sort=${COMPANY_PEOPLE_SORT}`}
+              className="muted"
+            >
               in the people list
             </Link>
           </span>
         </div>
         {people.length === 0 && <div className="empty-state">Nobody tied to this company yet.</div>}
         {people.length > 0 && (
-          <MasiTable label="People of the company" testId="company-people">
+          <MasiTable
+            label="People of the company"
+            testId="company-people"
+            columns={['26%', '12%', '22%', '25%', '15%']}
+            minWidth={900}
+          >
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Here</th>
+                <th>Also at</th>
                 <th>Address</th>
                 <th>Contact?</th>
               </tr>
@@ -415,6 +424,23 @@ export default function MasiCompanyDetail() {
                     </td>
                     <td>{here ? rolesText(here.roles) : ''}</td>
                     <td>
+                      {/* the person's other companies, A to Z: a recruiter who posts for an agency too, a board member elsewhere */}
+                      {byCompany(p.ties)
+                        .filter((c) => c.companyId !== companyId)
+                        .sort((a, b) =>
+                          a.companyName.localeCompare(b.companyName, undefined, {
+                            sensitivity: 'base',
+                          }),
+                        )
+                        .map((c) => (
+                          <div key={c.companyId}>
+                            <Link to={`/masi/companies/${c.companyId}`}>{c.companyName}</Link>
+                            {c.agency && <span className="masi-tag">agency</span>}{' '}
+                            <span className="muted">{rolesText(c.roles)}</span>
+                          </div>
+                        ))}
+                    </td>
+                    <td>
                       {p.email ?? ''}
                       {tie && whereLabel(tie.where) && (
                         <div className="muted">{whereLabel(tie.where)}</div>
@@ -437,7 +463,9 @@ export default function MasiCompanyDetail() {
         {peopleTotal > people.length && (
           <div className="muted">
             The first {people.length} of {peopleTotal}, by name -{' '}
-            <Link to={`/masi/persons?company=${companyId}&sort=${COMPANY_PEOPLE_SORT}`}>all of them in the people list</Link>
+            <Link to={`/masi/persons?company=${companyId}&sort=${COMPANY_PEOPLE_SORT}`}>
+              all of them in the people list
+            </Link>
           </div>
         )}
       </div>

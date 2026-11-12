@@ -28,6 +28,20 @@ vi.mock('../../services/api', () => ({
 }));
 const api = await import('../../services/api');
 
+/** The row of the person linked by this name. */
+function rowOf(people: HTMLElement, name: string): HTMLElement {
+  const row = within(people)
+    .getAllByRole('row')
+    .find((r) => within(r).queryByRole('link', { name }) !== null);
+  if (!row) throw new Error(`no row for ${name}`);
+  return row;
+}
+
+/** The first person's Here cell: what they are at this company. */
+function hereCell(people: HTMLElement): HTMLElement {
+  return within(within(people).getAllByRole('row')[1]).getAllByRole('cell')[1];
+}
+
 /** The first people of a company as the server answers them: these, of {@code total}. */
 function peopleOf(rows: MasiPerson[], total = rows.length) {
   return { content: rows, page: 0, size: 25, totalElements: total };
@@ -228,7 +242,8 @@ describe('MasiCompanyDetail', () => {
     );
     // what she is HERE, not at her agency: two listings say so, and her address is not the company's
     expect(within(people).getByText('posted for (2 postings)')).toBeInTheDocument();
-    expect(within(people).queryByText(/works at/)).not.toBeInTheDocument();
+    // what the person is HERE: their other company's role is Also at's
+    expect(hereCell(people)).not.toHaveTextContent(/works at/);
     expect(within(people).getByText('writes from elsewhere')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'in the people list' })).toHaveAttribute(
       'href',
@@ -389,7 +404,12 @@ describe('MasiCompanyDetail', () => {
 
   it('shows the first people of a large company, how many it has, and where all of them are', async () => {
     vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
-    vi.mocked(api.fetchMasiJobs).mockResolvedValue({ content: [], page: 0, size: 100, totalElements: 0 });
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
     vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([kati], 103));
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
     const people = await screen.findByTestId('company-people');
@@ -404,7 +424,12 @@ describe('MasiCompanyDetail', () => {
 
   it('says nothing more when every person of the company is shown', async () => {
     vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
-    vi.mocked(api.fetchMasiJobs).mockResolvedValue({ content: [], page: 0, size: 100, totalElements: 0 });
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
     vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([kati]));
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
     await screen.findByTestId('company-people');
@@ -434,7 +459,9 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValueOnce(peopleOf([])).mockResolvedValue(peopleOf([kati]));
+    vi.mocked(api.fetchMasiCompanyPersons)
+      .mockResolvedValueOnce(peopleOf([]))
+      .mockResolvedValue(peopleOf([kati]));
     vi.mocked(api.fetchMasiRegisterCandidates).mockResolvedValue({
       indexed: true,
       truncated: false,
@@ -850,7 +877,8 @@ describe('MasiCompanyDetail', () => {
     const people = await screen.findByTestId('company-people');
     expect(within(people).getByText('posted for (2 postings)')).toBeInTheDocument();
     expect(within(people).getByText('writes from elsewhere')).toBeInTheDocument();
-    expect(within(people).queryByText(/works at/)).not.toBeInTheDocument();
+    // what the person is HERE: their other company's role is Also at's
+    expect(hereCell(people)).not.toHaveTextContent(/works at/);
     expect(within(people).queryByText("the company's own address")).not.toBeInTheDocument();
     await userEvent.click(within(people).getByRole('button', { name: 'ok to contact' }));
     expect(await screen.findByText('saving refused')).toBeInTheDocument();
@@ -889,14 +917,48 @@ describe('MasiCompanyDetail', () => {
     // the people list answers every tie a person has, the oldest first: here another company's contact leads
     const atStaffertyFirst: MasiPerson = {
       ...kati,
-      ties: [{ ...kati.ties[2], contactId: 77 }, { ...kati.ties[0], contactId: 88 }],
+      ties: [
+        { ...kati.ties[2], contactId: 77 },
+        { ...kati.ties[0], contactId: 88 },
+      ],
     };
     vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
-    vi.mocked(api.fetchMasiJobs).mockResolvedValue({ content: [], page: 0, size: 100, totalElements: 0 });
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
     vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([atStaffertyFirst]));
     vi.mocked(api.fetchMasiContactPicturesFor).mockResolvedValue({});
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
     await waitFor(() => expect(api.fetchMasiContactPicturesFor).toHaveBeenCalled());
     expect(vi.mocked(api.fetchMasiContactPicturesFor).mock.calls[0][0]).toEqual([88]);
+  });
+
+  it("lists a person's other companies under Also at, linked, and nothing for one tied here alone", async () => {
+    // Kati posts for Nortal (here) and works at Stafferty, an agency
+    const onlyHere: MasiPerson = { ...kati, id: 6, name: 'Mari Maasikas', ties: [kati.ties[0]] };
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([kati, onlyHere]));
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    const people = await screen.findByTestId('company-people');
+    expect(within(people).getByRole('columnheader', { name: 'Also at' })).toBeInTheDocument();
+    const katiRow = rowOf(people, 'Kati Kask');
+    expect(within(katiRow).getByRole('link', { name: 'Stafferty' })).toHaveAttribute(
+      'href',
+      '/masi/companies/44',
+    );
+    expect(within(katiRow).getByText('agency')).toBeInTheDocument();
+    // this company is not among her other ones
+    expect(within(katiRow).queryByRole('link', { name: 'Nortal AS' })).not.toBeInTheDocument();
+    const mariRow = rowOf(people, 'Mari Maasikas');
+    expect(within(mariRow).getAllByRole('link')).toHaveLength(1); // her own name: no other company
   });
 });
