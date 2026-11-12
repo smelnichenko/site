@@ -1,31 +1,34 @@
 import { useEffect, useState } from 'react';
 import { SortableHeader } from '../../components/SortableHeader';
-import { sortRows, useUrlSort, type SortValue } from '../../components/sorting';
+import { useUrlSort } from '../../components/sorting';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  fetchMasiPackages,
+  fetchMasiPackagePage,
   fetchMasiRetuneEstimate,
   MasiPackage,
+  Paged,
   retuneMasi,
 } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
-import { badgeClass, errorMessage, formatDateTime, formatUsd, PACKAGE_STATES } from './format';
+import {
+  badgeClass,
+  errorMessage,
+  formatDateTime,
+  formatUsd,
+  PACKAGE_STATES,
+  pageParam,
+} from './format';
 import MasiTable from '../../components/MasiTable';
 import FigureFilterNote from './FigureFilterNote';
 import { figureParams, PACKAGE_EVENTS } from './figureLinks';
 
 const EVENT_WORDS = { REQUESTED: 'requested', APPLIED: 'applied' } as const;
 
-/** The review queue: every package of the caller by state, and the explicit backlog re-tune with its estimate first. */
-/** What each column of the packages list sorts by (ops plan 112): what its cell shows. */
-const PACKAGE_SORTS: Record<string, (p: MasiPackage) => SortValue> = {
-  job: (p) => p.jobTitle,
-  company: (p) => p.companyName,
-  status: (p) => p.status,
-  cost: (p) => p.costUsd,
-  updatedAt: (p) => p.updatedAt,
-};
+/** The packages a page shows: the queue grows with every matched job, so the server pages and sorts it. */
+const PAGE_SIZE = 50;
+
+/** The review queue: the caller's packages by state, a page at a time, and the explicit backlog re-tune with its estimate first. */
 
 export default function MasiPackages() {
   const { sort, setSort } = useUrlSort('updatedAt,desc');
@@ -33,7 +36,9 @@ export default function MasiPackages() {
   // a report's funnel figure: the packages requested or applied in its period, in whatever state they are now
   const figure = figureParams(params, PACKAGE_EVENTS);
   const status = params.get('status') ?? (figure ? 'ALL' : 'PREPARED');
-  const [list, setList] = useState<MasiPackage[] | null>(null);
+  const pageNo = pageParam(params.get('page'));
+  const [page, setPage] = useState<Paged<MasiPackage> | null>(null);
+  const list = page?.content ?? null;
   const [error, setError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<{ count: number; estimatedUsd: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -41,17 +46,20 @@ export default function MasiPackages() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchMasiPackages(
+    fetchMasiPackagePage(
       {
         status: status === 'ALL' ? undefined : status,
         event: figure?.event,
         from: figure?.from,
         to: figure?.to,
+        page: pageNo,
+        size: PAGE_SIZE,
+        sort,
       },
       controller.signal,
     )
-      .then((l) => {
-        setList(l);
+      .then((p) => {
+        setPage(p);
         setError(null);
       })
       .catch((e: unknown) => {
@@ -59,17 +67,21 @@ export default function MasiPackages() {
       });
     return () => controller.abort();
     // the figure's parts, not the object: a new one each render would refetch for ever
-  }, [status, figure?.event, figure?.from, figure?.to]);
+  }, [status, figure?.event, figure?.from, figure?.to, pageNo, sort]);
 
-  /** Sets (or, with '', drops) parameters and keeps the rest: a state chosen keeps the report's period. */
+  /** Sets (or, with '', drops) parameters and keeps the rest: a state chosen keeps the report's period, and starts at page 1. */
   function setAll(values: Record<string, string>) {
     const next = new URLSearchParams(params);
     for (const [key, value] of Object.entries(values)) {
       if (value) next.set(key, value);
       else next.delete(key);
     }
+    if (!('page' in values)) next.delete('page');
     setParams(next);
   }
+
+  const total = page?.totalElements ?? 0;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   async function onEstimate() {
     setBusy(true);
@@ -105,18 +117,21 @@ export default function MasiPackages() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">Review queue</span>
-          <select
-            aria-label="State"
-            value={status}
-            onChange={(e) => setAll({ status: e.target.value })}
-          >
-            {PACKAGE_STATES.map((s) => (
-              <option key={s} value={s}>
-                {s.toLowerCase().replace('_', ' ')}
-              </option>
-            ))}
-            <option value="ALL">all</option>
-          </select>
+          <span className="card-header-aside">
+            <span className="muted">{page ? `${total} matching` : ''}</span>
+            <select
+              aria-label="State"
+              value={status}
+              onChange={(e) => setAll({ status: e.target.value })}
+            >
+              {PACKAGE_STATES.map((s) => (
+                <option key={s} value={s}>
+                  {s.toLowerCase().replace('_', ' ')}
+                </option>
+              ))}
+              <option value="ALL">all</option>
+            </select>
+          </span>
         </div>
         {figure && (
           <FigureFilterNote
@@ -147,7 +162,7 @@ export default function MasiPackages() {
               </tr>
             </thead>
             <tbody>
-              {sortRows(list, sort, PACKAGE_SORTS).map((p) => (
+              {list.map((p) => (
                 <tr key={p.id}>
                   <td>
                     <Link to={`/masi/jobs/${p.jobId}`}>{p.jobTitle ?? `job ${p.jobId}`}</Link>
@@ -164,6 +179,29 @@ export default function MasiPackages() {
               ))}
             </tbody>
           </MasiTable>
+        )}
+        {pages > 1 && (
+          <div className="pagination">
+            <button
+              type="button"
+              className="btn-small"
+              disabled={pageNo <= 0}
+              onClick={() => setAll({ page: String(pageNo - 1) })}
+            >
+              Previous
+            </button>
+            <span className="pagination-info">
+              page {pageNo + 1} of {pages}
+            </span>
+            <button
+              type="button"
+              className="btn-small"
+              disabled={pageNo + 1 >= pages}
+              onClick={() => setAll({ page: String(pageNo + 1) })}
+            >
+              Next
+            </button>
+          </div>
         )}
       </div>
       <div className="card">

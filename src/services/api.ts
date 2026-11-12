@@ -2623,6 +2623,25 @@ export function fetchMasiPackages(
   return masiGet(`/packages${query({ ...filter })}`, signal, 'load packages');
 }
 
+/**
+ * A page of the caller's packages, sorted by the server (`sort` as `column,asc|desc`): the queue grows with every
+ * matched job, so it is never read whole. The page size is clamped by masi (200 at most).
+ */
+export function fetchMasiPackagePage(
+  filter: {
+    status?: string;
+    event?: MasiPackageEvent;
+    from?: string;
+    to?: string;
+    page: number;
+    size: number;
+    sort?: string;
+  },
+  signal?: AbortSignal,
+): Promise<Paged<MasiPackage>> {
+  return masiGet(`/packages/page${query({ ...filter })}`, signal, 'load packages');
+}
+
 export function fetchMasiPackage(id: number, signal?: AbortSignal): Promise<MasiPackage> {
   return masiGet(`/packages/${id}`, signal, 'load the package');
 }

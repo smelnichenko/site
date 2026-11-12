@@ -1114,6 +1114,29 @@ export function answer(url: URL): Answer | undefined {
     [/^\/jobs\/\d+\/history$/, () => ({ status: 200, body: [] })],
     [/^\/jobs\/\d+\/similar$/, () => ({ status: 200, body: [] })],
     [
+      // a queue of 137: the first page of 50, the pager under it - the two fixture packages first, then the rest of the page
+      /^\/packages\/page$/,
+      () => ({
+        status: 200,
+        body: {
+          content: [
+            ...packages,
+            ...Array.from({ length: 48 }, (_, i) => ({
+              ...(prepared as MasiPackage),
+              id: 100 + i,
+              jobId: 200 + i,
+              jobTitle: `Backend Developer ${i + 1}`,
+              companyName: i % 3 === 0 ? 'Bolt Technology OÜ' : 'Wise Payments Estonia AS',
+              status: i % 4 === 0 ? 'REVIEWED' : 'PREPARED',
+            })),
+          ],
+          page: Number(q.get('page') ?? 0),
+          size: 50,
+          totalElements: 137,
+        },
+      }),
+    ],
+    [
       /^\/packages$/,
       () => {
         const byJob: Record<string, MasiPackage[]> = {

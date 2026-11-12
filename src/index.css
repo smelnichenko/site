@@ -1385,7 +1385,8 @@ a.muted,
 .masi-log-form select,
 .masi-package-language select,
 .masi-package .form-group > select,
-.masi .card-header > select {
+.masi .card-header > select,
+.masi .card-header-aside > select {
   min-height: 36px;
   padding: 4px 8px;
   border: 1px solid #ccc;
