@@ -1819,6 +1819,21 @@ export interface MasiPackage {
   artifacts: MasiArtifact[];
 }
 
+/** A package as a row of the review queue ({@code /packages/page}): what the list shows and sorts by - no CV, no letter. */
+export type MasiPackageRow = Pick<
+  MasiPackage,
+  | 'id'
+  | 'jobId'
+  | 'jobTitle'
+  | 'companyName'
+  | 'status'
+  | 'costUsd'
+  | 'response'
+  | 'appliedAt'
+  | 'createdAt'
+  | 'updatedAt'
+>;
+
 export interface MasiDashboard {
   openJobs: number;
   newJobs7d: number;
@@ -2621,6 +2636,25 @@ export function fetchMasiPackages(
   signal?: AbortSignal,
 ): Promise<MasiPackage[]> {
   return masiGet(`/packages${query({ ...filter })}`, signal, 'load packages');
+}
+
+/**
+ * A page of the caller's packages, sorted by the server (`sort` as `column,asc|desc`): the queue grows with every
+ * matched job, so it is never read whole. The page size is clamped by masi (200 at most).
+ */
+export function fetchMasiPackagePage(
+  filter: {
+    status?: string;
+    event?: MasiPackageEvent;
+    from?: string;
+    to?: string;
+    page: number;
+    size: number;
+    sort?: string;
+  },
+  signal?: AbortSignal,
+): Promise<Paged<MasiPackageRow>> {
+  return masiGet(`/packages/page${query({ ...filter })}`, signal, 'load packages');
 }
 
 export function fetchMasiPackage(id: number, signal?: AbortSignal): Promise<MasiPackage> {

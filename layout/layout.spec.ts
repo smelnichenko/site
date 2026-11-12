@@ -90,7 +90,7 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       },
     },
     { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
-    { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [2] } },
+    { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [50] } },
     {
       name: 'a weekly report, every figure a link',
       path: '/masi/reports/5',
