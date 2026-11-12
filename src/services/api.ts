@@ -1819,6 +1819,12 @@ export interface MasiPackage {
   artifacts: MasiArtifact[];
 }
 
+/** A package as a row of the review queue ({@code /packages/page}): what the list shows and sorts by - no CV, no letter. */
+export type MasiPackageRow = Pick<
+  MasiPackage,
+  'id' | 'jobId' | 'jobTitle' | 'companyName' | 'status' | 'costUsd' | 'response' | 'appliedAt' | 'createdAt' | 'updatedAt'
+>;
+
 export interface MasiDashboard {
   openJobs: number;
   newJobs7d: number;
@@ -2638,7 +2644,7 @@ export function fetchMasiPackagePage(
     sort?: string;
   },
   signal?: AbortSignal,
-): Promise<Paged<MasiPackage>> {
+): Promise<Paged<MasiPackageRow>> {
   return masiGet(`/packages/page${query({ ...filter })}`, signal, 'load packages');
 }
 

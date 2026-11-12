@@ -5,7 +5,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   fetchMasiPackagePage,
   fetchMasiRetuneEstimate,
-  MasiPackage,
+  MasiPackageRow,
   Paged,
   retuneMasi,
 } from '../../services/api';
@@ -37,7 +37,7 @@ export default function MasiPackages() {
   const figure = figureParams(params, PACKAGE_EVENTS);
   const status = params.get('status') ?? (figure ? 'ALL' : 'PREPARED');
   const pageNo = pageParam(params.get('page'));
-  const [page, setPage] = useState<Paged<MasiPackage> | null>(null);
+  const [page, setPage] = useState<Paged<MasiPackageRow> | null>(null);
   const list = page?.content ?? null;
   const [error, setError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<{ count: number; estimatedUsd: number } | null>(null);

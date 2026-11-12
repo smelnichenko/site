@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MasiPackages from './MasiPackages';
 import { prepared, renderAt } from './testUtils';
-import type { MasiPackage } from '../../services/api';
+import type { MasiPackageRow } from '../../services/api';
 
 vi.mock('../../services/api', () => ({
   fetchMasiPackagePage: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock('../../services/api', () => ({
 const api = await import('../../services/api');
 
 /** A page of packages as the server gives it: these rows, of {@code total} matching. */
-function pageOf(rows: MasiPackage[], total = rows.length, page = 0) {
+function pageOf(rows: MasiPackageRow[], total = rows.length, page = 0) {
   return { content: rows, page, size: 50, totalElements: total };
 }
 
