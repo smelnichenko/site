@@ -5,6 +5,7 @@ import {
   fetchMasiCompanyContacts,
   fetchMasiContactPictureBlob,
   fetchMasiContactPicturesFor,
+  COMPANY_PEOPLE_SORT,
   fetchMasiCompanyPersons,
   fetchMasiJobs,
   MasiCompany,
@@ -60,7 +61,11 @@ export default function MasiCompanyDetail() {
     void (async () => {
       const byContact = new Map<number, number>();
       for (const p of people) {
-        const contactId = p.ties.find((t) => t.contactId != null)?.contactId;
+        // this company's contact first: a person's other companies' ties come with them, the oldest first
+        const contactId = (
+          p.ties.find((t) => t.companyId === companyId && t.contactId != null) ??
+          p.ties.find((t) => t.contactId != null)
+        )?.contactId;
         if (contactId != null) byContact.set(contactId, p.id);
       }
       if (byContact.size === 0) {
@@ -102,7 +107,7 @@ export default function MasiCompanyDetail() {
       alive = false;
       controller.abort();
     };
-  }, [people]);
+  }, [people, companyId]);
   const [busyAddress, setBusyAddress] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [careersUrl, setCareersUrl] = useState('');
@@ -367,7 +372,7 @@ export default function MasiCompanyDetail() {
           <span className="card-title">People</span>
           <span className="card-header-aside">
             <span className="muted">{peopleTotal}</span>
-            <Link to={`/masi/persons?company=${companyId}`} className="muted">
+            <Link to={`/masi/persons?company=${companyId}&sort=${COMPANY_PEOPLE_SORT}`} className="muted">
               in the people list
             </Link>
           </span>
@@ -432,7 +437,7 @@ export default function MasiCompanyDetail() {
         {peopleTotal > people.length && (
           <div className="muted">
             The first {people.length} of {peopleTotal}, by name -{' '}
-            <Link to={`/masi/persons?company=${companyId}`}>all of them in the people list</Link>
+            <Link to={`/masi/persons?company=${companyId}&sort=${COMPANY_PEOPLE_SORT}`}>all of them in the people list</Link>
           </div>
         )}
       </div>

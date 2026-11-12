@@ -9,6 +9,7 @@ import { job, renderAt } from './testUtils';
 import type { MasiContact, MasiPerson, MasiRegisterCandidates } from '../../services/api';
 
 vi.mock('../../services/api', () => ({
+  COMPANY_PEOPLE_SORT: 'nameNorm,asc',
   fetchMasiCompany: vi.fn(),
   fetchMasiJobs: vi.fn(),
   fetchMasiCompanyPersons: vi.fn(),
@@ -231,7 +232,7 @@ describe('MasiCompanyDetail', () => {
     expect(within(people).getByText('writes from elsewhere')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'in the people list' })).toHaveAttribute(
       'href',
-      '/masi/persons?company=3',
+      '/masi/persons?company=3&sort=nameNorm,asc',
     );
     // a code from the register import itself has no placement to take back, so no register card
     // the card was there and asked: it says nothing because there is nothing to take back, not because it is missing
@@ -397,7 +398,7 @@ describe('MasiCompanyDetail', () => {
     expect(screen.getByText(/The first 1 of 103, by name/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'all of them in the people list' })).toHaveAttribute(
       'href',
-      '/masi/persons?company=3',
+      '/masi/persons?company=3&sort=nameNorm,asc',
     );
   });
 
@@ -882,5 +883,20 @@ describe('MasiCompanyDetail', () => {
     // asked once for every contact behind these people, not once per person
     expect(vi.mocked(api.fetchMasiContactPicturesFor).mock.calls).toHaveLength(1);
     expect(vi.mocked(api.fetchMasiContactPicturesFor).mock.calls[0][0]).toEqual([5]);
+  });
+
+  it("asks for the picture of this company's contact, not of an older company's that comes first", async () => {
+    // the people list answers every tie a person has, the oldest first: here another company's contact leads
+    const atStaffertyFirst: MasiPerson = {
+      ...kati,
+      ties: [{ ...kati.ties[2], contactId: 77 }, { ...kati.ties[0], contactId: 88 }],
+    };
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({ content: [], page: 0, size: 100, totalElements: 0 });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([atStaffertyFirst]));
+    vi.mocked(api.fetchMasiContactPicturesFor).mockResolvedValue({});
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    await waitFor(() => expect(api.fetchMasiContactPicturesFor).toHaveBeenCalled());
+    expect(vi.mocked(api.fetchMasiContactPicturesFor).mock.calls[0][0]).toEqual([88]);
   });
 });

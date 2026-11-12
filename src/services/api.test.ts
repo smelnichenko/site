@@ -1181,7 +1181,7 @@ describe('api - masi people and register', () => {
       ['/api/masi/companies/82/register-match', 'DELETE'],
       ['/api/masi/persons?q=kask&company=3&agency=true&page=1&size=50', 'GET'],
       ['/api/masi/persons/20', 'GET'],
-      ['/api/masi/persons/of-company/3/page?size=25', 'GET'],
+      ['/api/masi/persons?company=3&sort=nameNorm%2Casc&size=25', 'GET'],
       ['/api/masi/persons/20', 'PATCH'],
       ['/api/masi/companies/3/contacts?size=200', 'GET'],
       ['/api/masi/contacts/91', 'PATCH'],
