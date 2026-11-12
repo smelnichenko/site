@@ -385,13 +385,13 @@ export default function MasiCompanyDetail() {
           <MasiTable
             label="People of the company"
             testId="company-people"
-            columns={['26%', '12%', '22%', '25%', '15%']}
-            minWidth={900}
+            className="masi-people-stack"
+            columns={['24%', '12%', '20%', '26%', '18%']}
           >
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Here</th>
+                <th>Role here</th>
                 <th>Also at</th>
                 <th>Address</th>
                 <th>Contact?</th>
@@ -422,8 +422,8 @@ export default function MasiCompanyDetail() {
                       <Link to={`/masi/persons/${p.id}`}>{p.name ?? 'unnamed'}</Link>
                       {p.title && <div className="muted">{p.title}</div>}
                     </td>
-                    <td>{here ? rolesText(here.roles) : ''}</td>
-                    <td>
+                    <td data-label="Role here">{here ? rolesText(here.roles) : ''}</td>
+                    <td data-label="Also at">
                       {/* the person's other companies, A to Z: a recruiter who posts for an agency too, a board member elsewhere */}
                       {byCompany(p.ties)
                         .filter((c) => c.companyId !== companyId)
@@ -440,13 +440,13 @@ export default function MasiCompanyDetail() {
                           </div>
                         ))}
                     </td>
-                    <td>
+                    <td data-label="Address">
                       {p.email ?? ''}
                       {tie && whereLabel(tie.where) && (
                         <div className="muted">{whereLabel(tie.where)}</div>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Contact?">
                       <LoadingButton
                         className={p.doNotContact ? 'status-badge error' : 'status-badge success'}
                         onClick={() => void togglePerson(p)}

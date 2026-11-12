@@ -963,7 +963,13 @@ function companyPeople(companyId: number) {
     name: `${names[i % names.length]} ${['Kask', 'Tamm', 'Saar', 'Mets'][i % 4]}`,
     email: `person${i}@example-employer.ee`,
     ties: [
-      ...person.ties.slice(0, 1).map((t) => ({ ...t, companyId })),
+      // as production's people are (2026-11-12): board members by the register, employees, a few recruiters' postings
+      ...person.ties.slice(0, 1).map((t) => ({
+        ...t,
+        companyId,
+        role: (['REPRESENTS', 'WORKS_AT', 'WORKS_AT', 'REPRESENTS', 'POSTED_FOR'] as const)[i % 5],
+        evidence: i % 5 === 4 ? t.evidence : ('REGISTER' as const),
+      })),
       // some also post for an agency, some sit on another company's board: the card's "Also at"
       ...(i % 3 === 0
         ? [{ ...person.ties[0], companyId: 44, companyName: 'Stafferty OÜ', agency: true }]

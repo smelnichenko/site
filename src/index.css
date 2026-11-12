@@ -2572,3 +2572,44 @@ a.muted,
   margin: 2px 0 0;
   overflow-wrap: anywhere;
 }
+
+/* the company card's people: a long address breaks inside its column rather than pushing the table past its card */
+.masi-people-stack td {
+  overflow-wrap: anywhere;
+}
+
+/*
+ * masi company card, its people on a phone: five columns side by side left only the name and "posted for" in view, the
+ * rest a sideways scroll away (the operator, 2026-11-12). Below 700 px each person is a block of labelled lines; an
+ * empty line (nobody else's company, no address) is left out.
+ */
+@media (max-width: 700px) {
+  .masi-people-stack,
+  .masi-people-stack tbody,
+  .masi-people-stack tr,
+  .masi-people-stack td {
+    display: block;
+    width: 100%;
+  }
+  /* each line says its own column (the cell's label): the header row has nothing left to say */
+  .masi-people-stack thead {
+    display: none;
+  }
+  .masi-people-stack tr {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border, #ddd);
+  }
+  .masi-people-stack td {
+    border: 0;
+    padding: 0.15rem 0;
+  }
+  .masi-people-stack td:empty {
+    display: none;
+  }
+  .masi-people-stack td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.75rem;
+    color: #666; /* .muted's */
+  }
+}
