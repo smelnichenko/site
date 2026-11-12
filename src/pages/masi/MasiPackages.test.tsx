@@ -38,7 +38,10 @@ describe('MasiPackages', () => {
         '/masi/jobs/7',
       ),
     );
-    expect(vi.mocked(api.fetchMasiPackagePage).mock.calls[0][0]).toEqual({ status: 'PREPARED', ...FIRST });
+    expect(vi.mocked(api.fetchMasiPackagePage).mock.calls[0][0]).toEqual({
+      status: 'PREPARED',
+      ...FIRST,
+    });
     expect(screen.getByText('$0.12')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Re-tune/ })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Estimate' }));
@@ -52,7 +55,10 @@ describe('MasiPackages', () => {
     ).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText('State'), 'APPLIED');
     await waitFor(() =>
-      expect(vi.mocked(api.fetchMasiPackagePage).mock.calls[1][0]).toEqual({ status: 'APPLIED', ...FIRST }),
+      expect(vi.mocked(api.fetchMasiPackagePage).mock.calls[1][0]).toEqual({
+        status: 'APPLIED',
+        ...FIRST,
+      }),
     );
   });
 
@@ -115,7 +121,10 @@ describe('MasiPackages', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('State'), 'APPLIED');
     await waitFor(() =>
-      expect(vi.mocked(api.fetchMasiPackagePage).mock.lastCall?.[0]).toMatchObject({ status: 'APPLIED', page: 0 }),
+      expect(vi.mocked(api.fetchMasiPackagePage).mock.lastCall?.[0]).toMatchObject({
+        status: 'APPLIED',
+        page: 0,
+      }),
     );
   });
 });

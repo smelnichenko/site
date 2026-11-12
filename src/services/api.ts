@@ -1822,7 +1822,16 @@ export interface MasiPackage {
 /** A package as a row of the review queue ({@code /packages/page}): what the list shows and sorts by - no CV, no letter. */
 export type MasiPackageRow = Pick<
   MasiPackage,
-  'id' | 'jobId' | 'jobTitle' | 'companyName' | 'status' | 'costUsd' | 'response' | 'appliedAt' | 'createdAt' | 'updatedAt'
+  | 'id'
+  | 'jobId'
+  | 'jobTitle'
+  | 'companyName'
+  | 'status'
+  | 'costUsd'
+  | 'response'
+  | 'appliedAt'
+  | 'createdAt'
+  | 'updatedAt'
 >;
 
 export interface MasiDashboard {
