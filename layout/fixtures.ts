@@ -940,6 +940,19 @@ function monitorAnswer(path: string): Answer | undefined {
  * The people list as two sorts show it: by name a page of short rows, by when seen a page with a long address and a long
  * company list - the rows that made the columns jump before they kept their widths (2026-11-08).
  */
+/** A large employer's people as the company card asks for them: the first 25 by name, of 103. */
+function companyPeople(companyId: number) {
+  const names = ['Aino', 'Birgit', 'Carmen', 'Diana', 'Eero', 'Fred', 'Grete', 'Hannes', 'Ilmar', 'Jaan', 'Kati', 'Lauri', 'Mari'];
+  const content: MasiPerson[] = Array.from({ length: 25 }, (_, i) => ({
+    ...person,
+    id: 300 + i,
+    name: `${names[i % names.length]} ${['Kask', 'Tamm', 'Saar', 'Mets'][i % 4]}`,
+    email: `person${i}@example-employer.ee`,
+    ties: person.ties.slice(0, 1).map((t) => ({ ...t, companyId })),
+  })).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));   // by name, as the server orders them
+  return { content, page: 0, size: 25, totalElements: 103 };
+}
+
 function personsPage(sort: string) {
   const long = sort.startsWith('lastSeenAt');
   const content: MasiPerson[] = [1, 2, 3].map((i) => ({
@@ -1181,6 +1194,8 @@ export function answer(url: URL): Answer | undefined {
     ],
     [/^\/persons$/, () => ({ status: 200, body: personsPage(url.searchParams.get('sort') ?? '') })],
     [/^\/persons\/of-company\/\d+$/, () => ({ status: 200, body: [] })],
+    [/^\/contacts\/pictures\/for$/, () => ({ status: 200, body: {} })],   // no faces: the names alone
+    [/^\/persons\/of-company\/\d+\/page/, () => ({ status: 200, body: companyPeople(Number(path.split('/')[3])) })],
     [/^\/persons\/\d+$/, () => ({ status: 200, body: person })],
     // the Sources page: two sources (one with a long config), their changes, the deployment's switches
     [/^\/sources$/, () => ({ status: 200, body: SOURCES })],

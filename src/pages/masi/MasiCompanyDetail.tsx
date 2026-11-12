@@ -25,6 +25,9 @@ import VisitCard from './VisitCard';
 import { byCompany, rolesText, whereLabel } from './people';
 import { agencyText } from './register';
 
+/** The people the company's card shows, by name: a large employer's hundred are the people list's to page. */
+const PEOPLE_SHOWN = 25;
+
 /**
  * One company: its facts from the register and the boards, which registered company it is, its open and closed jobs,
  * the people tied to it, the operator's flags.
@@ -38,6 +41,8 @@ export default function MasiCompanyDetail() {
   const [jobTotal, setJobTotal] = useState(0);
   const [busyPerson, setBusyPerson] = useState<number | null>(null);
   const [people, setPeople] = useState<MasiPerson[]>([]);
+  /** How many people the company has: the card shows the first of them, the people list all. */
+  const [peopleTotal, setPeopleTotal] = useState(0);
   const [addresses, setAddresses] = useState<MasiContact[]>([]);
   /** One object URL per person that has a picture, by person id; one without simply has no key. */
   const [avatars, setAvatars] = useState<Map<number, string>>(new Map());
@@ -112,7 +117,7 @@ export default function MasiCompanyDetail() {
       const [c, js, ps, cs] = await Promise.all([
         fetchMasiCompany(companyId, signal),
         fetchMasiJobs({ company: companyId, status: 'ALL', size: 100 }, signal),
-        fetchMasiCompanyPersons(companyId, signal),
+        fetchMasiCompanyPersons(companyId, PEOPLE_SHOWN, signal),
         fetchMasiCompanyContacts(companyId, signal),
       ]);
       setCompany(c);
@@ -120,7 +125,8 @@ export default function MasiCompanyDetail() {
       setCareersUrl(c.careersUrl ?? '');
       setJobs(js.content);
       setJobTotal(js.totalElements);
-      setPeople(ps);
+      setPeople(ps.content);
+      setPeopleTotal(ps.totalElements);
       // the rows nobody was made a person of — a desk, the register's company address — are listed apart
       setAddresses(cs.content.filter((x) => x.personId === null));
       setError(null);
@@ -360,7 +366,7 @@ export default function MasiCompanyDetail() {
         <div className="card-header">
           <span className="card-title">People</span>
           <span className="card-header-aside">
-            <span className="muted">{people.length}</span>
+            <span className="muted">{peopleTotal}</span>
             <Link to={`/masi/persons?company=${companyId}`} className="muted">
               in the people list
             </Link>
@@ -422,6 +428,12 @@ export default function MasiCompanyDetail() {
               })}
             </tbody>
           </MasiTable>
+        )}
+        {peopleTotal > people.length && (
+          <div className="muted">
+            The first {people.length} of {peopleTotal}, by name -{' '}
+            <Link to={`/masi/persons?company=${companyId}`}>all of them in the people list</Link>
+          </div>
         )}
       </div>
       {addresses.length > 0 && (

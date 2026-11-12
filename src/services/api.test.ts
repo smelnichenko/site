@@ -1167,7 +1167,7 @@ describe('api - masi people and register', () => {
     await api.takeBackMasiPlacement(82);
     await api.fetchMasiPersons({ q: 'kask', company: 3, agency: true, page: 1, size: 50 });
     await api.fetchMasiPerson(20);
-    await api.fetchMasiCompanyPersons(3);
+    await api.fetchMasiCompanyPersons(3, 25);
     await api.patchMasiPerson(20, { doNotContact: true });
     await api.fetchMasiCompanyContacts(3);
     await api.patchMasiContact(91, { doNotContact: true });
@@ -1181,7 +1181,7 @@ describe('api - masi people and register', () => {
       ['/api/masi/companies/82/register-match', 'DELETE'],
       ['/api/masi/persons?q=kask&company=3&agency=true&page=1&size=50', 'GET'],
       ['/api/masi/persons/20', 'GET'],
-      ['/api/masi/persons/of-company/3', 'GET'],
+      ['/api/masi/persons/of-company/3/page?size=25', 'GET'],
       ['/api/masi/persons/20', 'PATCH'],
       ['/api/masi/companies/3/contacts?size=200', 'GET'],
       ['/api/masi/contacts/91', 'PATCH'],

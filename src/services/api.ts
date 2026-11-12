@@ -2552,9 +2552,12 @@ export function collectMasiPictures(limit = 200): Promise<{ started: number }> {
   );
 }
 
-/** The people tied to one company: who posted for it, who represents it, who was spoken to. */
-export function fetchMasiCompanyPersons(id: number, signal?: AbortSignal): Promise<MasiPerson[]> {
-  return masiGet(`/persons/of-company/${id}`, signal, 'load the people');
+/**
+ * The people tied to one company - who posted for it, who represents it, who was spoken to - by name, the first
+ * {@code size} of them, with how many there are: the people list pages through all of them.
+ */
+export function fetchMasiCompanyPersons(id: number, size: number, signal?: AbortSignal): Promise<Paged<MasiPerson>> {
+  return masiGet(`/persons/of-company/${id}/page${query({ size })}`, signal, 'load the people');
 }
 
 export function patchMasiPerson(
