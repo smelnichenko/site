@@ -2552,10 +2552,20 @@ export function collectMasiPictures(limit = 200): Promise<{ started: number }> {
   );
 }
 
-/** The people tied to one company: who posted for it, who represents it, who was spoken to. */
-export function fetchMasiCompanyPersons(id: number, signal?: AbortSignal): Promise<MasiPerson[]> {
-  return masiGet(`/persons/of-company/${id}`, signal, 'load the people');
+/**
+ * The people tied to one company - who posted for it, who represents it, who was spoken to - by name, the first
+ * {@code size} of them, with how many there are: the people list's own query, narrowed to the company.
+ */
+export function fetchMasiCompanyPersons(
+  id: number,
+  size: number,
+  signal?: AbortSignal,
+): Promise<Paged<MasiPerson>> {
+  return fetchMasiPersons({ company: id, sort: COMPANY_PEOPLE_SORT, size }, signal);
 }
+
+/** The order a company's people are shown in, on its card and in the people list it links to. */
+export const COMPANY_PEOPLE_SORT = 'nameNorm,asc';
 
 export function patchMasiPerson(
   id: number,

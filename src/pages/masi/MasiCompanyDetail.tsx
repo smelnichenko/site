@@ -5,6 +5,7 @@ import {
   fetchMasiCompanyContacts,
   fetchMasiContactPictureBlob,
   fetchMasiContactPicturesFor,
+  COMPANY_PEOPLE_SORT,
   fetchMasiCompanyPersons,
   fetchMasiJobs,
   MasiCompany,
@@ -25,6 +26,9 @@ import VisitCard from './VisitCard';
 import { byCompany, rolesText, whereLabel } from './people';
 import { agencyText } from './register';
 
+/** The people the company's card shows, by name: a large employer's hundred are the people list's to page. */
+const PEOPLE_SHOWN = 25;
+
 /**
  * One company: its facts from the register and the boards, which registered company it is, its open and closed jobs,
  * the people tied to it, the operator's flags.
@@ -38,6 +42,8 @@ export default function MasiCompanyDetail() {
   const [jobTotal, setJobTotal] = useState(0);
   const [busyPerson, setBusyPerson] = useState<number | null>(null);
   const [people, setPeople] = useState<MasiPerson[]>([]);
+  /** How many people the company has: the card shows the first of them, the people list all. */
+  const [peopleTotal, setPeopleTotal] = useState(0);
   const [addresses, setAddresses] = useState<MasiContact[]>([]);
   /** One object URL per person that has a picture, by person id; one without simply has no key. */
   const [avatars, setAvatars] = useState<Map<number, string>>(new Map());
@@ -55,7 +61,11 @@ export default function MasiCompanyDetail() {
     void (async () => {
       const byContact = new Map<number, number>();
       for (const p of people) {
-        const contactId = p.ties.find((t) => t.contactId != null)?.contactId;
+        // this company's contact first: a person's other companies' ties come with them, the oldest first
+        const contactId = (
+          p.ties.find((t) => t.companyId === companyId && t.contactId != null) ??
+          p.ties.find((t) => t.contactId != null)
+        )?.contactId;
         if (contactId != null) byContact.set(contactId, p.id);
       }
       if (byContact.size === 0) {
@@ -97,7 +107,7 @@ export default function MasiCompanyDetail() {
       alive = false;
       controller.abort();
     };
-  }, [people]);
+  }, [people, companyId]);
   const [busyAddress, setBusyAddress] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [careersUrl, setCareersUrl] = useState('');
@@ -112,7 +122,7 @@ export default function MasiCompanyDetail() {
       const [c, js, ps, cs] = await Promise.all([
         fetchMasiCompany(companyId, signal),
         fetchMasiJobs({ company: companyId, status: 'ALL', size: 100 }, signal),
-        fetchMasiCompanyPersons(companyId, signal),
+        fetchMasiCompanyPersons(companyId, PEOPLE_SHOWN, signal),
         fetchMasiCompanyContacts(companyId, signal),
       ]);
       setCompany(c);
@@ -120,7 +130,8 @@ export default function MasiCompanyDetail() {
       setCareersUrl(c.careersUrl ?? '');
       setJobs(js.content);
       setJobTotal(js.totalElements);
-      setPeople(ps);
+      setPeople(ps.content);
+      setPeopleTotal(ps.totalElements);
       // the rows nobody was made a person of — a desk, the register's company address — are listed apart
       setAddresses(cs.content.filter((x) => x.personId === null));
       setError(null);
@@ -360,19 +371,28 @@ export default function MasiCompanyDetail() {
         <div className="card-header">
           <span className="card-title">People</span>
           <span className="card-header-aside">
-            <span className="muted">{people.length}</span>
-            <Link to={`/masi/persons?company=${companyId}`} className="muted">
+            <span className="muted">{peopleTotal}</span>
+            <Link
+              to={`/masi/persons?company=${companyId}&sort=${COMPANY_PEOPLE_SORT}`}
+              className="muted"
+            >
               in the people list
             </Link>
           </span>
         </div>
         {people.length === 0 && <div className="empty-state">Nobody tied to this company yet.</div>}
         {people.length > 0 && (
-          <MasiTable label="People of the company" testId="company-people">
+          <MasiTable
+            label="People of the company"
+            testId="company-people"
+            className="masi-people-stack"
+            columns={['24%', '12%', '20%', '26%', '18%']}
+          >
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Here</th>
+                <th>Role here</th>
+                <th>Also at</th>
                 <th>Address</th>
                 <th>Contact?</th>
               </tr>
@@ -402,14 +422,31 @@ export default function MasiCompanyDetail() {
                       <Link to={`/masi/persons/${p.id}`}>{p.name ?? 'unnamed'}</Link>
                       {p.title && <div className="muted">{p.title}</div>}
                     </td>
-                    <td>{here ? rolesText(here.roles) : ''}</td>
-                    <td>
+                    <td data-label="Role here">{here ? rolesText(here.roles) : ''}</td>
+                    <td data-label="Also at">
+                      {/* the person's other companies, A to Z: a recruiter who posts for an agency too, a board member elsewhere */}
+                      {byCompany(p.ties)
+                        .filter((c) => c.companyId !== companyId)
+                        .sort((a, b) =>
+                          a.companyName.localeCompare(b.companyName, undefined, {
+                            sensitivity: 'base',
+                          }),
+                        )
+                        .map((c) => (
+                          <div key={c.companyId}>
+                            <Link to={`/masi/companies/${c.companyId}`}>{c.companyName}</Link>
+                            {c.agency && <span className="masi-tag">agency</span>}{' '}
+                            <span className="muted">{rolesText(c.roles)}</span>
+                          </div>
+                        ))}
+                    </td>
+                    <td data-label="Address">
                       {p.email ?? ''}
                       {tie && whereLabel(tie.where) && (
                         <div className="muted">{whereLabel(tie.where)}</div>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Contact?">
                       <LoadingButton
                         className={p.doNotContact ? 'status-badge error' : 'status-badge success'}
                         onClick={() => void togglePerson(p)}
@@ -422,6 +459,14 @@ export default function MasiCompanyDetail() {
               })}
             </tbody>
           </MasiTable>
+        )}
+        {peopleTotal > people.length && (
+          <div className="muted">
+            The first {people.length} of {peopleTotal}, by name -{' '}
+            <Link to={`/masi/persons?company=${companyId}&sort=${COMPANY_PEOPLE_SORT}`}>
+              all of them in the people list
+            </Link>
+          </div>
         )}
       </div>
       {addresses.length > 0 && (

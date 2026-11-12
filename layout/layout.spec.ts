@@ -41,6 +41,8 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       drawn: {
         '.masi-figures .recharts-wrapper > svg': [3],
         '.masi-figures-latest dd': [3, '356 (2026 Q2)'],
+        // the first 25 of a large employer's people, not all 103
+        '[data-testid="company-people"] tbody tr': [25],
       },
     },
     {

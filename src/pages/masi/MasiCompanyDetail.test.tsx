@@ -9,6 +9,7 @@ import { job, renderAt } from './testUtils';
 import type { MasiContact, MasiPerson, MasiRegisterCandidates } from '../../services/api';
 
 vi.mock('../../services/api', () => ({
+  COMPANY_PEOPLE_SORT: 'nameNorm,asc',
   fetchMasiCompany: vi.fn(),
   fetchMasiJobs: vi.fn(),
   fetchMasiCompanyPersons: vi.fn(),
@@ -26,6 +27,25 @@ vi.mock('../../services/api', () => ({
   fetchMasiContactPictureBlob: vi.fn(),
 }));
 const api = await import('../../services/api');
+
+/** The row of the person linked by this name. */
+function rowOf(people: HTMLElement, name: string): HTMLElement {
+  const row = within(people)
+    .getAllByRole('row')
+    .find((r) => within(r).queryByRole('link', { name }) !== null);
+  if (!row) throw new Error(`no row for ${name}`);
+  return row;
+}
+
+/** The first person's Here cell: what they are at this company. */
+function hereCell(people: HTMLElement): HTMLElement {
+  return within(within(people).getAllByRole('row')[1]).getAllByRole('cell')[1];
+}
+
+/** The first people of a company as the server answers them: these, of {@code total}. */
+function peopleOf(rows: MasiPerson[], total = rows.length) {
+  return { content: rows, page: 0, size: 25, totalElements: total };
+}
 
 const company = {
   id: 3,
@@ -198,7 +218,7 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 3,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([kati]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([kati]));
     vi.mocked(api.patchMasiCompany).mockResolvedValue({ ...company, blacklisted: true });
     vi.mocked(api.patchMasiPerson).mockResolvedValue({ ...kati, doNotContact: true });
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
@@ -214,7 +234,7 @@ describe('MasiCompanyDetail', () => {
       '/masi/jobs?company=3&status=ALL',
     );
     expect(screen.getByRole('link', { name: 'Old role' })).toHaveAttribute('href', '/masi/jobs/8');
-    expect(api.fetchMasiCompanyPersons).toHaveBeenCalledWith(3, expect.anything());
+    expect(api.fetchMasiCompanyPersons).toHaveBeenCalledWith(3, 25, expect.anything());
     const people = screen.getByTestId('company-people');
     expect(within(people).getByRole('link', { name: 'Kati Kask' })).toHaveAttribute(
       'href',
@@ -222,11 +242,12 @@ describe('MasiCompanyDetail', () => {
     );
     // what she is HERE, not at her agency: two listings say so, and her address is not the company's
     expect(within(people).getByText('posted for (2 postings)')).toBeInTheDocument();
-    expect(within(people).queryByText(/works at/)).not.toBeInTheDocument();
+    // what the person is HERE: their other company's role is Also at's
+    expect(hereCell(people)).not.toHaveTextContent(/works at/);
     expect(within(people).getByText('writes from elsewhere')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'in the people list' })).toHaveAttribute(
       'href',
-      '/masi/persons?company=3',
+      '/masi/persons?company=3&sort=nameNorm,asc',
     );
     // a code from the register import itself has no placement to take back, so no register card
     // the card was there and asked: it says nothing because there is nothing to take back, not because it is missing
@@ -272,7 +293,7 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     const { unmount } = renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
     expect(await screen.findByText(address)).toBeInTheDocument();
     const map = screen.getByRole('link', { name: 'map' });
@@ -296,7 +317,7 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
     expect(
       await screen.findByText('An agency — the register says so (EMTAK 78201)'),
@@ -345,7 +366,7 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([kati]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([kati]));
     // Kati's own contact row is her person's; the desk is nobody's
     vi.mocked(api.fetchMasiCompanyContacts).mockResolvedValue({
       content: [
@@ -381,6 +402,40 @@ describe('MasiCompanyDetail', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the first people of a large company, how many it has, and where all of them are', async () => {
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([kati], 103));
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    const people = await screen.findByTestId('company-people');
+    expect(within(people).getAllByRole('row')).toHaveLength(2); // the header and Kati: the page the server sent
+    expect(screen.getByText('103')).toBeInTheDocument();
+    expect(screen.getByText(/The first 1 of 103, by name/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'all of them in the people list' })).toHaveAttribute(
+      'href',
+      '/masi/persons?company=3&sort=nameNorm,asc',
+    );
+  });
+
+  it('says nothing more when every person of the company is shown', async () => {
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([kati]));
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    await screen.findByTestId('company-people');
+    expect(screen.queryByText(/The first/)).not.toBeInTheDocument();
+  });
+
   it('shows no addresses card when every row is somebody', async () => {
     vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
     vi.mocked(api.fetchMasiJobs).mockResolvedValue({
@@ -389,7 +444,7 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([kati]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([kati]));
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
     await screen.findByTestId('company-people');
     expect(screen.queryByTestId('company-addresses')).not.toBeInTheDocument();
@@ -404,7 +459,9 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValueOnce([]).mockResolvedValue([kati]);
+    vi.mocked(api.fetchMasiCompanyPersons)
+      .mockResolvedValueOnce(peopleOf([]))
+      .mockResolvedValue(peopleOf([kati]));
     vi.mocked(api.fetchMasiRegisterCandidates).mockResolvedValue({
       indexed: true,
       truncated: false,
@@ -443,7 +500,7 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue({
       latest: {
         runAt: '2026-09-27T09:00:00Z',
@@ -511,7 +568,7 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue({
       latest: {
         runAt: '2026-09-27T09:00:00Z',
@@ -555,7 +612,7 @@ describe('MasiCompanyDetail', () => {
       .mockResolvedValueOnce(placed)
       .mockResolvedValue(uncoded);
     vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
     vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
       Promise.resolve({
@@ -601,7 +658,7 @@ describe('MasiCompanyDetail', () => {
       Promise.resolve(id === 17 ? survivor : { ...company, registryCode: null }),
     );
     vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
     vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
       Promise.resolve({
@@ -631,7 +688,7 @@ describe('MasiCompanyDetail', () => {
   it("holds the register card's own choices while a handed-over code is looked up, and only until then", async () => {
     vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
     vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
     let answer: (a: MasiRegisterCandidates) => void = () => {};
     vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
@@ -671,7 +728,7 @@ describe('MasiCompanyDetail', () => {
   it('says a handed-over look-up failed, brings it into view, and lets the card be used again', async () => {
     vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
     vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
     vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
       code
@@ -697,7 +754,7 @@ describe('MasiCompanyDetail', () => {
   it('looks the same code up again when asked again', async () => {
     vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
     vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
     vi.mocked(api.fetchMasiRegisterCandidates).mockImplementation((_id, _signal, code) =>
       Promise.resolve({
@@ -725,7 +782,7 @@ describe('MasiCompanyDetail', () => {
   it('says nothing of a handed-over look-up it abandoned for a newer one', async () => {
     vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
     vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
     let asked = 0;
     let answer: (a: MasiRegisterCandidates) => void = () => {};
@@ -767,7 +824,7 @@ describe('MasiCompanyDetail', () => {
   it('brings a handed-over code the register does not have into view', async () => {
     vi.mocked(api.fetchMasiCompany).mockResolvedValue({ ...company, registryCode: null });
     vi.mocked(api.fetchMasiJobs).mockResolvedValue(noJobs);
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     vi.mocked(api.fetchMasiCompanyVisits).mockResolvedValue(heldVisits);
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
 
@@ -789,7 +846,7 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([]));
     render(
       <MemoryRouter
         initialEntries={[{ pathname: '/masi/companies/3', state: { mergedFrom: 'Nortal' } }]}
@@ -814,13 +871,14 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([elsewhereFirst]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([elsewhereFirst]));
     vi.mocked(api.patchMasiPerson).mockRejectedValue(new Error('saving refused'));
     renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
     const people = await screen.findByTestId('company-people');
     expect(within(people).getByText('posted for (2 postings)')).toBeInTheDocument();
     expect(within(people).getByText('writes from elsewhere')).toBeInTheDocument();
-    expect(within(people).queryByText(/works at/)).not.toBeInTheDocument();
+    // what the person is HERE: their other company's role is Also at's
+    expect(hereCell(people)).not.toHaveTextContent(/works at/);
     expect(within(people).queryByText("the company's own address")).not.toBeInTheDocument();
     await userEvent.click(within(people).getByRole('button', { name: 'ok to contact' }));
     expect(await screen.findByText('saving refused')).toBeInTheDocument();
@@ -840,7 +898,7 @@ describe('MasiCompanyDetail', () => {
       size: 100,
       totalElements: 0,
     });
-    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue([kati]);
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([kati]));
     vi.mocked(api.fetchMasiContactPicturesFor).mockResolvedValue({ 5: 501 });
     vi.mocked(api.fetchMasiContactPictureBlob).mockResolvedValue(
       new Blob(['x'], { type: 'image/jpeg' }),
@@ -853,5 +911,54 @@ describe('MasiCompanyDetail', () => {
     // asked once for every contact behind these people, not once per person
     expect(vi.mocked(api.fetchMasiContactPicturesFor).mock.calls).toHaveLength(1);
     expect(vi.mocked(api.fetchMasiContactPicturesFor).mock.calls[0][0]).toEqual([5]);
+  });
+
+  it("asks for the picture of this company's contact, not of an older company's that comes first", async () => {
+    // the people list answers every tie a person has, the oldest first: here another company's contact leads
+    const atStaffertyFirst: MasiPerson = {
+      ...kati,
+      ties: [
+        { ...kati.ties[2], contactId: 77 },
+        { ...kati.ties[0], contactId: 88 },
+      ],
+    };
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([atStaffertyFirst]));
+    vi.mocked(api.fetchMasiContactPicturesFor).mockResolvedValue({});
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    await waitFor(() => expect(api.fetchMasiContactPicturesFor).toHaveBeenCalled());
+    expect(vi.mocked(api.fetchMasiContactPicturesFor).mock.calls[0][0]).toEqual([88]);
+  });
+
+  it("lists a person's other companies under Also at, linked, and nothing for one tied here alone", async () => {
+    // Kati posts for Nortal (here) and works at Stafferty, an agency
+    const onlyHere: MasiPerson = { ...kati, id: 6, name: 'Mari Maasikas', ties: [kati.ties[0]] };
+    vi.mocked(api.fetchMasiCompany).mockResolvedValue(company);
+    vi.mocked(api.fetchMasiJobs).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+    });
+    vi.mocked(api.fetchMasiCompanyPersons).mockResolvedValue(peopleOf([kati, onlyHere]));
+    renderAt('/masi/companies/3', '/masi/companies/:id', <MasiCompanyDetail />);
+    const people = await screen.findByTestId('company-people');
+    expect(within(people).getByRole('columnheader', { name: 'Also at' })).toBeInTheDocument();
+    const katiRow = rowOf(people, 'Kati Kask');
+    expect(within(katiRow).getByRole('link', { name: 'Stafferty' })).toHaveAttribute(
+      'href',
+      '/masi/companies/44',
+    );
+    expect(within(katiRow).getByText('agency')).toBeInTheDocument();
+    // this company is not among her other ones
+    expect(within(katiRow).queryByRole('link', { name: 'Nortal AS' })).not.toBeInTheDocument();
+    const mariRow = rowOf(people, 'Mari Maasikas');
+    expect(within(mariRow).getAllByRole('link')).toHaveLength(1); // her own name: no other company
   });
 });
