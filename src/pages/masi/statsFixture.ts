@@ -1,5 +1,4 @@
 import type { MasiReport, MasiStats } from '../../services/api';
-import type { MasiReportAnswer } from '../../services/masiSourcesOld';
 
 /** The DST-start week of 2026-03-23 .. 03-30 as the backend's fixtures add it up. */
 export const stats: MasiStats = {
@@ -94,26 +93,5 @@ export const report: MasiReport = {
       OFF: 24,
     },
     packagesNow: { NEW: 0, PREPARED: 2, APPLIED: 1, SKIPPED: 0 },
-  },
-};
-
-/**
- * The same report as a masi before paged sources stored it: every source's health by key ("DISABLED" for one switched
- * off), no counts - and stats listing every source, with no rest.
- */
-export const oldReport: MasiReportAnswer = {
-  ...report,
-  stats: { ...stats, sourcesRest: undefined },
-  snapshot: {
-    ...report.snapshot,
-    sourceHealth: {
-      'ats:pipedrive': 'DEGRADED',
-      'ats:wise': 'DISABLED',
-      bolt: 'DEGRADED',
-      cvee: 'OK',
-      cvkeskus: 'FAILING',
-      linkedin: 'OK',
-    },
-    sourceCounts: undefined,
   },
 };

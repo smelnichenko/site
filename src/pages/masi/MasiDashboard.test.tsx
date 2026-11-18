@@ -5,19 +5,7 @@ import { looseSeparators, renderAt } from './testUtils';
 import type { MasiDashboard as Dashboard, MasiSource } from '../../services/api';
 
 vi.mock('../../services/api', () => ({ fetchMasiDashboard: vi.fn() }));
-// the old masi's answer is read through the real call: no login behind it
-vi.mock('../../services/oidcClient', () => ({
-  getAccessToken: vi.fn(() => Promise.resolve('token')),
-  login: vi.fn(),
-}));
 const api = await import('../../services/api');
-const real = await vi.importActual<typeof import('../../services/api')>('../../services/api');
-
-/** masi answering GET /dashboard with `body`, read by the real fetchMasiDashboard. */
-function answering(body: unknown) {
-  vi.mocked(api.fetchMasiDashboard).mockImplementation(real.fetchMasiDashboard);
-  vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify(body))));
-}
 
 /** A source wanting a look, as masi lists it under sourcesAttention. */
 function unwell(id: number, key: string, over: Partial<MasiSource>): MasiSource {
@@ -43,13 +31,24 @@ function unwell(id: number, key: string, over: Partial<MasiSource>): MasiSource 
   };
 }
 
+/** The caller's packages as masi sends them: every status, at 0 when none. */
+const noPackages = {
+  NEW: 0,
+  PREPARING: 0,
+  PREPARED: 0,
+  REVIEWED: 0,
+  APPLIED: 0,
+  SKIPPED: 0,
+  FAILED: 0,
+};
+
 /** The rest of a dashboard: the tiles' figures, none of them about sources. */
 const tiles = {
   openJobs: 1,
   newJobs7d: 0,
   closedJobs7d: 0,
   companiesHiring: 1,
-  packages: {},
+  packages: noPackages,
   llm: {
     today: 0,
     dailyBudget: 1,
@@ -97,7 +96,7 @@ describe('MasiDashboard', () => {
       newJobs7d: 12,
       closedJobs7d: 3,
       companiesHiring: 41,
-      packages: { NEW: 1, PREPARED: 4, APPLIED: 2, SKIPPED: 1, FAILED: 1 },
+      packages: { ...noPackages, NEW: 1, PREPARED: 4, APPLIED: 2, SKIPPED: 1, FAILED: 1 },
       llm: {
         today: 0.25,
         dailyBudget: 1,
@@ -155,7 +154,7 @@ describe('MasiDashboard', () => {
       newJobs7d: 0,
       closedJobs7d: 0,
       companiesHiring: 1,
-      packages: {},
+      packages: noPackages,
       llm: {
         today: 0,
         dailyBudget: 1,
@@ -253,58 +252,5 @@ describe('MasiDashboard', () => {
     expect(within(card).getByText('All enabled sources are well.')).toBeInTheDocument();
     expect(within(card).queryByRole('table')).not.toBeInTheDocument();
     expect(within(card).getByTestId('source-counts')).toHaveTextContent('0 need a look');
-  });
-
-  /** The site deploys before masi: the old masi's dashboard lists every source, and counts none. */
-  it("makes the counts and the ones wanting a look of the old masi's every source", async () => {
-    vi.unstubAllGlobals();
-    const old = (id: number, key: string, enabled: boolean, health: string, running = false) => ({
-      id,
-      key,
-      name: key,
-      enabled,
-      health,
-      lastRunAt: null,
-      lastSuccessAt: '2026-09-17T09:00:00Z',
-      running,
-    });
-    answering({
-      ...tiles,
-      sources: [
-        old(1, 'cvee', true, 'OK', true),
-        old(2, 'ats:bolt', true, 'DEGRADED'),
-        old(3, 'ats:wise', false, 'DISABLED_AUTO'),
-        old(4, 'linkedin', false, 'OK'),
-        old(5, 'cvkeskus', true, 'FAILING'),
-        old(6, 'ats:pipedrive', true, 'DEGRADED'),
-      ],
-    });
-    renderAt('/masi', '/masi', <MasiDashboard />);
-    const card = await screen.findByRole('region', { name: 'Sources' });
-    expect(within(card).getByTestId('source-counts')).toHaveTextContent(
-      '6 sources · 4 enabled · 1 running · 4 need a look',
-    );
-    // worst first - switched off by its failures, failing, degraded - and the newest first among equals
-    const rows = within(within(card).getByRole('table')).getAllByRole('row').slice(1);
-    expect(rows.map((r) => within(r).getByRole('link').textContent)).toEqual([
-      'ats:wise',
-      'cvkeskus',
-      'ats:pipedrive',
-      'ats:bolt',
-    ]);
-    // the old masi sent no failures and no error: a dash, not a zero nor "undefined"
-    expect(within(rows[0]).getAllByRole('cell')[2]).toHaveTextContent(/^—$/);
-    expect(rows[0]).not.toHaveTextContent('undefined');
-    vi.unstubAllGlobals();
-  });
-
-  it('refuses a dashboard with no sources at all, rather than saying every source is well', async () => {
-    answering({ ...tiles });
-    renderAt('/masi', '/masi', <MasiDashboard />);
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The dashboard sent no sources: neither their counts nor a list of them',
-    );
-    expect(screen.queryByText('All enabled sources are well.')).not.toBeInTheDocument();
-    vi.unstubAllGlobals();
   });
 });

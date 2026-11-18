@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, expectTypeOf, vi, beforeEach } from 'vitest';
 import * as api from './api';
 
 // Mock oidcClient before importing api
@@ -921,15 +921,7 @@ describe('api - masi', () => {
   });
 
   it('asks for stats over inclusive days, lists and reads reports, and generates one', async () => {
-    // the least a period and a report hold for the site to read them
-    const rest = { sources: 0, newListings: 0, closedListings: 0, runs: {} };
-    const stats = { from: 'x', sources: [], sourcesRest: rest };
-    const report = (id: number) => ({
-      id,
-      stats,
-      snapshot: { sourceHealth: {}, sourceCounts: { ALL: 0 } },
-    });
-    mockFetch.mockResolvedValueOnce(mockResponse(stats));
+    mockFetch.mockResolvedValueOnce(mockResponse({ from: 'x' }));
     await api.fetchMasiStats('2026-03-23', '2026-03-29');
     expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/stats?from=2026-03-23&to=2026-03-29');
     mockFetch.mockResolvedValueOnce(mockResponse([]));
@@ -938,10 +930,10 @@ describe('api - masi', () => {
     mockFetch.mockResolvedValueOnce(mockResponse([]));
     await api.fetchMasiReports();
     expect(mockFetch.mock.calls[2][0]).toBe('/api/masi/reports');
-    mockFetch.mockResolvedValueOnce(mockResponse(report(5)));
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: 5 }));
     await api.fetchMasiReport(5);
     expect(mockFetch.mock.calls[3][0]).toBe('/api/masi/reports/5');
-    mockFetch.mockResolvedValueOnce(mockResponse(report(6)));
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: 6 }));
     await api.generateMasiReport('MONTHLY', '2026-08-15');
     const [url, init] = mockFetch.mock.calls[4] as [string, RequestInit];
     expect(url).toBe('/api/masi/reports/generate');
@@ -1408,7 +1400,7 @@ describe('api - masi sources, a page at a time', () => {
     );
   });
 
-  it("fails with the counts' error when the new masi cannot count: a page without its counts is not shown", async () => {
+  it("fails with the counts' error when masi cannot count: a page without its counts is not shown", async () => {
     answer({
       '/api/masi/sources': mockResponse({ content: [], page: 0, size: 50, totalElements: 0 }),
       '/api/masi/sources/counts': mockResponse({ error: 'counting failed' }, { status: 500 }),
@@ -1426,76 +1418,6 @@ describe('api - masi sources, a page at a time', () => {
     );
   });
 
-  /** The site deploys before masi: the old one answers every source as an array, and has no counts. */
-  it("pages and counts the old masi's array as the new masi would: search, Show, sort, page", async () => {
-    const all = [
-      source(1, 'ats:bolt', { name: 'Bolt', health: 'DEGRADED' }),
-      source(2, 'ats:wise', { name: 'Wise', health: 'DISABLED_AUTO', enabled: false }),
-      source(3, 'cvee', { name: 'cv.ee', running: true }),
-      source(4, 'cvkeskus', { name: 'CV Keskus', health: 'FAILING' }),
-      source(5, 'linkedin', { name: 'LinkedIn', enabled: false }),
-      source(6, 'ats:pipedrive', { name: 'pipedrive', health: 'DEGRADED' }),
-    ];
-    answer({
-      '/api/masi/sources': mockResponse(all),
-      // the old masi reads "counts" as a source id: a 400, and no counts
-      '/api/masi/sources/counts': mockResponse({ error: 'Bad request' }, { status: 400 }),
-    });
-    const counted = {
-      ALL: 6,
-      ENABLED: 4,
-      RUNNING: 1,
-      ATTENTION: 4,
-      OK: 1,
-      DEGRADED: 2,
-      FAILING: 1,
-      DISABLED_AUTO: 1,
-      OFF: 1,
-    };
-    const names = (p: api.Paged<api.MasiSource>) => p.content.map((s) => s.name);
-
-    // the worst first; the newest first among equals, as masi breaks a tie by id the same way
-    const attention = await api.fetchMasiSourceList({
-      state: 'ATTENTION',
-      sort: 'health,desc',
-      page: 0,
-      size: 50,
-    });
-    expect(names(attention.page)).toEqual(['Wise', 'CV Keskus', 'pipedrive', 'Bolt']);
-    expect(attention.page.totalElements).toBe(4);
-    expect(attention.counts).toEqual(counted);
-
-    // no sort asked: by name, A to Z whatever its case ("pipedrive" before "Wise"); pages of two, the last
-    const last = await api.fetchMasiSourceList({ page: 2, size: 2 });
-    expect(names(last.page)).toEqual(['pipedrive', 'Wise']);
-    expect(last.page).toMatchObject({ page: 2, size: 2, totalElements: 6 });
-
-    // a key or a name containing the search, case aside; off is switched off by hand, never by its failures
-    const search = await api.fetchMasiSourceList({ q: ' ATS: ', page: 0, size: 50 });
-    expect(names(search.page)).toEqual(['Bolt', 'pipedrive', 'Wise']);
-    const off = await api.fetchMasiSourceList({ state: 'OFF', page: 0, size: 50 });
-    expect(names(off.page)).toEqual(['LinkedIn']);
-    const running = await api.fetchMasiSourceList({ state: 'RUNNING', page: 0, size: 50 });
-    expect(names(running.page)).toEqual(['cv.ee']);
-  });
-
-  it("sorts the old masi's array by the daily cap as a number and by the next run, empty values last either way", async () => {
-    const all = [
-      source(1, 'a', { configJson: '{"dailyRequestCap":100}' }),
-      source(2, 'b', { configJson: '{"dailyRequestCap":20}' }),
-      source(3, 'c', { configJson: '{"dailyRequestCap":2.5}' }), // no whole number: no cap
-      source(4, 'd', { configJson: null }),
-      source(5, 'e', { nextRunAt: '2026-11-18T19:00:00Z' }),
-      source(6, 'f', { nextRunAt: '2026-11-18T18:00:00Z', enabled: false }), // switched off: no next run
-    ];
-    answer({ '/api/masi/sources': mockResponse(all) });
-    const keys = async (sort: string) =>
-      (await api.fetchMasiSourceList({ sort, page: 0, size: 50 })).page.content.map((s) => s.key);
-    expect(await keys('cap,asc')).toEqual(['b', 'a', 'c', 'd', 'e', 'f']);
-    expect(await keys('cap,desc')).toEqual(['a', 'b', 'f', 'e', 'd', 'c']);
-    expect(await keys('nextRunAt,asc')).toEqual(['e', 'a', 'b', 'c', 'd', 'f']);
-  });
-
   it('reads one source by its id', async () => {
     mockFetch.mockResolvedValueOnce(mockResponse(source(8, 'ats:wise')));
     expect((await api.fetchMasiSource(8)).key).toBe('ats:wise');
@@ -1503,146 +1425,137 @@ describe('api - masi sources, a page at a time', () => {
   });
 });
 
-describe('api - the old masi read into the new shapes', () => {
-  /** One source's figures in a period. */
-  function row(i: number, newListings: number, runs: Record<string, number>) {
-    return { key: `src${i}`, name: `Source ${i}`, newListings, closedListings: 1, runs };
-  }
-  const period = {
+describe('api - masi sources: the page and its counts', () => {
+  const page = { content: [], page: 0, size: 50, totalElements: 0 };
+  const counts = {
+    ALL: 0,
+    ENABLED: 0,
+    RUNNING: 0,
+    ATTENTION: 0,
+    OK: 0,
+    DEGRADED: 0,
+    FAILING: 0,
+    DISABLED_AUTO: 0,
+    OFF: 0,
+  };
+
+  it('asks for the page alone, when only the page is wanted (a key looked up)', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(page));
+    expect(await api.fetchMasiSourcePage({ q: 'meetfrank', page: 0, size: 200 })).toEqual(page);
+    expect(mockFetch.mock.calls.map((c) => c[0] as string)).toEqual([
+      '/api/masi/sources?q=meetfrank&page=0&size=200',
+    ]);
+  });
+
+  it('asks for the counts at once, not after the page: masi slow with one never holds the other back', async () => {
+    mockFetch.mockImplementation(
+      (url: string) =>
+        url.startsWith('/api/masi/sources/counts')
+          ? Promise.resolve(mockResponse(counts))
+          : new Promise(() => {}), // the page: masi never answers
+    );
+    void api.fetchMasiSourceList({ page: 0, size: 50 });
+    await vi.waitFor(() =>
+      expect(mockFetch.mock.calls.map((c) => c[0] as string)).toContain('/api/masi/sources/counts'),
+    );
+  });
+});
+
+describe('api - masi answers taken as masi sends them', () => {
+  it("reads the dashboard whole: the sources' counts, the ones wanting a look, the pauses", async () => {
+    const dashboard = {
+      openJobs: 2318,
+      newJobs7d: 412,
+      closedJobs7d: 377,
+      companiesHiring: 611,
+      packages: {
+        NEW: 3,
+        PREPARING: 1,
+        PREPARED: 12,
+        REVIEWED: 4,
+        APPLIED: 38,
+        SKIPPED: 51,
+        FAILED: 2,
+      },
+      llm: {
+        today: 0.84,
+        dailyBudget: 3,
+        month: 18.4,
+        monthlyBudget: 60,
+        enabled: true,
+        monthByPurpose: { TUNE: 11.2 },
+        averagePackageCostMonth: 0.31,
+      },
+      cv: { activeVersion: 7, completeness: 92, gaps: ['role 3 has no metric'] },
+      sourceCounts: {
+        ALL: 225,
+        ENABLED: 200,
+        RUNNING: 2,
+        ATTENTION: 5,
+        OK: 196,
+        DEGRADED: 3,
+        FAILING: 1,
+        DISABLED_AUTO: 1,
+        OFF: 24,
+      },
+      sourcesAttention: [
+        { id: 9, key: 'ats:ibkr', health: 'DISABLED_AUTO', consecutiveFailures: 10 },
+      ],
+      tuningPausedUntil: '2026-11-19T06:00:00Z',
+    };
+    mockFetch.mockResolvedValueOnce(mockResponse(dashboard));
+    expect(await api.fetchMasiDashboard()).toEqual(dashboard);
+  });
+
+  /** A period's stats, and a report as masi reads one it stored before it counted its sources. */
+  const stats = {
     from: '2026-03-22T22:00:00Z',
     to: '2026-03-29T21:00:00Z',
-    registry: {
-      newJobs: 0,
-      closedJobs: 0,
-      repostedJobs: 0,
-      newListings: 0,
-      closedListings: 0,
-      medianListingLifetimeHours: null,
-    },
-    topCompanies: [],
-    titles: [],
-    seniority: {},
-    remote: {},
-    techTags: {},
-    salary: { posted: 0, lowest: null, medianMin: null, medianMax: null, highest: null },
-    funnel: { requested: 0, applied: 0, averagePackageCostUsd: null },
-    llm: {
-      totalUsd: 0,
-      byPurpose: {},
-      byModel: {},
-      calls: {},
-      tokens: { input: 0, cacheRead: 0, cacheWrite: 0, output: 0 },
+    sources: [{ key: 'cvee', name: 'cv.ee', newListings: 2, closedListings: 1, runs: { OK: 1 } }],
+    sourcesRest: { sources: 223, newListings: 0, closedListings: 0, runs: { OK: 40 } },
+    topCompanies: [{ id: 3, name: 'Nortal AS', newJobs: 2 }],
+  };
+  const report = {
+    id: 5,
+    kind: 'WEEKLY',
+    stats,
+    snapshot: {
+      asOf: '2026-03-30T03:00:00Z',
+      sourceHealth: { cvkeskus: 'FAILING', bolt: 'DEGRADED' },
+      // no RUNNING, no DISABLED_AUTO: the health the report kept saw neither
+      sourceCounts: { ALL: 6, ENABLED: 5, ATTENTION: 3, OK: 2, DEGRADED: 2, FAILING: 1, OFF: 1 },
     },
   };
 
-  it("cuts the old masi's every source to the 25 with the most new listings, the others summed", async () => {
-    // 30 sources: src0 has the most new listings, src29 the fewest; two tie on listings and are told by their closes
-    const all = Array.from({ length: 30 }, (_, i) => row(i, 30 - i, { OK: 1, ERROR: i % 2 }));
-    all[26] = { ...all[26], newListings: 30, closedListings: 9 };
-    mockFetch.mockResolvedValueOnce(mockResponse({ ...period, sources: all }));
-    const stats = await api.fetchMasiStats('2026-03-23', '2026-03-29');
-    expect(stats.sources).toHaveLength(25);
-    expect(stats.sources.slice(0, 3).map((s) => s.name)).toEqual([
-      'Source 26',
-      'Source 0',
-      'Source 1',
-    ]);
-    // the five left: src24, 25, 27, 28, 29 - 6 + 5 + 3 + 2 + 1 new listings, one close each, five ok runs and three
-    // errors (the odd ones)
-    expect(stats.sourcesRest).toEqual({
-      sources: 5,
-      newListings: 17,
-      closedListings: 5,
-      runs: { OK: 5, ERROR: 3 },
-    });
+  it('reads a period whole: its sources, their rest, its companies', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(stats));
+    expect(await api.fetchMasiStats('2026-03-23', '2026-03-29')).toEqual(stats);
   });
 
-  it('reads a few sources and no rest as every source, with an empty rest; a rest sent is kept as it is', async () => {
-    mockFetch.mockResolvedValueOnce(mockResponse({ ...period, sources: [row(1, 3, { OK: 1 })] }));
-    expect((await api.fetchMasiStats('2026-03-23', '2026-03-29')).sourcesRest).toEqual({
-      sources: 0,
-      newListings: 0,
-      closedListings: 0,
-      runs: {},
-    });
-    const rest = { sources: 200, newListings: 9, closedListings: 4, runs: { OK: 400 } };
-    const sources = Array.from({ length: 25 }, (_, i) => row(i, 1, {}));
-    mockFetch.mockResolvedValueOnce(mockResponse({ ...period, sources, sourcesRest: rest }));
-    const fresh = await api.fetchMasiStats('2026-03-23', '2026-03-29');
-    expect(fresh.sourcesRest).toEqual(rest);
-    expect(fresh.sources).toEqual(sources);
+  it('reads a report whole, and one generated the same: no count made up for the keys it has not', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(report));
+    expect(await api.fetchMasiReport(5)).toEqual(report);
+    mockFetch.mockResolvedValueOnce(mockResponse(report));
+    expect(await api.generateMasiReport('WEEKLY')).toEqual(report);
   });
 
-  it("counts an old report's every source and keeps only the unwell, worst first; a new report as it is", async () => {
-    const snapshot = {
-      asOf: '2026-03-30T03:00:00Z',
-      openJobs: 1,
-      companiesHiring: 1,
-      packagesNow: {},
-      sourceHealth: {
-        zeta: 'DEGRADED',
-        alpha: 'DEGRADED',
-        cvkeskus: 'FAILING',
-        cvee: 'OK',
-        linkedin: 'DISABLED',
-      },
-    };
-    const old = { id: 5, kind: 'WEEKLY', stats: { ...period, sources: [] }, snapshot };
-    mockFetch.mockResolvedValueOnce(mockResponse(old));
-    const report = await api.fetchMasiReport(5);
-    expect(report.snapshot.sourceCounts).toEqual({
-      ALL: 5,
-      ENABLED: 4,
-      ATTENTION: 3,
-      OK: 1,
-      DEGRADED: 2,
-      FAILING: 1,
-      OFF: 1,
-    });
-    // worst first, then by key: an ordered map the page shows as it is
-    expect(Object.entries(report.snapshot.sourceHealth)).toEqual([
-      ['cvkeskus', 'FAILING'],
-      ['alpha', 'DEGRADED'],
-      ['zeta', 'DEGRADED'],
-    ]);
-    expect(report.stats.sourcesRest.sources).toBe(0);
-    // a report generated by the old masi is read the same way
-    mockFetch.mockResolvedValueOnce(mockResponse(old));
-    expect((await api.generateMasiReport('WEEKLY')).snapshot.sourceCounts.ALL).toBe(5);
-
-    const counts = {
-      ALL: 225,
-      ENABLED: 200,
-      ATTENTION: 1,
-      OK: 199,
-      DEGRADED: 1,
-      FAILING: 0,
-      OFF: 25,
-    };
-    mockFetch.mockResolvedValueOnce(
-      mockResponse({
-        ...old,
-        snapshot: { ...snapshot, sourceHealth: { zeta: 'DEGRADED' }, sourceCounts: counts },
-      }),
-    );
-    const fresh = await api.fetchMasiReport(5);
-    expect(fresh.snapshot.sourceCounts).toEqual(counts);
-    expect(fresh.snapshot.sourceHealth).toEqual({ zeta: 'DEGRADED' });
-  });
-
-  it('refuses a dashboard with neither the counts nor the list of sources: no false all-clear', async () => {
-    const tiles = { openJobs: 1, newJobs7d: 0, closedJobs7d: 0, companiesHiring: 0, packages: {} };
-    mockFetch.mockResolvedValueOnce(mockResponse(tiles));
-    await expect(api.fetchMasiDashboard()).rejects.toThrow(
-      'The dashboard sent no sources: neither their counts nor a list of them',
-    );
-    // the counts alone are not the new dashboard either
-    mockFetch.mockResolvedValueOnce(mockResponse({ ...tiles, sourceCounts: { ALL: 3 } }));
-    await expect(api.fetchMasiDashboard()).rejects.toThrow('The dashboard sent no sources');
-    // an old masi with no source at all is an empty registry, said so
-    mockFetch.mockResolvedValueOnce(mockResponse({ ...tiles, sources: [] }));
-    const empty = await api.fetchMasiDashboard();
-    expect(empty.sourceCounts.ALL).toBe(0);
-    expect(empty.sourcesAttention).toEqual([]);
+  /**
+   * What the types promise, checked by the compiler (the gate's tsc), not at run time: a live count has every key - one
+   * missing is no answer of masi's, never read as 0 (a missing ATTENTION read as 0 said "All enabled sources are
+   * well") - a report's may lack only RUNNING and DISABLED_AUTO, and the dashboard's packages have every status.
+   */
+  it('types every key masi always sends as there', () => {
+    expectTypeOf<api.MasiSourceCounts['ATTENTION']>().toEqualTypeOf<number>();
+    expectTypeOf<api.MasiReportSourceCounts['ATTENTION']>().toEqualTypeOf<number>();
+    expectTypeOf<api.MasiReportSourceCounts['RUNNING']>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<api.MasiDashboard['packages']['PREPARED']>().toEqualTypeOf<number>();
+    const old: api.MasiReportSourceCounts = report.snapshot.sourceCounts;
+    // @ts-expect-error a live count without ATTENTION is no count of masi's
+    const live: api.MasiSourceCounts = { ALL: 6 };
+    // @ts-expect-error a report's counts always hold ATTENTION
+    const stored: api.MasiReportSourceCounts = { ALL: 6, ENABLED: 5 };
+    // @ts-expect-error masi sends every package status
+    const packages: api.MasiDashboard['packages'] = { PREPARED: 1 };
+    expect([old, live, stored, packages]).toHaveLength(4);
   });
 });

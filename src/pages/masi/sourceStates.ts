@@ -1,4 +1,4 @@
-import type { MasiSourceCounts, MasiSourceState } from '../../services/api';
+import type { MasiSourceState } from '../../services/api';
 
 /** The Sources page's "Show" choices after "all", in the select's order: the groups, then each state. */
 export const SHOWS: readonly MasiSourceState[] = [
@@ -35,11 +35,6 @@ export function sourcesLink(show?: MasiSourceState): string {
   return show === 'ATTENTION'
     ? '/masi/sources?state=ATTENTION&sort=health,desc'
     : `/masi/sources?state=${show}`;
-}
-
-/** A count of the counts map; a key a report stored before masi counted it has none. */
-export function countOf(counts: MasiSourceCounts, show: MasiSourceState | 'ALL'): number {
-  return counts[show] ?? 0;
 }
 
 /**
