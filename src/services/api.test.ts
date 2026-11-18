@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, expectTypeOf, vi, beforeEach } from 'vitest';
 import * as api from './api';
 
 // Mock oidcClient before importing api
@@ -1422,5 +1422,140 @@ describe('api - masi sources, a page at a time', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(source(8, 'ats:wise')));
     expect((await api.fetchMasiSource(8)).key).toBe('ats:wise');
     expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/sources/8');
+  });
+});
+
+describe('api - masi sources: the page and its counts', () => {
+  const page = { content: [], page: 0, size: 50, totalElements: 0 };
+  const counts = {
+    ALL: 0,
+    ENABLED: 0,
+    RUNNING: 0,
+    ATTENTION: 0,
+    OK: 0,
+    DEGRADED: 0,
+    FAILING: 0,
+    DISABLED_AUTO: 0,
+    OFF: 0,
+  };
+
+  it('asks for the page alone, when only the page is wanted (a key looked up)', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(page));
+    expect(await api.fetchMasiSourcePage({ q: 'meetfrank', page: 0, size: 200 })).toEqual(page);
+    expect(mockFetch.mock.calls.map((c) => c[0] as string)).toEqual([
+      '/api/masi/sources?q=meetfrank&page=0&size=200',
+    ]);
+  });
+
+  it('asks for the counts at once, not after the page: masi slow with one never holds the other back', async () => {
+    mockFetch.mockImplementation(
+      (url: string) =>
+        url.startsWith('/api/masi/sources/counts')
+          ? Promise.resolve(mockResponse(counts))
+          : new Promise(() => {}), // the page: masi never answers
+    );
+    void api.fetchMasiSourceList({ page: 0, size: 50 });
+    await vi.waitFor(() =>
+      expect(mockFetch.mock.calls.map((c) => c[0] as string)).toContain('/api/masi/sources/counts'),
+    );
+  });
+});
+
+describe('api - masi answers taken as masi sends them', () => {
+  it("reads the dashboard whole: the sources' counts, the ones wanting a look, the pauses", async () => {
+    const dashboard = {
+      openJobs: 2318,
+      newJobs7d: 412,
+      closedJobs7d: 377,
+      companiesHiring: 611,
+      packages: {
+        NEW: 3,
+        PREPARING: 1,
+        PREPARED: 12,
+        REVIEWED: 4,
+        APPLIED: 38,
+        SKIPPED: 51,
+        FAILED: 2,
+      },
+      llm: {
+        today: 0.84,
+        dailyBudget: 3,
+        month: 18.4,
+        monthlyBudget: 60,
+        enabled: true,
+        monthByPurpose: { TUNE: 11.2 },
+        averagePackageCostMonth: 0.31,
+      },
+      cv: { activeVersion: 7, completeness: 92, gaps: ['role 3 has no metric'] },
+      sourceCounts: {
+        ALL: 225,
+        ENABLED: 200,
+        RUNNING: 2,
+        ATTENTION: 5,
+        OK: 196,
+        DEGRADED: 3,
+        FAILING: 1,
+        DISABLED_AUTO: 1,
+        OFF: 24,
+      },
+      sourcesAttention: [
+        { id: 9, key: 'ats:ibkr', health: 'DISABLED_AUTO', consecutiveFailures: 10 },
+      ],
+      tuningPausedUntil: '2026-11-19T06:00:00Z',
+    };
+    mockFetch.mockResolvedValueOnce(mockResponse(dashboard));
+    expect(await api.fetchMasiDashboard()).toEqual(dashboard);
+  });
+
+  /** A period's stats, and a report as masi reads one it stored before it counted its sources. */
+  const stats = {
+    from: '2026-03-22T22:00:00Z',
+    to: '2026-03-29T21:00:00Z',
+    sources: [{ key: 'cvee', name: 'cv.ee', newListings: 2, closedListings: 1, runs: { OK: 1 } }],
+    sourcesRest: { sources: 223, newListings: 0, closedListings: 0, runs: { OK: 40 } },
+    topCompanies: [{ id: 3, name: 'Nortal AS', newJobs: 2 }],
+  };
+  const report = {
+    id: 5,
+    kind: 'WEEKLY',
+    stats,
+    snapshot: {
+      asOf: '2026-03-30T03:00:00Z',
+      sourceHealth: { cvkeskus: 'FAILING', bolt: 'DEGRADED' },
+      // no RUNNING, no DISABLED_AUTO: the health the report kept saw neither
+      sourceCounts: { ALL: 6, ENABLED: 5, ATTENTION: 3, OK: 2, DEGRADED: 2, FAILING: 1, OFF: 1 },
+    },
+  };
+
+  it('reads a period whole: its sources, their rest, its companies', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(stats));
+    expect(await api.fetchMasiStats('2026-03-23', '2026-03-29')).toEqual(stats);
+  });
+
+  it('reads a report whole, and one generated the same: no count made up for the keys it has not', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(report));
+    expect(await api.fetchMasiReport(5)).toEqual(report);
+    mockFetch.mockResolvedValueOnce(mockResponse(report));
+    expect(await api.generateMasiReport('WEEKLY')).toEqual(report);
+  });
+
+  /**
+   * What the types promise, checked by the compiler (the gate's tsc), not at run time: a live count has every key - one
+   * missing is no answer of masi's, never read as 0 (a missing ATTENTION read as 0 said "All enabled sources are
+   * well") - a report's may lack only RUNNING and DISABLED_AUTO, and the dashboard's packages have every status.
+   */
+  it('types every key masi always sends as there', () => {
+    expectTypeOf<api.MasiSourceCounts['ATTENTION']>().toEqualTypeOf<number>();
+    expectTypeOf<api.MasiReportSourceCounts['ATTENTION']>().toEqualTypeOf<number>();
+    expectTypeOf<api.MasiReportSourceCounts['RUNNING']>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<api.MasiDashboard['packages']['PREPARED']>().toEqualTypeOf<number>();
+    const old: api.MasiReportSourceCounts = report.snapshot.sourceCounts;
+    // @ts-expect-error a live count without ATTENTION is no count of masi's
+    const live: api.MasiSourceCounts = { ALL: 6 };
+    // @ts-expect-error a report's counts always hold ATTENTION
+    const stored: api.MasiReportSourceCounts = { ALL: 6, ENABLED: 5 };
+    // @ts-expect-error masi sends every package status
+    const packages: api.MasiDashboard['packages'] = { PREPARED: 1 };
+    expect([old, live, stored, packages]).toHaveLength(4);
   });
 });

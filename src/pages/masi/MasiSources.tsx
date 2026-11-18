@@ -31,7 +31,7 @@ import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDateTime, noteClass, pageParam } from './format';
 import MasiTable from '../../components/MasiTable';
 import PictureStatus from './PictureStatus';
-import { countOf, showOf, SHOW_WORDS, SHOWS } from './sourceStates';
+import { showOf, SHOW_WORDS, SHOWS } from './sourceStates';
 
 /** A page of sources: the operator's choice (2026-11-18), as masi's own default. */
 const PAGE_SIZE = 50;
@@ -190,7 +190,7 @@ function healthWords(health: string): string {
 
 /** "(225)" after a "Show", once the counts are read. */
 function counted(counts: MasiSourceCounts | null, show: MasiSourceState | 'ALL'): string {
-  return counts ? ` (${countOf(counts, show)})` : '';
+  return counts ? ` (${counts[show]})` : '';
 }
 
 /**
@@ -562,7 +562,7 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   let summary = '';
   if (!alone && counts) {
-    summary = `${countOf(counts, 'ENABLED')} of ${counts.ALL} enabled · ${total} match`;
+    summary = `${counts.ENABLED} of ${counts.ALL} enabled · ${total} match`;
   }
   const own = alone ? sources?.[0] : undefined;
   return (

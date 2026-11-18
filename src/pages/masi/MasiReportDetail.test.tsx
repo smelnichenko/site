@@ -106,6 +106,24 @@ describe('MasiReportDetail', () => {
     );
   });
 
+  /** A report stored before masi counted its sources: masi reads its counts from the health it kept - no RUNNING, no DISABLED_AUTO. */
+  it("reads an old report's counts, which lack what its health never saw, without a made-up figure", async () => {
+    vi.mocked(api.fetchMasiReport).mockResolvedValue({
+      ...report,
+      snapshot: {
+        ...report.snapshot,
+        sourceHealth: { cvkeskus: 'FAILING', 'ats:pipedrive': 'DEGRADED', bolt: 'DEGRADED' },
+        sourceCounts: { ALL: 6, ENABLED: 5, ATTENTION: 3, OK: 2, DEGRADED: 2, FAILING: 1, OFF: 1 },
+      },
+    });
+    renderAt('/masi/reports/5', '/masi/reports/:id', <MasiReportDetail />);
+    const line = await screen.findByTestId('source-counts');
+    expect(line).toHaveTextContent(/^6 sources · 5 enabled · 3 needed a look$/);
+    expect(line).not.toHaveTextContent(/undefined|NaN/);
+    expect(within(screen.getByTestId('source-health')).getAllByRole('link')).toHaveLength(3);
+    expect(screen.queryByRole('link', { name: /more/ })).not.toBeInTheDocument();
+  });
+
   it('names no source when none wanted a look', async () => {
     vi.mocked(api.fetchMasiReport).mockResolvedValue({
       ...report,

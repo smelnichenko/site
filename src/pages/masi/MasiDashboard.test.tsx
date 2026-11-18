@@ -31,13 +31,24 @@ function unwell(id: number, key: string, over: Partial<MasiSource>): MasiSource 
   };
 }
 
+/** The caller's packages as masi sends them: every status, at 0 when none. */
+const noPackages = {
+  NEW: 0,
+  PREPARING: 0,
+  PREPARED: 0,
+  REVIEWED: 0,
+  APPLIED: 0,
+  SKIPPED: 0,
+  FAILED: 0,
+};
+
 /** The rest of a dashboard: the tiles' figures, none of them about sources. */
 const tiles = {
   openJobs: 1,
   newJobs7d: 0,
   closedJobs7d: 0,
   companiesHiring: 1,
-  packages: {},
+  packages: noPackages,
   llm: {
     today: 0,
     dailyBudget: 1,
@@ -85,7 +96,7 @@ describe('MasiDashboard', () => {
       newJobs7d: 12,
       closedJobs7d: 3,
       companiesHiring: 41,
-      packages: { NEW: 1, PREPARED: 4, APPLIED: 2, SKIPPED: 1, FAILED: 1 },
+      packages: { ...noPackages, NEW: 1, PREPARED: 4, APPLIED: 2, SKIPPED: 1, FAILED: 1 },
       llm: {
         today: 0.25,
         dailyBudget: 1,
@@ -143,7 +154,7 @@ describe('MasiDashboard', () => {
       newJobs7d: 0,
       closedJobs7d: 0,
       companiesHiring: 1,
-      packages: {},
+      packages: noPackages,
       llm: {
         today: 0,
         dailyBudget: 1,

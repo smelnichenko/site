@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import MasiNav from '../../components/MasiNav';
-import { fetchMasiSourceList } from '../../services/api';
+import { fetchMasiSourcePage } from '../../services/api';
 import { errorMessage } from './format';
 import MasiSources from './MasiSources';
 
@@ -59,8 +59,9 @@ export function MasiSourceByKey() {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    fetchMasiSourceList({ q: key, page: 0, size: KEY_SEARCH_SIZE }, controller.signal).then(
-      (answer) => setFound({ key, id: answer.page.content.find((s) => s.key === key)?.id ?? null }),
+    // the page alone: the "Show" counts say nothing of one key, and their failure is no failure to find it
+    fetchMasiSourcePage({ q: key, page: 0, size: KEY_SEARCH_SIZE }, controller.signal).then(
+      (page) => setFound({ key, id: page.content.find((s) => s.key === key)?.id ?? null }),
       (e: unknown) => {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to find the source'));
       },

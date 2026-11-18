@@ -6,7 +6,7 @@ import { badgeClass, errorMessage, formatDateTime, formatUsd, noteClass } from '
 import MasiTable from '../../components/MasiTable';
 import FigureLink, { Tied } from './FigureLink';
 import { SEPARATOR } from './figureLinks';
-import { countOf, sourcesLink, sourceState, stateWords } from './sourceStates';
+import { sourcesLink, sourceState, stateWords } from './sourceStates';
 
 /** The separator a figure link is tied to (Tied): the no-break space and the dot, the space after it outside. */
 const DOT = SEPARATOR.trimEnd();
@@ -19,20 +19,20 @@ const DOT = SEPARATOR.trimEnd();
 function SourcesCard({ data }: Readonly<{ data: Dashboard }>) {
   const counts = data.sourceCounts;
   const attention = data.sourcesAttention;
-  const needLook = countOf(counts, 'ATTENTION');
+  const needLook = counts.ATTENTION;
   const parts: Array<{ key: string; value: number; to: string; words: string }> = [
     { key: 'ALL', value: counts.ALL, to: sourcesLink(), words: `${counts.ALL} sources` },
     {
       key: 'ENABLED',
-      value: countOf(counts, 'ENABLED'),
+      value: counts.ENABLED,
       to: sourcesLink('ENABLED'),
-      words: `${countOf(counts, 'ENABLED')} enabled`,
+      words: `${counts.ENABLED} enabled`,
     },
     {
       key: 'RUNNING',
-      value: countOf(counts, 'RUNNING'),
+      value: counts.RUNNING,
       to: sourcesLink('RUNNING'),
-      words: `${countOf(counts, 'RUNNING')} running`,
+      words: `${counts.RUNNING} running`,
     },
     {
       key: 'ATTENTION',
@@ -153,7 +153,7 @@ export default function MasiDashboard() {
       </div>
     );
   }
-  const awaiting = data.packages.PREPARED ?? 0;
+  const awaiting = data.packages.PREPARED;
   const dayPct =
     data.llm.dailyBudget > 0 ? Math.round((data.llm.today / data.llm.dailyBudget) * 100) : 0;
   const monthPct =
@@ -177,8 +177,8 @@ export default function MasiDashboard() {
           <span className="stat-value">{awaiting}</span>
           <span className="stat-label">packages awaiting review</span>
           <span className="muted">
-            {data.packages.APPLIED ?? 0} applied · {data.packages.SKIPPED ?? 0} skipped ·{' '}
-            {data.packages.FAILED ?? 0} failed
+            {data.packages.APPLIED} applied · {data.packages.SKIPPED} skipped ·{' '}
+            {data.packages.FAILED} failed
           </span>
         </Link>
         <div className="card masi-tile" data-testid="cost-tile">

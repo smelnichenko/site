@@ -68,10 +68,9 @@ vi.mock('./services/api', async (importOriginal) => ({
     .mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0 }),
   // one source: its own page and the search a report's badge makes for its key
   fetchMasiSource: vi.fn().mockResolvedValue(wise),
-  fetchMasiSourceList: vi.fn().mockResolvedValue({
-    page: { content: [wise], page: 0, size: 200, totalElements: 1 },
-    counts: { ALL: 1 },
-  }),
+  fetchMasiSourcePage: vi
+    .fn()
+    .mockResolvedValue({ content: [wise], page: 0, size: 200, totalElements: 1 }),
   fetchMasiSourceRuns: vi
     .fn()
     .mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0 }),
@@ -245,7 +244,7 @@ describe('masi routes and nav', () => {
     'keeps %s from a holder without JOBS',
     async (route) => {
       vi.mocked(api.fetchMasiSource).mockClear();
-      vi.mocked(api.fetchMasiSourceList).mockClear();
+      vi.mocked(api.fetchMasiSourcePage).mockClear();
       vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
         email: 'me@example.com',
         uuid: 'u1',
@@ -255,7 +254,7 @@ describe('masi routes and nav', () => {
       // the navigation drawn: a page let in mounts with it, and asks masi as it mounts
       await screen.findAllByRole('navigation');
       expect(api.fetchMasiSource).not.toHaveBeenCalled();
-      expect(api.fetchMasiSourceList).not.toHaveBeenCalled();
+      expect(api.fetchMasiSourcePage).not.toHaveBeenCalled();
       expect(screen.queryByText('Wise (Greenhouse)')).not.toBeInTheDocument();
     },
   );

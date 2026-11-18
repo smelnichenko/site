@@ -5,10 +5,11 @@ import userEvent from '@testing-library/user-event';
 import MasiSources from './MasiSources';
 import MasiSourceDetail, { MasiSourceByKey } from './MasiSourceDetail';
 import { renderAt } from './testUtils';
-import type { MasiSource, MasiSourceCounts } from '../../services/api';
+import type { MasiSource, MasiSourceCounts, Paged } from '../../services/api';
 
 vi.mock('../../services/api', () => ({
   fetchMasiSourceList: vi.fn(),
+  fetchMasiSourcePage: vi.fn(),
   fetchMasiSource: vi.fn(),
   fetchMasiSourceRuns: vi.fn(),
   patchMasiSource: vi.fn(),
@@ -142,6 +143,7 @@ const wise: MasiSource = {
 
 beforeEach(() => {
   vi.mocked(api.fetchMasiSourceList).mockReset();
+  vi.mocked(api.fetchMasiSourcePage).mockReset();
   vi.mocked(api.fetchMasiSource).mockReset();
   vi.mocked(api.fetchMasiSourceRuns).mockReset();
   vi.mocked(api.patchMasiSource).mockReset();
@@ -837,9 +839,9 @@ describe('MasiSources', () => {
     function held() {
       const pending = new Map<
         string,
-        { ok: (a: ReturnType<typeof listed>) => void; fail: (e: Error) => void }
+        { ok: (page: Paged<MasiSource>) => void; fail: (e: Error) => void }
       >();
-      vi.mocked(api.fetchMasiSourceList).mockImplementation(
+      vi.mocked(api.fetchMasiSourcePage).mockImplementation(
         (filter) =>
           new Promise((ok, fail) => {
             pending.set(filter.q ?? '', { ok, fail });
@@ -847,19 +849,25 @@ describe('MasiSources', () => {
       );
       return pending;
     }
+    /** masi's page of sources holding `rows`. */
+    const paged = (rows: MasiSource[]) => listed(rows).page;
     const people = { ...cvee, id: 31, key: 'meetfrankpeople', name: 'MeetFrank people' };
     const jobs = { ...cvee, id: 30, key: 'meetfrank', name: 'MeetFrank (Estonia)' };
 
     it('opens the source whose key is exactly the one named, not another containing it', async () => {
-      vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([people, jobs]));
+      vi.mocked(api.fetchMasiSourcePage).mockResolvedValue(paged([people, jobs]));
       at('/masi/sources/key/meetfrank');
       expect(await screen.findByTestId('source-page')).toHaveTextContent('30');
       // as many rows as masi gives at most: the one key is among every key and name containing it
-      expect(lastAsked()).toEqual({ q: 'meetfrank', page: 0, size: 200 });
+      expect(vi.mocked(api.fetchMasiSourcePage).mock.lastCall?.[0]).toEqual({
+        q: 'meetfrank',
+        page: 0,
+        size: 200,
+      });
     });
 
     it('takes the key search out of the history: Back from the source returns to the report', async () => {
-      vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([jobs]));
+      vi.mocked(api.fetchMasiSourcePage).mockResolvedValue(paged([jobs]));
       at('/masi/sources/key/meetfrank', ['/masi/reports/5']);
       expect(await screen.findByTestId('source-page')).toHaveTextContent('30');
       await userEvent.click(screen.getByRole('button', { name: 'Back' }));
@@ -873,9 +881,9 @@ describe('MasiSources', () => {
       await waitFor(() => expect(pending.has('meetfrank')).toBe(true));
       await userEvent.click(screen.getByRole('button', { name: 'another key' }));
       await waitFor(() => expect(pending.has('ats:wise')).toBe(true));
-      await letGo(() => pending.get('meetfrank')?.ok(listed([jobs])));
+      await letGo(() => pending.get('meetfrank')?.ok(paged([jobs])));
       expect(screen.queryByTestId('source-page')).not.toBeInTheDocument();
-      await letGo(() => pending.get('ats:wise')?.ok(listed([wise])));
+      await letGo(() => pending.get('ats:wise')?.ok(paged([wise])));
       expect(await screen.findByTestId('source-page')).toHaveTextContent('8');
     });
 
@@ -887,18 +895,18 @@ describe('MasiSources', () => {
       await waitFor(() => expect(pending.has('ats:wise')).toBe(true));
       await letGo(() => pending.get('meetfrank')?.fail(new Error('masi is restarting')));
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-      await letGo(() => pending.get('ats:wise')?.ok(listed([wise])));
+      await letGo(() => pending.get('ats:wise')?.ok(paged([wise])));
       expect(await screen.findByTestId('source-page')).toHaveTextContent('8');
     });
 
     it('finds a key with a colon in it', async () => {
-      vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([wise]));
+      vi.mocked(api.fetchMasiSourcePage).mockResolvedValue(paged([wise]));
       at(`/masi/sources/key/${encodeURIComponent('ats:wise')}`);
       expect(await screen.findByTestId('source-page')).toHaveTextContent('8');
     });
 
     it('says no source has a key masi does not know', async () => {
-      vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([people]));
+      vi.mocked(api.fetchMasiSourcePage).mockResolvedValue(paged([people]));
       at('/masi/sources/key/meetfrank');
       expect(await screen.findByText('No source has the key "meetfrank".')).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'all sources' })).toHaveAttribute(
@@ -906,6 +914,15 @@ describe('MasiSources', () => {
         '/masi/sources',
       );
       expect(screen.queryByTestId('source-page')).not.toBeInTheDocument();
+    });
+
+    it('asks masi for the page alone: the counts say nothing of one key, and their failure is no failure here', async () => {
+      vi.mocked(api.fetchMasiSourcePage).mockResolvedValue(paged([jobs]));
+      vi.mocked(api.fetchMasiSourceList).mockRejectedValue(new Error('counting failed'));
+      at('/masi/sources/key/meetfrank');
+      expect(await screen.findByTestId('source-page')).toHaveTextContent('30');
+      expect(api.fetchMasiSourceList).not.toHaveBeenCalled();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
   });
 });

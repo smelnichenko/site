@@ -1393,12 +1393,22 @@ function sourcesAnswer(q: URLSearchParams): Answer {
   return { status: 200, body: sourcesPage(q) };
 }
 
-/** masi's GET /sources/counts: every source, and each "Show"'s. */
+/** How many sources a "Show" lists. */
+function countOf(show: MasiSourceState): number {
+  return SOURCES.filter(SHOWS[show]).length;
+}
+
+/** masi's GET /sources/counts: every source, and each "Show"'s - every key, as masi counts them all. */
 const SOURCE_COUNTS: MasiSourceCounts = {
   ALL: SOURCES.length,
-  ...Object.fromEntries(
-    Object.entries(SHOWS).map(([show, listed]) => [show, SOURCES.filter(listed).length]),
-  ),
+  ENABLED: countOf('ENABLED'),
+  RUNNING: countOf('RUNNING'),
+  ATTENTION: countOf('ATTENTION'),
+  OK: countOf('OK'),
+  DEGRADED: countOf('DEGRADED'),
+  FAILING: countOf('FAILING'),
+  DISABLED_AUTO: countOf('DISABLED_AUTO'),
+  OFF: countOf('OFF'),
 };
 
 /** A source's last runs: a running one's unfinished run first, as far as it has got; then the finished ones. */
@@ -1447,7 +1457,15 @@ const dashboard: MasiDashboard = {
   newJobs7d: 412,
   closedJobs7d: 377,
   companiesHiring: 611,
-  packages: { NEW: 3, PREPARED: 12, REVIEWED: 4, APPLIED: 38, SKIPPED: 51, FAILED: 2 },
+  packages: {
+    NEW: 3,
+    PREPARING: 1,
+    PREPARED: 12,
+    REVIEWED: 4,
+    APPLIED: 38,
+    SKIPPED: 51,
+    FAILED: 2,
+  },
   llm: {
     today: 0.84,
     dailyBudget: 3,

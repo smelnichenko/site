@@ -1837,12 +1837,17 @@ export type MasiPackageRow = Pick<
   | 'updatedAt'
 >;
 
+/** A package's place in the review queue (masi PackageStatus). */
+export type MasiPackageStatus =
+  'NEW' | 'PREPARING' | 'PREPARED' | 'REVIEWED' | 'APPLIED' | 'SKIPPED' | 'FAILED';
+
 export interface MasiDashboard {
   openJobs: number;
   newJobs7d: number;
   closedJobs7d: number;
   companiesHiring: number;
-  packages: Record<string, number>;
+  /** The caller's packages by status: masi sends every status, at 0 when none. */
+  packages: Record<MasiPackageStatus, number>;
   llm: {
     today: number;
     dailyBudget: number;
@@ -2591,10 +2596,17 @@ export type MasiSourceState =
 
 /**
  * How many sources each "Show" lists, and ALL of them: each its filter's rows counted, so a count is the total of that
- * filter's pages. A report stored before masi counted its sources has no RUNNING and no DISABLED_AUTO: masi reads it
- * from the health the report kept, which saw neither.
+ * filter's pages. Masi counts every key, every time (SourceCounts.now): a key missing is no answer of masi's, never 0.
  */
-export type MasiSourceCounts = Partial<Record<MasiSourceState, number>> & { ALL: number };
+export type MasiSourceCounts = Record<MasiSourceState | 'ALL', number>;
+
+/**
+ * How many sources each "Show" listed when a report was written. A report stored before masi counted its sources has
+ * no RUNNING and no DISABLED_AUTO: masi reads it from the health the report kept, which saw neither. Every other key
+ * is there.
+ */
+export type MasiReportSourceCounts = Omit<MasiSourceCounts, 'RUNNING' | 'DISABLED_AUTO'> &
+  Partial<Pick<MasiSourceCounts, 'RUNNING' | 'DISABLED_AUTO'>>;
 
 /** The Sources page's request: the search, the "Show", the sort (`column,asc|desc`) and the page. */
 export interface MasiSourceFilter {
@@ -2605,16 +2617,24 @@ export interface MasiSourceFilter {
   size: number;
 }
 
+/** A page of the sources (masi GET /sources): the search, the "Show", the sort and the page. */
+export function fetchMasiSourcePage(
+  filter: MasiSourceFilter,
+  signal?: AbortSignal,
+): Promise<Paged<MasiSource>> {
+  return masiGet(`/sources${query({ ...filter })}`, signal, 'load sources');
+}
+
 /**
- * A page of the sources and every "Show"'s count (masi GET /sources and /sources/counts, asked together): either
- * failing is the page's failure - a page is not shown without its counts.
+ * A page of the sources and every "Show"'s count (masi GET /sources and /sources/counts, asked at once, neither
+ * waiting on the other): either failing is the page's failure - a page is not shown without its counts.
  */
 export async function fetchMasiSourceList(
   filter: MasiSourceFilter,
   signal?: AbortSignal,
 ): Promise<{ page: Paged<MasiSource>; counts: MasiSourceCounts }> {
   const [page, counts] = await Promise.all([
-    masiGet<Paged<MasiSource>>(`/sources${query({ ...filter })}`, signal, 'load sources'),
+    fetchMasiSourcePage(filter, signal),
     masiGet<MasiSourceCounts>('/sources/counts', signal, 'load the source counts'),
   ]);
   return { page, counts };
@@ -3051,8 +3071,8 @@ export interface MasiReport extends MasiReportSummary {
      */
     sourceHealth: Record<string, string>;
     packagesNow: Record<string, number>;
-    /** How many sources each "Show" listed at generation (a report stored before has no RUNNING, no DISABLED_AUTO). */
-    sourceCounts: MasiSourceCounts;
+    /** How many sources each "Show" listed at generation. */
+    sourceCounts: MasiReportSourceCounts;
   };
 }
 

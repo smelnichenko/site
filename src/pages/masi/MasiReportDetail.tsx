@@ -6,7 +6,7 @@ import MasiNav from '../../components/MasiNav';
 import StatsPanel from './StatsPanel';
 import { badgeClass, errorMessage, formatDateTime, periodLabel } from './format';
 import { SEPARATOR } from './figureLinks';
-import { countOf, sourcesLink, stateWords } from './sourceStates';
+import { sourcesLink, stateWords } from './sourceStates';
 
 /**
  * The sources as the report found them: how many there were, enabled and wanting a look (words: the counts were then,
@@ -17,13 +17,13 @@ import { countOf, sourcesLink, stateWords } from './sourceStates';
 function SourceHealth({ snapshot }: Readonly<{ snapshot: MasiReport['snapshot'] }>) {
   const counts = snapshot.sourceCounts;
   const unwell = Object.entries(snapshot.sourceHealth);
-  const needLook = countOf(counts, 'ATTENTION');
+  const needLook = counts.ATTENTION;
   const more = needLook - unwell.length;
   return (
     <>
       <div className="muted" data-testid="source-counts">
         {counts.ALL} sources{SEPARATOR}
-        {countOf(counts, 'ENABLED')} enabled{SEPARATOR}
+        {counts.ENABLED} enabled{SEPARATOR}
         {needLook === 0 ? 'none needed a look' : `${needLook} needed a look`}
       </div>
       {unwell.length > 0 && (
