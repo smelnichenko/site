@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { fetchMasiReport, mailMasiReportDigest, MasiReport } from '../../services/api';
-import { reportSources } from '../../services/masiSourcesOld';
 import LoadingButton from '../../components/LoadingButton';
 import MasiNav from '../../components/MasiNav';
 import StatsPanel from './StatsPanel';
@@ -11,12 +10,13 @@ import { countOf, sourcesLink, stateWords } from './sourceStates';
 
 /**
  * The sources as the report found them: how many there were, enabled and wanting a look (words: the counts were then,
- * the Sources page is now), and a badge for each that wanted a look - a link to it on the Sources page today - then how
- * many more there were than the report names. A report a masi before paged sources stored held every source's health:
- * read into the same (masiSourcesOld).
+ * the Sources page is now), and a badge for each that wanted a look - a link to that one source as it is today (by its
+ * key: a report names its sources so) - then how many more there were than the report names. A report a masi before
+ * paged sources stored held every source's health: read into the same by the API layer.
  */
 function SourceHealth({ snapshot }: Readonly<{ snapshot: MasiReport['snapshot'] }>) {
-  const { counts, unwell } = reportSources(snapshot);
+  const counts = snapshot.sourceCounts;
+  const unwell = Object.entries(snapshot.sourceHealth);
   const needLook = countOf(counts, 'ATTENTION');
   const more = needLook - unwell.length;
   return (
@@ -31,15 +31,17 @@ function SourceHealth({ snapshot }: Readonly<{ snapshot: MasiReport['snapshot'] 
           {unwell.map(([key, state]) => (
             <Link
               key={key}
-              to={`/masi/sources?q=${encodeURIComponent(key)}`}
-              className={badgeClass(state)}
+              to={`/masi/sources/key/${encodeURIComponent(key)}`}
+              className="masi-badge-link"
             >
-              {key}: {stateWords(state)}
+              <span className={badgeClass(state)}>
+                {key}: {stateWords(state)}
+              </span>
             </Link>
           ))}
           {more > 0 && (
-            <Link to={sourcesLink('ATTENTION')} className="status-badge">
-              and {more} more
+            <Link to={sourcesLink('ATTENTION')} className="masi-badge-link">
+              <span className="status-badge">and {more} more</span>
             </Link>
           )}
         </div>

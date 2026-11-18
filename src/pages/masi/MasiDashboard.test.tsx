@@ -5,7 +5,19 @@ import { looseSeparators, renderAt } from './testUtils';
 import type { MasiDashboard as Dashboard, MasiSource } from '../../services/api';
 
 vi.mock('../../services/api', () => ({ fetchMasiDashboard: vi.fn() }));
+// the old masi's answer is read through the real call: no login behind it
+vi.mock('../../services/oidcClient', () => ({
+  getAccessToken: vi.fn(() => Promise.resolve('token')),
+  login: vi.fn(),
+}));
 const api = await import('../../services/api');
+const real = await vi.importActual<typeof import('../../services/api')>('../../services/api');
+
+/** masi answering GET /dashboard with `body`, read by the real fetchMasiDashboard. */
+function answering(body: unknown) {
+  vi.mocked(api.fetchMasiDashboard).mockImplementation(real.fetchMasiDashboard);
+  vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify(body))));
+}
 
 /** A source wanting a look, as masi lists it under sourcesAttention. */
 function unwell(id: number, key: string, over: Partial<MasiSource>): MasiSource {
@@ -245,6 +257,7 @@ describe('MasiDashboard', () => {
 
   /** The site deploys before masi: the old masi's dashboard lists every source, and counts none. */
   it("makes the counts and the ones wanting a look of the old masi's every source", async () => {
+    vi.unstubAllGlobals();
     const old = (id: number, key: string, enabled: boolean, health: string, running = false) => ({
       id,
       key,
@@ -255,7 +268,7 @@ describe('MasiDashboard', () => {
       lastSuccessAt: '2026-09-17T09:00:00Z',
       running,
     });
-    const card = await sourcesCard({
+    answering({
       ...tiles,
       sources: [
         old(1, 'cvee', true, 'OK', true),
@@ -266,6 +279,8 @@ describe('MasiDashboard', () => {
         old(6, 'ats:pipedrive', true, 'DEGRADED'),
       ],
     });
+    renderAt('/masi', '/masi', <MasiDashboard />);
+    const card = await screen.findByRole('region', { name: 'Sources' });
     expect(within(card).getByTestId('source-counts')).toHaveTextContent(
       '6 sources · 4 enabled · 1 running · 4 need a look',
     );
@@ -277,7 +292,19 @@ describe('MasiDashboard', () => {
       'ats:pipedrive',
       'ats:bolt',
     ]);
-    // the old masi sent no failures and no error: blank, not "undefined"
+    // the old masi sent no failures and no error: a dash, not a zero nor "undefined"
+    expect(within(rows[0]).getAllByRole('cell')[2]).toHaveTextContent(/^—$/);
     expect(rows[0]).not.toHaveTextContent('undefined');
+    vi.unstubAllGlobals();
+  });
+
+  it('refuses a dashboard with no sources at all, rather than saying every source is well', async () => {
+    answering({ ...tiles });
+    renderAt('/masi', '/masi', <MasiDashboard />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The dashboard sent no sources: neither their counts nor a list of them',
+    );
+    expect(screen.queryByText('All enabled sources are well.')).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 });

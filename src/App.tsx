@@ -35,6 +35,9 @@ const MasiPersons = lazy(() => import('./pages/masi/MasiPersons'));
 const MasiPersonDetail = lazy(() => import('./pages/masi/MasiPersonDetail'));
 const MasiSources = lazy(() => import('./pages/masi/MasiSources'));
 const MasiSourceDetail = lazy(() => import('./pages/masi/MasiSourceDetail'));
+const MasiSourceByKey = lazy(() =>
+  import('./pages/masi/MasiSourceDetail').then((m) => ({ default: m.MasiSourceByKey })),
+);
 const MasiReports = lazy(() => import('./pages/masi/MasiReports'));
 const MasiActivity = lazy(() => import('./pages/masi/MasiActivity'));
 const MasiCalendar = lazy(() => import('./pages/masi/MasiCalendar'));
@@ -366,6 +369,14 @@ function App() {
                 element={
                   <ProtectedRoute permission="JOBS">
                     <MasiSourceDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/masi/sources/key/:key"
+                element={
+                  <ProtectedRoute permission="JOBS">
+                    <MasiSourceByKey />
                   </ProtectedRoute>
                 }
               />

@@ -921,7 +921,15 @@ describe('api - masi', () => {
   });
 
   it('asks for stats over inclusive days, lists and reads reports, and generates one', async () => {
-    mockFetch.mockResolvedValueOnce(mockResponse({ from: 'x' }));
+    // the least a period and a report hold for the site to read them
+    const rest = { sources: 0, newListings: 0, closedListings: 0, runs: {} };
+    const stats = { from: 'x', sources: [], sourcesRest: rest };
+    const report = (id: number) => ({
+      id,
+      stats,
+      snapshot: { sourceHealth: {}, sourceCounts: { ALL: 0 } },
+    });
+    mockFetch.mockResolvedValueOnce(mockResponse(stats));
     await api.fetchMasiStats('2026-03-23', '2026-03-29');
     expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/stats?from=2026-03-23&to=2026-03-29');
     mockFetch.mockResolvedValueOnce(mockResponse([]));
@@ -930,10 +938,10 @@ describe('api - masi', () => {
     mockFetch.mockResolvedValueOnce(mockResponse([]));
     await api.fetchMasiReports();
     expect(mockFetch.mock.calls[2][0]).toBe('/api/masi/reports');
-    mockFetch.mockResolvedValueOnce(mockResponse({ id: 5 }));
+    mockFetch.mockResolvedValueOnce(mockResponse(report(5)));
     await api.fetchMasiReport(5);
     expect(mockFetch.mock.calls[3][0]).toBe('/api/masi/reports/5');
-    mockFetch.mockResolvedValueOnce(mockResponse({ id: 6 }));
+    mockFetch.mockResolvedValueOnce(mockResponse(report(6)));
     await api.generateMasiReport('MONTHLY', '2026-08-15');
     const [url, init] = mockFetch.mock.calls[4] as [string, RequestInit];
     expect(url).toBe('/api/masi/reports/generate');
@@ -1492,5 +1500,149 @@ describe('api - masi sources, a page at a time', () => {
     mockFetch.mockResolvedValueOnce(mockResponse(source(8, 'ats:wise')));
     expect((await api.fetchMasiSource(8)).key).toBe('ats:wise');
     expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/sources/8');
+  });
+});
+
+describe('api - the old masi read into the new shapes', () => {
+  /** One source's figures in a period. */
+  function row(i: number, newListings: number, runs: Record<string, number>) {
+    return { key: `src${i}`, name: `Source ${i}`, newListings, closedListings: 1, runs };
+  }
+  const period = {
+    from: '2026-03-22T22:00:00Z',
+    to: '2026-03-29T21:00:00Z',
+    registry: {
+      newJobs: 0,
+      closedJobs: 0,
+      repostedJobs: 0,
+      newListings: 0,
+      closedListings: 0,
+      medianListingLifetimeHours: null,
+    },
+    topCompanies: [],
+    titles: [],
+    seniority: {},
+    remote: {},
+    techTags: {},
+    salary: { posted: 0, lowest: null, medianMin: null, medianMax: null, highest: null },
+    funnel: { requested: 0, applied: 0, averagePackageCostUsd: null },
+    llm: {
+      totalUsd: 0,
+      byPurpose: {},
+      byModel: {},
+      calls: {},
+      tokens: { input: 0, cacheRead: 0, cacheWrite: 0, output: 0 },
+    },
+  };
+
+  it("cuts the old masi's every source to the 25 with the most new listings, the others summed", async () => {
+    // 30 sources: src0 has the most new listings, src29 the fewest; two tie on listings and are told by their closes
+    const all = Array.from({ length: 30 }, (_, i) => row(i, 30 - i, { OK: 1, ERROR: i % 2 }));
+    all[26] = { ...all[26], newListings: 30, closedListings: 9 };
+    mockFetch.mockResolvedValueOnce(mockResponse({ ...period, sources: all }));
+    const stats = await api.fetchMasiStats('2026-03-23', '2026-03-29');
+    expect(stats.sources).toHaveLength(25);
+    expect(stats.sources.slice(0, 3).map((s) => s.name)).toEqual([
+      'Source 26',
+      'Source 0',
+      'Source 1',
+    ]);
+    // the five left: src24, 25, 27, 28, 29 - 6 + 5 + 3 + 2 + 1 new listings, one close each, five ok runs and three
+    // errors (the odd ones)
+    expect(stats.sourcesRest).toEqual({
+      sources: 5,
+      newListings: 17,
+      closedListings: 5,
+      runs: { OK: 5, ERROR: 3 },
+    });
+  });
+
+  it('reads a few sources and no rest as every source, with an empty rest; a rest sent is kept as it is', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ ...period, sources: [row(1, 3, { OK: 1 })] }));
+    expect((await api.fetchMasiStats('2026-03-23', '2026-03-29')).sourcesRest).toEqual({
+      sources: 0,
+      newListings: 0,
+      closedListings: 0,
+      runs: {},
+    });
+    const rest = { sources: 200, newListings: 9, closedListings: 4, runs: { OK: 400 } };
+    const sources = Array.from({ length: 25 }, (_, i) => row(i, 1, {}));
+    mockFetch.mockResolvedValueOnce(mockResponse({ ...period, sources, sourcesRest: rest }));
+    const fresh = await api.fetchMasiStats('2026-03-23', '2026-03-29');
+    expect(fresh.sourcesRest).toEqual(rest);
+    expect(fresh.sources).toEqual(sources);
+  });
+
+  it("counts an old report's every source and keeps only the unwell, worst first; a new report as it is", async () => {
+    const snapshot = {
+      asOf: '2026-03-30T03:00:00Z',
+      openJobs: 1,
+      companiesHiring: 1,
+      packagesNow: {},
+      sourceHealth: {
+        zeta: 'DEGRADED',
+        alpha: 'DEGRADED',
+        cvkeskus: 'FAILING',
+        cvee: 'OK',
+        linkedin: 'DISABLED',
+      },
+    };
+    const old = { id: 5, kind: 'WEEKLY', stats: { ...period, sources: [] }, snapshot };
+    mockFetch.mockResolvedValueOnce(mockResponse(old));
+    const report = await api.fetchMasiReport(5);
+    expect(report.snapshot.sourceCounts).toEqual({
+      ALL: 5,
+      ENABLED: 4,
+      ATTENTION: 3,
+      OK: 1,
+      DEGRADED: 2,
+      FAILING: 1,
+      OFF: 1,
+    });
+    // worst first, then by key: an ordered map the page shows as it is
+    expect(Object.entries(report.snapshot.sourceHealth)).toEqual([
+      ['cvkeskus', 'FAILING'],
+      ['alpha', 'DEGRADED'],
+      ['zeta', 'DEGRADED'],
+    ]);
+    expect(report.stats.sourcesRest.sources).toBe(0);
+    // a report generated by the old masi is read the same way
+    mockFetch.mockResolvedValueOnce(mockResponse(old));
+    expect((await api.generateMasiReport('WEEKLY')).snapshot.sourceCounts.ALL).toBe(5);
+
+    const counts = {
+      ALL: 225,
+      ENABLED: 200,
+      ATTENTION: 1,
+      OK: 199,
+      DEGRADED: 1,
+      FAILING: 0,
+      OFF: 25,
+    };
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({
+        ...old,
+        snapshot: { ...snapshot, sourceHealth: { zeta: 'DEGRADED' }, sourceCounts: counts },
+      }),
+    );
+    const fresh = await api.fetchMasiReport(5);
+    expect(fresh.snapshot.sourceCounts).toEqual(counts);
+    expect(fresh.snapshot.sourceHealth).toEqual({ zeta: 'DEGRADED' });
+  });
+
+  it('refuses a dashboard with neither the counts nor the list of sources: no false all-clear', async () => {
+    const tiles = { openJobs: 1, newJobs7d: 0, closedJobs7d: 0, companiesHiring: 0, packages: {} };
+    mockFetch.mockResolvedValueOnce(mockResponse(tiles));
+    await expect(api.fetchMasiDashboard()).rejects.toThrow(
+      'The dashboard sent no sources: neither their counts nor a list of them',
+    );
+    // the counts alone are not the new dashboard either
+    mockFetch.mockResolvedValueOnce(mockResponse({ ...tiles, sourceCounts: { ALL: 3 } }));
+    await expect(api.fetchMasiDashboard()).rejects.toThrow('The dashboard sent no sources');
+    // an old masi with no source at all is an empty registry, said so
+    mockFetch.mockResolvedValueOnce(mockResponse({ ...tiles, sources: [] }));
+    const empty = await api.fetchMasiDashboard();
+    expect(empty.sourceCounts.ALL).toBe(0);
+    expect(empty.sourcesAttention).toEqual([]);
   });
 });

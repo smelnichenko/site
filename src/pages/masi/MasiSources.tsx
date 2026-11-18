@@ -1,4 +1,12 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { SortableHeader } from '../../components/SortableHeader';
 import { sortRows, useUrlSort, type SortValue } from '../../components/sorting';
@@ -187,7 +195,8 @@ function counted(counts: MasiSourceCounts | null, show: MasiSourceState | 'ALL')
 
 /**
  * The sources' search and "Show", each choice with how many it lists; a new search or choice starts at the first page
- * (the parent drops the page with it).
+ * (the parent drops the page with it). Each named on the page, as masi's other filter rows are: a placeholder goes as
+ * the first letter is typed. An emptied search box lists every source again at once - no press of Search to undo one.
  */
 function SourceFilters({
   q,
@@ -200,25 +209,40 @@ function SourceFilters({
   counts: MasiSourceCounts | null;
   onChange: (key: 'q' | 'state', value: string) => void;
 }>) {
+  // what is typed, until searched; a search the URL changes (back, a link) is shown in its place
+  const [typed, setTyped] = useState(q);
+  const [searched, setSearched] = useState(q);
+  if (q !== searched) {
+    setSearched(q);
+    setTyped(q);
+  }
   return (
     <form
       className="form-row masi-filters"
+      role="search"
       onSubmit={(e) => {
         e.preventDefault();
-        const typed = new FormData(e.currentTarget).get('q');
-        onChange('q', typeof typed === 'string' ? typed.trim() : '');
+        onChange('q', typed.trim());
       }}
     >
+      <label htmlFor="source-q">Key or name</label>
       <input
-        key={q}
+        id="source-q"
         type="search"
         name="q"
-        aria-label="Search key or name"
-        placeholder="key or name…"
-        defaultValue={q}
+        value={typed}
+        onChange={(e) => {
+          setTyped(e.target.value);
+          // emptied (by keys, or the box's own clear): every source again, the focus kept for the next search
+          if (e.target.value === '' && q !== '') onChange('q', '');
+        }}
       />
+      <button type="submit" className="btn-small">
+        Search
+      </button>
+      <label htmlFor="source-show">Show</label>
       <select
-        aria-label="Show"
+        id="source-show"
         value={show ?? ''}
         onChange={(e) => onChange('state', e.target.value)}
       >
@@ -230,16 +254,13 @@ function SourceFilters({
           </option>
         ))}
       </select>
-      <button type="submit" className="btn-small">
-        Search
-      </button>
     </form>
   );
 }
 
 /**
- * The collector agents, a page at a time (ops plan 118 PR 3): search a key or a name, show one state or group with how
- * many each lists, sorted by masi; enable, cron, requests a day, run now, and an opened source's config and last runs.
+ * The collector agents, a page at a time - a few hundred, and a list read whole grows with them: search a key or a
+ * name, show one state or group with how many each lists, sorted by masi; enable, cron, requests a day, run now, and an opened source's config and last runs.
  * With `sourceId` (the route /masi/sources/:id), that source alone, opened. A source without a bean (FAILING) cannot be
  * enabled.
  */
@@ -254,8 +275,11 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
   // page of sources where it is
   const { sort: runsSort, setSort: setRunsSort } = useUrlSort('startedAt,desc', 'runsSort', false);
   const [sources, setSources] = useState<MasiSource[] | null>(null);
-  const [total, setTotal] = useState(0);
+  /** The page the rows in view are of, and how many the filter lists in all. */
+  const [listed, setListed] = useState<{ page: number; total: number } | null>(null);
   const [counts, setCounts] = useState<MasiSourceCounts | null>(null);
+  /** Bumped by an action: the page and its counts are read again, with the filters as they are by then. */
+  const [reloads, setReloads] = useState(0);
   const [runs, setRuns] = useState<Record<number, MasiSourceRun[]>>({});
   const [openId, setOpenId] = useState<number | null>(sourceId ?? null);
   const [cronDraft, setCronDraft] = useState<Record<number, string>>({});
@@ -264,7 +288,11 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
   const [message, setMessage] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [assistant, setAssistant] = useState<MasiAssistant | null>(null);
+  /** The assistant's own failure, beside its switch: the list's loads neither show it nor clear it. */
+  const [assistantError, setAssistantError] = useState<string | null>(null);
 
+  /** The list's top: where a page change takes the window and the focus. */
+  const listTop = useRef<HTMLElement>(null);
   const serverCron = useRef<Map<number, string>>(new Map());
   const take = useCallback((list: MasiSource[]) => {
     const before = serverCron.current;
@@ -272,36 +300,47 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
     serverCron.current = new Map(list.map((s) => [s.id, s.cron]));
     setSources(list);
   }, []);
-  // the page in view, and every "Show"'s count with it; alone, the one source
-  const reload = useCallback(
-    async (signal?: AbortSignal) => {
-      if (sourceId !== undefined) {
-        take([await fetchMasiSource(sourceId, signal)]);
-        return;
-      }
-      const answer = await fetchMasiSourceList(
-        { q: q || undefined, state: show, sort, page: pageNo, size: PAGE_SIZE },
-        signal,
-      );
-      take(answer.page.content);
-      setTotal(answer.page.totalElements);
-      setCounts(answer.counts);
-    },
-    [sourceId, q, show, sort, pageNo, take],
-  );
-
+  /**
+   * The page in view and every "Show"'s count with it; alone, the one source. Read again when the filters change and
+   * after an action (`reloads`), only ever here: a new read aborts the one before it, and an answer that lands after
+   * its read was left is dropped - an older page never shows under a newer URL.
+   */
   useEffect(() => {
     const controller = new AbortController();
+    const { signal } = controller;
     void (async () => {
       try {
-        await reload(controller.signal);
+        if (sourceId === undefined) {
+          const answer = await fetchMasiSourceList(
+            { q: q || undefined, state: show, sort, page: pageNo, size: PAGE_SIZE },
+            signal,
+          );
+          if (signal.aborted) return;
+          take(answer.page.content);
+          setListed({ page: pageNo, total: answer.page.totalElements });
+          setCounts(answer.counts);
+        } else {
+          const one = await fetchMasiSource(sourceId, signal);
+          if (signal.aborted) return;
+          take([one]);
+        }
         setError(null);
       } catch (e: unknown) {
-        if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load sources'));
+        if (!signal.aborted) setError(errorMessage(e, 'Failed to load sources'));
       }
     })();
     return () => controller.abort();
-  }, [reload]);
+  }, [sourceId, q, show, sort, pageNo, take, reloads]);
+
+  // a page past the last - asked for, or emptied by an action that moved its last row away - is the last page
+  useEffect(() => {
+    if (listed?.page !== pageNo || sources?.length !== 0) return;
+    if (pageNo > 0 && listed.total > 0) {
+      const next = new URLSearchParams(params);
+      next.set('page', String(Math.ceil(listed.total / PAGE_SIZE) - 1));
+      setParams(next, { replace: true });
+    }
+  }, [listed, pageNo, sources, params, setParams]);
 
   // the assistant's switch is the list's, not a source's: read once, not with every page
   useEffect(() => {
@@ -311,7 +350,9 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
       try {
         setAssistant(await fetchMasiAssistant(controller.signal));
       } catch (e: unknown) {
-        if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load the assistant'));
+        if (!controller.signal.aborted) {
+          setAssistantError(errorMessage(e, 'Failed to load the assistant'));
+        }
       }
     })();
     return () => controller.abort();
@@ -370,14 +411,18 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
     };
   }, [runningIds]);
 
-  /** An action, then the page and its counts read again: a source switched or run may move to another "Show". */
+  /**
+   * An action, said done as soon as masi has done it; then the page and its counts are read again - a source switched
+   * or run may move to another "Show" - by the page's own read, with the filters as they are by then. A read that
+   * fails after it is the page's failure, never the action's.
+   */
   async function act(id: number, fn: () => Promise<unknown>, done: string) {
     setBusyId(id);
     setMessage(null);
     try {
       await fn();
-      await reload();
       setMessage(done);
+      setReloads((n) => n + 1);
     } catch (e: unknown) {
       setMessage(errorMessage(e, 'The action failed'));
     } finally {
@@ -408,31 +453,130 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
     setParams(next);
   }
 
-  /** A column header: sorted by masi in the list, plain for the source alone. */
-  const head = (column: string, label: string): ReactElement =>
-    alone ? (
-      <th>{label}</th>
-    ) : (
-      <SortableHeader column={column} label={label} sort={sort} onSort={setSort} />
-    );
+  /** A column header, sorted by masi. */
+  const head = (column: string, label: ReactNode): ReactElement => (
+    <SortableHeader column={column} label={label} sort={sort} onSort={setSort} />
+  );
 
+  /** A page change: the new page's rows are at the list's top, and the pager at its bottom - both go there. */
+  function toPage(n: number) {
+    set('page', String(n));
+    const top = listTop.current;
+    top?.focus({ preventScroll: true });
+    top?.scrollIntoView?.({ block: 'start' });
+  }
+
+  /** A source's cron, saved when the field is left with another one. */
+  const cronField = (s: MasiSource) => (
+    <input
+      aria-label={`Cron for ${s.key}`}
+      value={cronDraft[s.id] ?? s.cron}
+      onChange={(e) => setCronDraft((cur) => ({ ...cur, [s.id]: e.target.value }))}
+      onBlur={() => {
+        const next = (cronDraft[s.id] ?? s.cron).trim();
+        if (next && next !== s.cron)
+          void act(s.id, () => patchMasiSource(s.id, { cron: next }), `${s.key}: cron saved`);
+      }}
+      style={{ width: '10em', fontFamily: 'monospace' }}
+    />
+  );
+
+  /** A source's daily request cap, saved into its config when the field is left with another whole number or none. */
+  const capField = (s: MasiSource) => (
+    <input
+      type="number"
+      min={0}
+      step={1}
+      aria-label={`Requests per day for ${s.key}`}
+      placeholder="no cap"
+      value={capDraft[s.id] ?? capOf(s.configJson)}
+      onChange={(e) => setCapDraft((cur) => ({ ...cur, [s.id]: e.target.value }))}
+      onBlur={(e) => {
+        const next = (capDraft[s.id] ?? capOf(s.configJson)).trim();
+        if (!e.target.checkValidity()) return; // a negative or fractional cap is not saved
+        if (next !== capOf(s.configJson))
+          void act(
+            s.id,
+            () => patchMasiSource(s.id, { configJson: withCap(s.configJson, next) }),
+            next === '' ? `${s.key}: no request cap` : `${s.key}: ${next} requests a day`,
+          );
+      }}
+      style={{ width: '6em' }}
+    />
+  );
+
+  /** A source's health: its badge (running while it runs), how far a run has got, its failures and last note. */
+  const healthOf = (s: MasiSource) => (
+    <>
+      <span className={badgeClass(s.health)}>{s.running ? 'running' : healthWords(s.health)}</span>
+      {s.running && progressOf(runs[s.id]?.[0], tick) && (
+        <div className="muted" data-testid={`progress-${s.key}`}>
+          {progressOf(runs[s.id]?.[0], tick)}
+        </div>
+      )}
+      {s.consecutiveFailures > 0 && (
+        <div className="muted">{s.consecutiveFailures} failure(s) in a row</div>
+      )}
+      {s.lastError && <div className={noteClass(s.health)}>{s.lastError}</div>}
+    </>
+  );
+
+  /** Switch a source on or off, and run it now. */
+  const actionsOf = (s: MasiSource) => (
+    <>
+      <LoadingButton
+        className={s.enabled ? 'status-badge' : 'status-badge add'}
+        onClick={() =>
+          void act(
+            s.id,
+            () => patchMasiSource(s.id, { enabled: !s.enabled }),
+            `${s.key}: ${s.enabled ? 'disabled' : 'enabled'}`,
+          )
+        }
+        loading={busyId === s.id}
+        label={s.enabled ? 'Disable' : 'Enable'}
+      />
+      <LoadingButton
+        className="status-badge action"
+        onClick={() => void act(s.id, () => runMasiSource(s.id), `${s.key}: run started`)}
+        loading={busyId === s.id}
+        label="Run now"
+      />
+    </>
+  );
+
+  /** An opened source: its whole config, its changes and its last runs. */
+  const openedOf = (s: MasiSource) => (
+    <>
+      <SourceConfig id={s.id} configJson={s.configJson} />
+      <h3 className="masi-subtitle">Runs</h3>
+      {!runs[s.id] && <div className="loading">Loading runs...</div>}
+      {runs[s.id]?.length === 0 && <div className="empty-state">No runs yet.</div>}
+      {runs[s.id] && runs[s.id].length > 0 && (
+        <SourceRuns sourceKey={s.key} runs={runs[s.id]} sort={runsSort} onSort={setRunsSort} />
+      )}
+    </>
+  );
+
+  const total = listed?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   let summary = '';
   if (!alone && counts) {
-    summary = `${countOf(counts, 'ENABLED')} of ${counts.ALL} enabled · ${total} shown`;
+    summary = `${countOf(counts, 'ENABLED')} of ${counts.ALL} enabled · ${total} match`;
   }
+  const own = alone ? sources?.[0] : undefined;
   return (
     <div className="masi">
       <MasiNav />
-      <div className="card">
+      <div className="card masi-sources-card">
         <div className="card-header">
-          <span className="card-title">{alone ? (sources?.[0]?.name ?? 'Source') : 'Sources'}</span>
+          <span className="card-title">{alone ? (own?.name ?? 'Source') : 'Sources'}</span>
           {alone ? (
-            <Link to="/masi/sources" className="muted">
+            <Link to="/masi/sources" className="muted masi-back-link">
               all sources
             </Link>
           ) : (
-            <span className="muted">{summary}</span>
+            <span className="muted masi-nowrap">{summary}</span>
           )}
         </div>
         {error && (
@@ -443,202 +587,164 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
         {message && <div className="muted">{message}</div>}
         {!sources && !error && <div className="loading">Loading sources...</div>}
         {sources && !alone && (
-          <>
-            <div className="assistant-switch">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={assistant?.enabled ?? false}
-                  onChange={(e) =>
-                    void act(
-                      0,
-                      () => patchMasiAssistant(e.target.checked).then((a) => setAssistant(a)),
-                      'assistant saved',
-                    )
-                  }
-                />{' '}
-                Assistant (replies from your Gmail, applies on LinkedIn)
-              </label>
+          <div className="assistant-switch">
+            <label>
+              <input
+                type="checkbox"
+                // not read (yet, or it failed): no state to switch from - an unchecked box would say "off"
+                disabled={assistant === null}
+                checked={assistant?.enabled ?? false}
+                onChange={(e) =>
+                  void act(
+                    0,
+                    () => patchMasiAssistant(e.target.checked).then((a) => setAssistant(a)),
+                    'assistant saved',
+                  )
+                }
+              />{' '}
+              Assistant (replies from your Gmail, applies on LinkedIn)
+            </label>
+            {assistantError ? (
+              <span className={noteClass('ERROR')}>{assistantError}</span>
+            ) : (
               <span className="muted">{assistantNote(assistant)}</span>
-            </div>
-            <PictureStatus />
-            <DeploymentSwitches />
+            )}
+          </div>
+        )}
+        {sources && !alone && (
+          // the list first - it is the page's work; the collection's own panels after it. Focused (not tabbable) when
+          // a page changes, so a keyboard and a screen reader start at the new rows
+          <section
+            className="masi-source-list"
+            aria-label="Source list"
+            ref={listTop}
+            tabIndex={-1}
+          >
             <SourceFilters q={q} show={show} counts={counts} onChange={set} />
+            {/* empty with rows elsewhere: a page past the last, on its way to the last one */}
+            {sources.length === 0 && total === 0 && (
+              <div className="empty-state">No sources match.</div>
+            )}
+            {sources.length > 0 && (
+              <MasiTable
+                label="Sources"
+                className="masi-sources-table"
+                // sized for what the cells hold at the narrowest (940 px, so a 1024 px screen holds it whole): the
+                // longest kind unbroken (119 px with its padding), the cron field (154 px), the widest health badge
+                // (140 px), "Requests/" sorted (it breaks after the slash) and the cap field, the two actions stacked
+                // (109 px) - measured in the layout harness, 2026-11-18
+                columns={['17%', '13%', '17%', '14%', '15%', '12%', '12%']}
+                minWidth={940}
+              >
+                <thead>
+                  <tr>
+                    {head('name', 'Source')}
+                    {head('kind', 'Kind')}
+                    {head('nextRunAt', 'Cron')}
+                    {head(
+                      'cap',
+                      <>
+                        Requests/
+                        <wbr />
+                        day
+                      </>,
+                    )}
+                    {head('health', 'Health')}
+                    {head('lastSuccessAt', 'Last success')}
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* the server's order: masi sorts the whole list, the page is a slice of it */}
+                  {sources.map((s) => (
+                    <Fragment key={s.id}>
+                      <tr>
+                        <td>
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={() => void showRuns(s.id)}
+                          >
+                            {s.name}
+                          </button>
+                          <div className="muted">{s.key}</div>
+                        </td>
+                        <td>
+                          {s.kind.toLowerCase()} · {s.scope.toLowerCase()}
+                        </td>
+                        <td>{cronField(s)}</td>
+                        <td>{capField(s)}</td>
+                        <td>{healthOf(s)}</td>
+                        <td>{formatDateTime(s.lastSuccessAt)}</td>
+                        <td className="badge-group">{actionsOf(s)}</td>
+                      </tr>
+                      {openId === s.id && (
+                        <tr>
+                          <td colSpan={7}>
+                            <div className="masi-source-detail masi-source-opened">
+                              {openedOf(s)}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </MasiTable>
+            )}
+            {pages > 1 && (
+              <div className="pagination masi-sources-pager">
+                <button
+                  type="button"
+                  className="btn-small"
+                  disabled={pageNo <= 0}
+                  onClick={() => toPage(pageNo - 1)}
+                >
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  page {pageNo + 1} of {pages}
+                </span>
+                <button
+                  type="button"
+                  className="btn-small"
+                  disabled={pageNo + 1 >= pages}
+                  onClick={() => toPage(pageNo + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+        {own && (
+          // the source alone: one record, read down - a table's row would put most of it off a phone's screen
+          <>
+            <dl className="masi-source-own">
+              <dt>Key</dt>
+              <dd>{own.key}</dd>
+              <dt>Kind</dt>
+              <dd>
+                {own.kind.toLowerCase()} · {own.scope.toLowerCase()}
+              </dd>
+              <dt>Health</dt>
+              <dd>{healthOf(own)}</dd>
+              <dt>Cron</dt>
+              <dd>{cronField(own)}</dd>
+              <dt>Requests/day</dt>
+              <dd>{capField(own)}</dd>
+              <dt>Last success</dt>
+              <dd>{formatDateTime(own.lastSuccessAt)}</dd>
+            </dl>
+            <div className="badge-group masi-source-actions">{actionsOf(own)}</div>
+            <div className="masi-source-opened">{openedOf(own)}</div>
           </>
         )}
-        {sources?.length === 0 && <div className="empty-state">No sources match.</div>}
-        {sources && sources.length > 0 && (
-          <MasiTable
-            label="Sources"
-            className="masi-sources-table"
-            // sized for what the cells hold at the narrowest (1000 px): "deterministic" unbroken (119 px with its
-            // padding), the cron field (154 px) and the widest health badge ("auto-disabled", 140 px) whole - measured in
-            // the layout harness, 2026-11-18
-            columns={['20%', '12%', '16%', '12%', '14%', '13%', '13%']}
-            minWidth={1000}
-          >
-            <thead>
-              <tr>
-                {head('name', 'Source')}
-                {head('kind', 'Kind')}
-                {head('nextRunAt', 'Cron')}
-                {head('cap', 'Requests/day')}
-                {head('health', 'Health')}
-                {head('lastSuccessAt', 'Last success')}
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* the server's order: masi sorts the whole list, the page is a slice of it */}
-              {sources.map((s) => (
-                <Fragment key={s.id}>
-                  <tr>
-                    <td>
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() => void showRuns(s.id)}
-                      >
-                        {s.name}
-                      </button>
-                      <div className="muted">{s.key}</div>
-                    </td>
-                    <td>
-                      {s.kind.toLowerCase()} · {s.scope.toLowerCase()}
-                    </td>
-                    <td>
-                      <input
-                        aria-label={`Cron for ${s.key}`}
-                        value={cronDraft[s.id] ?? s.cron}
-                        onChange={(e) =>
-                          setCronDraft((cur) => ({ ...cur, [s.id]: e.target.value }))
-                        }
-                        onBlur={() => {
-                          const next = (cronDraft[s.id] ?? s.cron).trim();
-                          if (next && next !== s.cron)
-                            void act(
-                              s.id,
-                              () => patchMasiSource(s.id, { cron: next }),
-                              `${s.key}: cron saved`,
-                            );
-                        }}
-                        style={{ width: '10em', fontFamily: 'monospace' }}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        aria-label={`Requests per day for ${s.key}`}
-                        placeholder="no cap"
-                        value={capDraft[s.id] ?? capOf(s.configJson)}
-                        onChange={(e) => setCapDraft((cur) => ({ ...cur, [s.id]: e.target.value }))}
-                        onBlur={(e) => {
-                          const next = (capDraft[s.id] ?? capOf(s.configJson)).trim();
-                          if (!e.target.checkValidity()) return; // a negative or fractional cap is not saved
-                          if (next !== capOf(s.configJson))
-                            void act(
-                              s.id,
-                              () =>
-                                patchMasiSource(s.id, {
-                                  configJson: withCap(s.configJson, next),
-                                }),
-                              next === ''
-                                ? `${s.key}: no request cap`
-                                : `${s.key}: ${next} requests a day`,
-                            );
-                        }}
-                        style={{ width: '6em' }}
-                      />
-                    </td>
-                    <td>
-                      <span className={badgeClass(s.health)}>
-                        {s.running ? 'running' : healthWords(s.health)}
-                      </span>
-                      {s.running && progressOf(runs[s.id]?.[0], tick) && (
-                        <div className="muted" data-testid={`progress-${s.key}`}>
-                          {progressOf(runs[s.id]?.[0], tick)}
-                        </div>
-                      )}
-                      {s.consecutiveFailures > 0 && (
-                        <div className="muted">{s.consecutiveFailures} failure(s) in a row</div>
-                      )}
-                      {s.lastError && <div className={noteClass(s.health)}>{s.lastError}</div>}
-                    </td>
-                    <td>{formatDateTime(s.lastSuccessAt)}</td>
-                    <td className="badge-group">
-                      <LoadingButton
-                        className={s.enabled ? 'status-badge' : 'status-badge add'}
-                        onClick={() =>
-                          void act(
-                            s.id,
-                            () => patchMasiSource(s.id, { enabled: !s.enabled }),
-                            `${s.key}: ${s.enabled ? 'disabled' : 'enabled'}`,
-                          )
-                        }
-                        loading={busyId === s.id}
-                        label={s.enabled ? 'Disable' : 'Enable'}
-                      />
-                      <LoadingButton
-                        className="status-badge action"
-                        onClick={() =>
-                          void act(s.id, () => runMasiSource(s.id), `${s.key}: run started`)
-                        }
-                        loading={busyId === s.id}
-                        label="Run now"
-                      />
-                    </td>
-                  </tr>
-                  {openId === s.id && (
-                    <tr>
-                      <td colSpan={7}>
-                        <div className="masi-source-detail">
-                          <SourceConfig id={s.id} configJson={s.configJson} />
-                          <h3 className="masi-subtitle">Runs</h3>
-                          {!runs[s.id] && <div className="loading">Loading runs...</div>}
-                          {runs[s.id]?.length === 0 && (
-                            <div className="empty-state">No runs yet.</div>
-                          )}
-                          {runs[s.id] && runs[s.id].length > 0 && (
-                            <SourceRuns
-                              sourceKey={s.key}
-                              runs={runs[s.id]}
-                              sort={runsSort}
-                              onSort={setRunsSort}
-                            />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </MasiTable>
-        )}
-        {!alone && pages > 1 && (
-          <div className="pagination">
-            <button
-              type="button"
-              className="btn-small"
-              disabled={pageNo <= 0}
-              onClick={() => set('page', String(pageNo - 1))}
-            >
-              Previous
-            </button>
-            <span className="pagination-info">
-              page {pageNo + 1} of {pages}
-            </span>
-            <button
-              type="button"
-              className="btn-small"
-              disabled={pageNo + 1 >= pages}
-              onClick={() => set('page', String(pageNo + 1))}
-            >
-              Next
-            </button>
-          </div>
+        {sources && !alone && (
+          <>
+            <PictureStatus />
+            <DeploymentSwitches />
+          </>
         )}
       </div>
     </div>

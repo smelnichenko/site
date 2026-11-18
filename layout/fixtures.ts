@@ -36,6 +36,7 @@ import type {
   MasiContactPicture,
   MasiPictureTries,
 } from '../src/services/api';
+import type { MasiReportAnswer } from '../src/services/masiSourcesOld';
 import { readFileSync } from 'node:fs';
 import {
   bookings,
@@ -316,6 +317,12 @@ function calendar(from: string, to: string): MasiCalendar {
   };
 }
 
+/** The state of a month's report's i-th unwell source, the worst first: two switched off, five failing, the rest degraded. */
+function unwellAt(i: number): string {
+  if (i < 2) return 'DISABLED_AUTO';
+  return i < 7 ? 'FAILING' : 'DEGRADED';
+}
+
 /**
  * A month's report at the registry's real size: four-digit figures in the tiles, a source and a company with long names,
  * every figure a link (none zero but one source's), and salaries left out - every link a report can draw, at once.
@@ -371,6 +378,14 @@ const bigReport: MasiReport = {
       interviewsByLanguage: { et: 9, en: 2, none: 1 },
       responses: { REPLIED: 14, INTERVIEW: 12, OFFER: 2, REJECTED: 41 },
     },
+  },
+  // a bad month: more sources wanted a look than a report names (50, worst first) - "and 7 more" after them
+  snapshot: {
+    ...report.snapshot,
+    sourceHealth: Object.fromEntries(
+      Array.from({ length: 50 }, (_, i): [string, string] => [`ats:board${i + 1}`, unwellAt(i)]),
+    ),
+    sourceCounts: { ...report.snapshot.sourceCounts, ATTENTION: 57, OK: 143, DEGRADED: 47 },
   },
 };
 
@@ -1329,7 +1344,7 @@ function sourcesPage(q: URLSearchParams): Paged<MasiSource> {
   const needle = (q.get('q') ?? '').trim().toLowerCase();
   const show = SHOWS[q.get('state') as MasiSourceState] as ((s: MasiSource) => boolean) | undefined;
   const [column, direction] = (q.get('sort') || 'name,asc').split(',');
-  const value = SOURCE_COLUMNS[column] ?? SOURCE_COLUMNS.name;
+  const value = SOURCE_COLUMNS[column];
   const sign = direction === 'asc' ? 1 : -1;
   const kept = SOURCES.filter(
     (s) =>
@@ -1351,6 +1366,26 @@ function sourcesPage(q: URLSearchParams): Paged<MasiSource> {
     size,
     totalElements: kept.length,
   };
+}
+
+/**
+ * masi's GET /sources as it answers a request: a 400 for a "Show" or a sort it does not know (an enum it cannot read,
+ * ListSort.parse), never every source or the name order in their place.
+ */
+function sourcesAnswer(q: URLSearchParams): Answer {
+  const state = q.get('state');
+  if (state && !(state in SHOWS)) {
+    return { status: 400, body: { error: `unknown state '${state}'` } };
+  }
+  const parts = (q.get('sort') || 'name,asc').split(',');
+  if (!(parts[0].trim() in SOURCE_COLUMNS)) {
+    return { status: 400, body: { error: `unknown sort column '${parts[0]}'` } };
+  }
+  const direction = (parts[1] ?? '').trim().toLowerCase();
+  if (parts.length > 2 || (direction !== '' && direction !== 'asc' && direction !== 'desc')) {
+    return { status: 400, body: { error: `unknown sort '${q.get('sort')}'` } };
+  }
+  return { status: 200, body: sourcesPage(q) };
 }
 
 /** masi's GET /sources/counts: every source, and each "Show"'s. */
@@ -1447,7 +1482,7 @@ const oldSourceStats: MasiSourceStats[] = SOURCES.map((s): MasiSourceStats => ({
 const sum = (pick: (row: MasiSourceStats) => number) =>
   oldSourceStats.reduce((total, row) => total + pick(row), 0);
 /** The old masi's monthly report (see oldSourceStats): the site reads it into today's shape. */
-const oldReport: MasiReport = {
+const oldReport: MasiReportAnswer = {
   ...bigReport,
   id: 7,
   stats: {
@@ -1617,7 +1652,7 @@ export function answer(url: URL): Answer | undefined {
     [/^\/persons\/\d+$/, () => ({ status: 200, body: person })],
     // the Sources page: production's 225 sources a page at a time (GitHub's config long), every "Show"'s count, one
     // source alone, their runs and changes, the deployment's switches
-    [/^\/sources$/, () => ({ status: 200, body: sourcesPage(q) })],
+    [/^\/sources$/, () => sourcesAnswer(q)],
     [/^\/sources\/counts$/, () => ({ status: 200, body: SOURCE_COUNTS })],
     [/^\/sources\/switches$/, () => ({ status: 200, body: SWITCHES })],
     [

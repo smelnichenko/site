@@ -6,7 +6,13 @@ import { looseSeparators, renderAt } from './testUtils';
 import { oldReport, report } from './statsFixture';
 
 vi.mock('../../services/api', () => ({ fetchMasiReport: vi.fn(), mailMasiReportDigest: vi.fn() }));
+// the old masi's report is read through the real call: no login behind it
+vi.mock('../../services/oidcClient', () => ({
+  getAccessToken: vi.fn(() => Promise.resolve('token')),
+  login: vi.fn(),
+}));
 const api = await import('../../services/api');
+const real = await vi.importActual<typeof import('../../services/api')>('../../services/api');
 
 beforeEach(() => {
   vi.mocked(api.fetchMasiReport).mockReset();
@@ -35,9 +41,18 @@ describe('MasiReportDetail', () => {
       'ats:pipedrive: degraded',
       'bolt: degraded',
     ]);
-    expect(badges[0]).toHaveAttribute('href', '/masi/sources?q=ats%3Awise');
-    expect(badges[0]).toHaveClass('status-badge', 'error');
-    expect(badges[2]).toHaveClass('status-badge', 'action');
+    // the one source by its key - a search for "meetfrank" would list "meetfrankpeople" too
+    expect(badges[0]).toHaveAttribute('href', '/masi/sources/key/ats%3Awise');
+    expect(badges[3]).toHaveAttribute('href', '/masi/sources/key/bolt');
+    // the pill keeps its look inside the link (the link is the finger target)
+    expect(within(badges[0]).getByText('ats:wise: auto-disabled')).toHaveClass(
+      'status-badge',
+      'error',
+    );
+    expect(within(badges[2]).getByText('ats:pipedrive: degraded')).toHaveClass(
+      'status-badge',
+      'action',
+    );
     expect(screen.queryByRole('link', { name: /more/ })).not.toBeInTheDocument();
     expect(screen.getByTestId('funnel-tile')).toHaveTextContent('2 packages requested');
     expect(screen.getByRole('link', { name: 'all reports' })).toHaveAttribute(
@@ -86,7 +101,7 @@ describe('MasiReportDetail', () => {
       ...report,
       snapshot: {
         ...report.snapshot,
-        sourceCounts: { ...report.snapshot.sourceCounts!, ATTENTION: 57 },
+        sourceCounts: { ...report.snapshot.sourceCounts, ATTENTION: 57 },
       },
     });
     renderAt('/masi/reports/5', '/masi/reports/:id', <MasiReportDetail />);
@@ -103,7 +118,7 @@ describe('MasiReportDetail', () => {
       snapshot: {
         ...report.snapshot,
         sourceHealth: {},
-        sourceCounts: { ...report.snapshot.sourceCounts!, ATTENTION: 0 },
+        sourceCounts: { ...report.snapshot.sourceCounts, ATTENTION: 0 },
       },
     });
     renderAt('/masi/reports/5', '/masi/reports/:id', <MasiReportDetail />);
@@ -115,7 +130,8 @@ describe('MasiReportDetail', () => {
 
   /** The site deploys before masi: a report the old masi stored, or answers, holds every source's health and no counts. */
   it("counts an old report's every source, and names only the ones that wanted a look", async () => {
-    vi.mocked(api.fetchMasiReport).mockResolvedValue(oldReport);
+    vi.mocked(api.fetchMasiReport).mockImplementation(real.fetchMasiReport);
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify(oldReport))));
     renderAt('/masi/reports/5', '/masi/reports/:id', <MasiReportDetail />);
     // six sources, one switched off ("DISABLED"), three unwell
     expect(await screen.findByTestId('source-counts')).toHaveTextContent(
@@ -129,5 +145,8 @@ describe('MasiReportDetail', () => {
     ]);
     expect(screen.getByTestId('source-health')).not.toHaveTextContent('cvee');
     expect(screen.getByTestId('source-health')).not.toHaveTextContent('ats:wise');
+    // its stats listed every source, two: no rest left over
+    expect(screen.queryByRole('row', { name: /other source/ })).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 });

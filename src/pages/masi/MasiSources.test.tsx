@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import MasiSources from './MasiSources';
-import MasiSourceDetail from './MasiSourceDetail';
+import MasiSourceDetail, { MasiSourceByKey } from './MasiSourceDetail';
 import { renderAt } from './testUtils';
 import type { MasiSource, MasiSourceCounts } from '../../services/api';
 
@@ -140,6 +141,11 @@ beforeEach(() => {
   vi.mocked(api.fetchMasiSourceRuns).mockReset();
   vi.mocked(api.patchMasiSource).mockReset();
   vi.mocked(api.runMasiSource).mockReset();
+  vi.mocked(api.fetchMasiAssistant).mockResolvedValue({
+    enabled: false,
+    gmailReady: false,
+    linkedinReady: false,
+  });
   vi.unstubAllGlobals();
 });
 
@@ -174,11 +180,11 @@ describe('MasiSources', () => {
       totalElements: 1,
     });
     renderAt('/masi/sources', '/masi/sources', <MasiSources />);
-    expect(await screen.findByText('0 of 1 enabled · 1 shown')).toBeInTheDocument();
+    expect(await screen.findByText('0 of 1 enabled · 1 match')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Enable' }));
     await waitFor(() => expect(api.patchMasiSource).toHaveBeenCalledWith(1, { enabled: true }));
     // an action reads the page and the counts again, with the same filter
-    expect(await screen.findByText('1 of 1 enabled · 1 shown')).toBeInTheDocument();
+    expect(await screen.findByText('1 of 1 enabled · 1 match')).toBeInTheDocument();
     expect(api.fetchMasiSourceList).toHaveBeenCalledTimes(2);
     expect(lastAsked()).toEqual({
       q: undefined,
@@ -319,7 +325,7 @@ describe('MasiSources', () => {
       totalElements: 0,
     });
     renderAt('/masi/sources', '/masi/sources', <MasiSources />);
-    expect(await screen.findByText('0 of 2 enabled · 2 shown')).toBeInTheDocument();
+    expect(await screen.findByText('0 of 2 enabled · 2 match')).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Token' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^Token for/)).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('no token')).not.toBeInTheDocument();
@@ -436,7 +442,7 @@ describe('MasiSources', () => {
       }),
     );
     renderAt('/masi/sources?q=ats&sort=kind,desc&page=2', '/masi/sources', <MasiSources />);
-    expect(await screen.findByText('200 of 225 enabled · 120 shown')).toBeInTheDocument();
+    expect(await screen.findByText('200 of 225 enabled · 120 match')).toBeInTheDocument();
     expect(lastAsked()).toEqual({
       q: 'ats',
       state: undefined,
@@ -485,7 +491,7 @@ describe('MasiSources', () => {
     vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([bolt, wise], { total: 51 }));
     renderAt('/masi/sources?page=1', '/masi/sources', <MasiSources />);
     await screen.findByText('page 2 of 2');
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Search key or name' }), ' wise ');
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Key or name' }), ' wise ');
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
     await waitFor(() => expect(lastAsked()).toMatchObject({ q: 'wise', page: 0 }));
   });
@@ -520,6 +526,37 @@ describe('MasiSources', () => {
     await waitFor(() => expect(lastAsked()).toMatchObject({ state: 'OFF', page: 1 }));
   });
 
+  it("takes a page change to the list's top: the window there, the focus on the list", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([cvee], { total: 120 }));
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Next' }));
+    const list = screen.getByRole('region', { name: 'Source list' });
+    expect(list).toHaveFocus();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(scrolled.mock.contexts[0]).toBe(list);
+    // a filter is used up there already: no jump
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Show' }), 'OFF');
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView'); // jsdom has none: as it was
+  });
+
+  it('lists every source again as soon as the search box is emptied, the focus kept in it', async () => {
+    vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([cvee]));
+    renderAt('/masi/sources?q=wise', '/masi/sources', <MasiSources />);
+    const box = await screen.findByRole('searchbox', { name: 'Key or name' });
+    expect(box).toHaveValue('wise');
+    await userEvent.clear(box);
+    await waitFor(() => expect(lastAsked()?.q).toBeUndefined());
+    expect(box).toHaveFocus();
+    await userEvent.type(box, 'bolt');
+    // typed is not searched until asked
+    expect(lastAsked()?.q).toBeUndefined();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(lastAsked()?.q).toBe('bolt'));
+  });
+
   it("keeps the page when an opened source's runs are sorted: they are no part of the pager", async () => {
     vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([cvee], { total: 120 }));
     vi.mocked(api.fetchMasiSourceRuns).mockResolvedValue({
@@ -541,7 +578,7 @@ describe('MasiSources', () => {
     vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([], { counts: { ALL: 225 } }));
     renderAt('/masi/sources?q=nothing', '/masi/sources', <MasiSources />);
     expect(await screen.findByText('No sources match.')).toBeInTheDocument();
-    expect(screen.getByRole('searchbox', { name: 'Search key or name' })).toHaveValue('nothing');
+    expect(screen.getByRole('searchbox', { name: 'Key or name' })).toHaveValue('nothing');
   });
 
   it('shows one source alone at /masi/sources/:id, opened, with the way back to every source', async () => {
@@ -565,8 +602,18 @@ describe('MasiSources', () => {
     expect(api.fetchMasiSourceList).not.toHaveBeenCalled();
     expect(screen.queryByRole('combobox', { name: 'Show' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Health' })).not.toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Health' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sources' })).toHaveClass('active');
+    // one record read down, not a row of a table: its health, failures and actions on a phone's first screen
+    const record = screen.getAllByRole('term').map((t) => t.textContent);
+    expect(record).toEqual(['Key', 'Kind', 'Health', 'Cron', 'Requests/day', 'Last success']);
+    const health = screen.getAllByRole('definition')[2];
+    expect(health).toHaveTextContent('running');
+    expect(health).toHaveTextContent('5 failure(s) in a row');
+    expect(screen.getByLabelText('Cron for ats:wise')).toHaveValue('0 17 * * * *');
+    expect(screen.getByLabelText('Requests per day for ats:wise')).toBeInTheDocument();
+    // its name is the page's title, no button: pressed, it closed the source and left the page empty
+    expect(screen.getByText('Wise (Greenhouse)', { selector: '.card-title' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Wise (Greenhouse)' })).not.toBeInTheDocument();
     // its actions work here too: the source is read again after
     await userEvent.click(screen.getByRole('button', { name: 'Disable' }));
     await waitFor(() => expect(api.patchMasiSource).toHaveBeenCalledWith(8, { enabled: false }));
@@ -574,11 +621,135 @@ describe('MasiSources', () => {
     expect(await screen.findByText('ats:wise: disabled')).toBeInTheDocument();
   });
 
+  it("keeps the assistant's failure beside its switch, through the list's loads and a filter change", async () => {
+    vi.mocked(api.fetchMasiAssistant).mockRejectedValueOnce(new Error('assistant is unreachable'));
+    vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([cvee]));
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+    expect(await screen.findByText('assistant is unreachable')).toHaveClass('masi-note-error');
+    await screen.findByText('cv.ee');
+    // no state read: the switch says nothing, rather than "off"
+    const toggle = screen.getByRole('checkbox', { name: /Assistant/ });
+    expect(toggle).toBeDisabled();
+    expect(toggle).not.toBeChecked();
+    // the list is not the assistant: its load is not an alert, and a new filter does not clear the assistant's
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Show' }), 'OFF');
+    await waitFor(() => expect(lastAsked()?.state).toBe('OFF'));
+    await waitFor(() => expect(api.fetchMasiSourceList).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('assistant is unreachable')).toBeInTheDocument();
+  });
+
+  it('shows the page of the filters in the URL after an action, never the one in view when it was pressed', async () => {
+    // an action still at masi while the operator moves on: its reload must be of where they are now
+    let finish: (s: MasiSource) => void = () => {};
+    vi.mocked(api.patchMasiSource).mockReturnValue(
+      new Promise<MasiSource>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    vi.mocked(api.fetchMasiSourceList).mockImplementation((filter) =>
+      Promise.resolve(filter.state === 'OFF' ? listed([wise]) : listed([cvee])),
+    );
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Enable' }));
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Show' }), 'OFF');
+    await screen.findByText('Wise (Greenhouse)');
+    finish({ ...cvee, enabled: true });
+    expect(await screen.findByText('cvee: enabled')).toBeInTheDocument();
+    await waitFor(() => expect(api.fetchMasiSourceList).toHaveBeenCalledTimes(3));
+    expect(lastAsked()?.state).toBe('OFF');
+    expect(rowNames()).toEqual(['Wise (Greenhouse)']);
+  });
+
+  it("says an action done when masi did it, and a failed reload after it as the page's failure", async () => {
+    vi.mocked(api.fetchMasiSourceList)
+      .mockResolvedValueOnce(listed([cvee]))
+      .mockRejectedValueOnce(new Error('masi is restarting'));
+    vi.mocked(api.patchMasiSource).mockResolvedValue({ ...cvee, enabled: true });
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Enable' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('masi is restarting');
+    expect(screen.getByText('cvee: enabled')).toBeInTheDocument();
+    expect(screen.queryByText('The action failed')).not.toBeInTheDocument();
+  });
+
+  it('goes to the last page from a page past it: one asked for, or emptied by an action', async () => {
+    vi.mocked(api.fetchMasiSourceList).mockImplementation((filter) =>
+      Promise.resolve(
+        filter.page < 3
+          ? listed([cvee], { total: 120, page: filter.page })
+          : listed([], { total: 120, page: filter.page }),
+      ),
+    );
+    renderAt('/masi/sources?state=OFF&page=9', '/masi/sources', <MasiSources />);
+    // the last page's rows, once its answer is in (the URL, and so the pager, move first)
+    expect(await screen.findByText('cv.ee')).toBeInTheDocument();
+    expect(screen.getByText('page 3 of 3')).toBeInTheDocument();
+    expect(lastAsked()).toMatchObject({ state: 'OFF', page: 2 });
+    expect(screen.queryByText('No sources match.')).not.toBeInTheDocument();
+  });
+
   it('says why a source alone could not be read', async () => {
     vi.mocked(api.fetchMasiSource).mockRejectedValue(new Error('Not found'));
     vi.mocked(api.fetchMasiSourceRuns).mockRejectedValue(new Error('Not found'));
     renderAt('/masi/sources/99', '/masi/sources/:id', <MasiSourceDetail />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Not found');
+  });
+
+  it('says an id that is no number is no source, asking masi nothing', async () => {
+    renderAt('/masi/sources/abc', '/masi/sources/:id', <MasiSourceDetail />);
+    expect(screen.getByText('No such source')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'all sources' })).toHaveAttribute(
+      'href',
+      '/masi/sources',
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(api.fetchMasiSource).not.toHaveBeenCalled();
+    expect(api.fetchMasiSourceRuns).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  /** A report names its sources by key: its badge leads to that one source, never to a search listing others too. */
+  describe('one source by its key', () => {
+    function SourcePage() {
+      return <div data-testid="source-page">{useParams().id}</div>;
+    }
+    function at(path: string) {
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/masi/sources/key/:key" element={<MasiSourceByKey />} />
+            <Route path="/masi/sources/:id" element={<SourcePage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    }
+    const people = { ...cvee, id: 31, key: 'meetfrankpeople', name: 'MeetFrank people' };
+    const jobs = { ...cvee, id: 30, key: 'meetfrank', name: 'MeetFrank (Estonia)' };
+
+    it('opens the source whose key is exactly the one named, not another containing it', async () => {
+      vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([people, jobs]));
+      at('/masi/sources/key/meetfrank');
+      expect(await screen.findByTestId('source-page')).toHaveTextContent('30');
+      expect(lastAsked()).toMatchObject({ q: 'meetfrank', page: 0 });
+    });
+
+    it('finds a key with a colon in it', async () => {
+      vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([wise]));
+      at(`/masi/sources/key/${encodeURIComponent('ats:wise')}`);
+      expect(await screen.findByTestId('source-page')).toHaveTextContent('8');
+    });
+
+    it('says no source has a key masi does not know', async () => {
+      vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([people]));
+      at('/masi/sources/key/meetfrank');
+      expect(await screen.findByText('No source has the key "meetfrank".')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'all sources' })).toHaveAttribute(
+        'href',
+        '/masi/sources',
+      );
+      expect(screen.queryByTestId('source-page')).not.toBeInTheDocument();
+    });
   });
 
   /** The site deploys before masi: the old masi answers every source as an array and has no counts. */
@@ -603,7 +774,7 @@ describe('MasiSources', () => {
     // the worst first: failing before degraded; the two off ones not listed
     await screen.findByText('Wise (Greenhouse)');
     expect(rowNames()).toEqual(['Wise (Greenhouse)', 'Bolt (Greenhouse)']);
-    expect(screen.getByText('2 of 4 enabled · 2 shown')).toBeInTheDocument();
+    expect(screen.getByText('2 of 4 enabled · 2 match')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'needs a look (2)' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'off (2)' })).toBeInTheDocument();
     expect(fetch.mock.calls[0][0]).toBe(

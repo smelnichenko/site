@@ -5,7 +5,6 @@ import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import StatsPanel, { Bars } from './StatsPanel';
 import { stats } from './statsFixture';
-import type { MasiSourceStats } from '../../services/api';
 import { looseSeparators } from './testUtils';
 
 /** Where a link leads: its path and its query, as one object. */
@@ -49,7 +48,10 @@ describe('StatsPanel', () => {
     expect(screen.getByTestId('salary-line')).toHaveTextContent(
       '2500 – 4500 · median 2750 to 4500',
     );
-    expect(screen.getByText('1 ok, 1 error')).toBeInTheDocument(); // the source row's runs
+    // the source row's runs, each count with its word
+    const cvee = within(screen.getByRole('row', { name: /^cv\.ee/ })).getAllByRole('cell');
+    expect(cvee[3]).toHaveTextContent(/^1 ok, 1 error$/);
+    expect(within(cvee[3]).getByText('1 error')).toHaveClass('masi-nowrap');
     expect(screen.getByTestId('tokens-line')).toHaveTextContent(
       '1050 in · 200 cache read · 300 cache write · 400 out',
     );
@@ -392,10 +394,6 @@ describe('StatsPanel reads as text', () => {
 
 describe('StatsPanel sources', () => {
   /** The figures of one source in the period. */
-  function source(i: number, newListings: number, runs: Record<string, number>): MasiSourceStats {
-    return { key: `src${i}`, name: `Source ${i}`, newListings, closedListings: 1, runs };
-  }
-
   it('lists the sources with the most new listings, then the others summed in one row', () => {
     render(<StatsPanel stats={stats} />);
     expect(screen.getByText('the 2 sources with the most new listings')).toBeInTheDocument();
@@ -416,10 +414,19 @@ describe('StatsPanel sources', () => {
       /^Runs by outcomeok41error1skipped budget3$/,
     );
     expect(screen.queryByTestId('bars-Runs per source')).not.toBeInTheDocument();
+    // its labels are words, each shown whole (the layout harness measures it); any bar's label says itself whole
+    // when pointed at, should its column cut it
+    expect(screen.getByTestId('bars-Runs by outcome')).toHaveClass('masi-bars-words');
+    expect(screen.getByText('skipped budget')).toHaveAttribute('title', 'skipped budget');
+    expect(screen.getByTestId('bars-Titles')).not.toHaveClass('masi-bars-words');
+    expect(screen.getByText('senior java developer')).toHaveAttribute(
+      'title',
+      'senior java developer',
+    );
   });
 
-  it('draws no rest row when every source is a row: none left over, or no rest sent with a few rows', () => {
-    const view = render(
+  it('draws no rest row when every source is a row: an empty rest', () => {
+    render(
       <StatsPanel
         stats={{
           ...stats,
@@ -427,10 +434,6 @@ describe('StatsPanel sources', () => {
         }}
       />,
     );
-    expect(screen.queryByRole('row', { name: /other source/ })).not.toBeInTheDocument();
-    expect(screen.queryByText(/with the most new listings/)).not.toBeInTheDocument();
-    view.unmount();
-    render(<StatsPanel stats={{ ...stats, sourcesRest: undefined }} />);
     expect(screen.getAllByRole('row')).toHaveLength(3); // the header, cv.ee and Bolt
     expect(screen.queryByRole('row', { name: /other source/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/with the most new listings/)).not.toBeInTheDocument();
@@ -446,32 +449,5 @@ describe('StatsPanel sources', () => {
       />,
     );
     expect(screen.getByRole('row', { name: /^1 other source 4 2 1 ok$/ })).toBeInTheDocument();
-  });
-
-  /** The site deploys before masi: the old masi's stats list every source and send no rest. */
-  it("cuts the old masi's every source to the 25 with the most new listings, the others summed", () => {
-    // 30 sources: src0 has the most new listings, src29 the fewest; two tie on listings and are told by their closes
-    const all = Array.from({ length: 30 }, (_, i) => source(i, 30 - i, { OK: 1, ERROR: i % 2 }));
-    all[26] = { ...all[26], newListings: 30, closedListings: 9 };
-    render(<StatsPanel stats={{ ...stats, sources: all, sourcesRest: undefined }} />);
-    expect(screen.getByText('the 25 sources with the most new listings')).toBeInTheDocument();
-    const names = screen
-      .getAllByRole('row')
-      .slice(1)
-      .map((r) => within(r).getAllByRole('cell')[0].textContent);
-    expect(names).toHaveLength(26);
-    expect(names.slice(0, 3)).toEqual(['Source 26', 'Source 0', 'Source 1']);
-    expect(names[25]).toBe('5 other sources');
-    // the five left: src24, 25, 27, 28, 29 - 6 + 5 + 3 + 2 + 1 new listings, one close each, five ok runs and three errors (the odd ones)
-    const rest = screen.getByRole('row', { name: /5 other sources/ });
-    expect(
-      within(rest)
-        .getAllByRole('cell')
-        .map((c) => c.textContent),
-    ).toEqual(['5 other sources', '17', '5', '5 ok, 3 error']);
-    // every run counted once, in the rows or the rest
-    expect(screen.getByTestId('bars-Runs by outcome')).toHaveTextContent(
-      /^Runs by outcomeok30error15$/,
-    );
   });
 });

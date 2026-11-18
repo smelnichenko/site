@@ -109,8 +109,8 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       widths: [360, 390, 1366],
       drawn: {
         '.masi-sources-table > tbody > tr': [50],
-        '.masi .card-header .muted': [1, '200 of 225 enabled · 225 shown'],
-        'select[aria-label="Show"] option': [9, 'needs a look (5)'],
+        '.masi .card-header .muted': [1, '200 of 225 enabled · 225 match'],
+        '#source-show option': [9, 'needs a look (5)'],
         '.pagination-info': [1, 'page 1 of 5'],
       },
     },
@@ -1569,6 +1569,16 @@ for (const width of [390, 1366]) {
 }
 
 /**
+ * The harness answers as masi does: a sort it does not know is a 400 with masi's words, which the page shows - never
+ * the list in another order, which would hide a page asking for a column masi has not got.
+ */
+test("the Sources page shows masi's refusal of a sort it does not know", async ({ page }) => {
+  await open(page, '/masi/sources?sort=bogus,asc', '.error[role="alert"]');
+  await expect(page.locator('.error[role="alert"]')).toContainText("unknown sort column 'bogus'");
+  await expect(page.locator('.masi-sources-table')).toHaveCount(0);
+});
+
+/**
  * An opened source's runs read whole. In the sources table every cell may break anywhere (its fixed columns), and the
  * runs table under an opened row took that over: on a phone each date stood a letter to a line, a run 400 px tall. The
  * runs keep their words, and their panel scrolls them sideways - never the page.
@@ -1581,7 +1591,7 @@ for (const width of [390, 1366]) {
     await open(page, '/masi/sources/2', '[data-testid="runs-cvee"] tbody tr');
     const m = await page.evaluate(() => {
       const runs = document.querySelector('[data-testid="runs-cvee"]') as HTMLElement;
-      const panel = runs.closest('.masi-source-detail') as HTMLElement;
+      const panel = runs.closest('.masi-source-opened') as HTMLElement;
       const heights = (sel: string) =>
         [...runs.querySelectorAll(sel)].map((r) => Math.round(r.getBoundingClientRect().height));
       return {
@@ -1671,3 +1681,321 @@ for (const width of [390, 1366]) {
     ]);
   });
 }
+
+/** Where an element is on the screen: its box, rounded to the pixel. */
+async function boxOf(page: Page, selector: string) {
+  const b = await page.locator(selector).first().boundingBox();
+  if (!b) throw new Error(`${selector} is not drawn`);
+  return {
+    top: b.y,
+    bottom: b.y + b.height,
+    left: b.x,
+    right: b.x + b.width,
+    w: b.width,
+    h: b.height,
+  };
+}
+
+/** The words of an element's text that a line break cuts in two, as "word" - none when every word is whole. */
+async function brokenWords(page: Page, selector: string): Promise<string[]> {
+  return page.evaluate((sel) => {
+    const broken: string[] = [];
+    for (const el of document.querySelectorAll(sel)) {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const text = n.textContent ?? '';
+        let at = 0;
+        for (const part of text.split(/(\s+)/)) {
+          if (part.trim()) {
+            const r = document.createRange();
+            r.setStart(n, at);
+            r.setEnd(n, at + part.length);
+            if (new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size > 1) {
+              broken.push(`${(el.textContent ?? '').trim()}: ${part}`);
+            }
+          }
+          at += part.length;
+        }
+      }
+    }
+    return broken;
+  }, selector);
+}
+
+/**
+ * The Sources page is its list (the web UI review of plan 118's site change, 2026-11-18): the search and the "Show",
+ * each named on the page, on the first screen - above the pictures' and the deployment's panels - and a page change
+ * takes the window and the focus to the list's top, its pager's buttons finger targets, their words level with them.
+ */
+for (const [width, height] of [
+  [1366, 768],
+  [390, 844],
+]) {
+  test(`the Sources page shows its list first and pages to its top, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await open(page, '/masi/sources', '.masi-sources-table');
+    for (const [label, field] of [
+      ['label[for="source-q"]', '#source-q'],
+      ['label[for="source-show"]', '#source-show'],
+    ]) {
+      const f = await boxOf(page, field);
+      expect(f.bottom, `${field} on the first screen`).toBeLessThanOrEqual(height);
+      expect((await boxOf(page, label)).w, `${label} shown`).toBeGreaterThan(0);
+    }
+    await expect(page.locator('label[for="source-q"]')).toHaveText('Key or name');
+    // the collection's own panels after the list, a card's gap under it
+    const list = await boxOf(page, '.masi-source-list');
+    const panel = await boxOf(page, '.masi-source-list + *');
+    expect(panel.top - list.bottom, 'the panels apart from the list').toBeGreaterThanOrEqual(16);
+    await expect(page.locator('label[for="source-show"]')).toHaveText('Show');
+    const pager = await page.evaluate(() =>
+      [...document.querySelectorAll('.masi-sources-pager > *')].map((e) => {
+        const r = e.getBoundingClientRect();
+        return { tag: e.tagName, middle: r.top + r.height / 2, w: r.width, h: r.height };
+      }),
+    );
+    const words = pager.find((p) => p.tag === 'SPAN');
+    for (const b of pager.filter((p) => p.tag === 'BUTTON')) {
+      expect(b.h, 'Previous and Next 44 px tall').toBeGreaterThanOrEqual(44);
+      expect(b.w, 'and 44 px wide').toBeGreaterThanOrEqual(44);
+      expect(
+        Math.abs(b.middle - (words?.middle ?? 0)),
+        "the pager's words level",
+      ).toBeLessThanOrEqual(1);
+    }
+    const first = page.locator('.masi-sources-table > tbody > tr:first-child .link-button');
+    const before = await first.textContent();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.locator('.masi-sources-pager .pagination-info')).toHaveText('page 2 of 5');
+    await expect(first).not.toHaveText(before ?? '');
+    const row = await boxOf(page, '.masi-sources-table > tbody > tr:first-child');
+    expect(row.top, "the new page's first row in the window").toBeGreaterThanOrEqual(0);
+    expect(row.top, "the new page's first row in the window").toBeLessThan(height);
+    expect(
+      await page.evaluate(() => document.activeElement?.classList.contains('masi-source-list')),
+      'the focus at the list',
+    ).toBe(true);
+  });
+}
+
+/**
+ * The sources table holds whole on a 1024 px screen, and its headers break only between words - sorted by any column,
+ * when the mark takes room - at the table's narrowest (a phone, scrolling in its card) and on the wide screens.
+ */
+for (const width of [360, 1024, 1366, 1920]) {
+  test(`the sources table's headers keep their words, whole from 1024 px, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/sources', '.masi-sources-table');
+    // sorted as the operator sorts it, a header press at a time: the page once (each load a cold start under load)
+    const headers: Array<[string, string]> = [
+      ['Source', 'name'],
+      ['Kind', 'kind'],
+      ['Cron', 'nextRunAt'],
+      ['Requests/day', 'cap'],
+      ['Health', 'health'],
+      ['Last success', 'lastSuccessAt'],
+    ];
+    for (const [i, [column, key]] of headers.entries()) {
+      if (i > 0) {
+        // the page sorted: masi's answer in, and drawn
+        const answered = page.waitForResponse(
+          (r) => r.url().includes('/api/masi/sources?') && r.url().includes(`sort=${key}%2Casc`),
+        );
+        await page.getByRole('button', { name: column, exact: true }).click();
+        await answered;
+        await expect(page.locator('.masi-sources-table th[aria-sort="ascending"]')).toHaveText(
+          new RegExp(`^${column}`),
+        );
+        await page.evaluate(
+          () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+        );
+      }
+      expect(
+        await brokenWords(page, '.masi-sources-table > thead th'),
+        `sorted by ${column}`,
+      ).toEqual([]);
+      const m = await page.evaluate(() => {
+        const scroller = document.querySelector(
+          '.masi-table-scroll:has(> .masi-sources-table)',
+        ) as HTMLElement;
+        return {
+          scrolls: scroller.scrollWidth > scroller.clientWidth + 1,
+          cut: [...document.querySelectorAll('.masi-sources-table td')].filter(
+            (td) => (td as HTMLElement).scrollWidth > (td as HTMLElement).clientWidth + 1,
+          ).length,
+        };
+      });
+      expect(m.cut, `no cell cut, sorted by ${column}`).toBe(0);
+      if (width >= 1024) expect(m.scrolls, 'the table whole in its card').toBe(false);
+    }
+  });
+}
+
+/**
+ * One source alone reads down as one record on a phone: its health and actions on the first screen, nothing off the
+ * side; its name the page's title, beside the way back (a finger target, on one line), which wraps under a long name.
+ */
+for (const [width, height, id] of [
+  [390, 844, 2],
+  [360, 740, 6],
+]) {
+  test(`one source alone reads down on a phone, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await open(page, `/masi/sources/${id}`, '.masi-source-own');
+    await expect(page.locator('.masi-sources-table')).toHaveCount(0);
+    const m = await page.evaluate(() => ({
+      right: Math.max(
+        ...[...document.querySelectorAll('.masi-source-own dd, .masi-source-actions button')].map(
+          (e) => e.getBoundingClientRect().right,
+        ),
+      ),
+      actions: Math.max(
+        ...[...document.querySelectorAll('.masi-source-actions button')].map(
+          (e) => e.getBoundingClientRect().bottom,
+        ),
+      ),
+      viewport: document.documentElement.clientWidth,
+    }));
+    expect(m.right, 'every field inside the screen').toBeLessThanOrEqual(m.viewport);
+    for (const field of [
+      '.masi-source-own input[aria-label^="Cron"]',
+      '.masi-source-own input[type="number"]',
+    ]) {
+      expect(
+        (await boxOf(page, field)).h,
+        `${field} the masi control height`,
+      ).toBeGreaterThanOrEqual(36);
+    }
+    expect(m.actions, 'the actions on the first screen').toBeLessThanOrEqual(height);
+    expect((await boxOf(page, '.masi-source-own dd:nth-of-type(3)')).bottom).toBeLessThanOrEqual(
+      height,
+    );
+    const back = await boxOf(page, '.masi-back-link');
+    const title = await boxOf(page, '.masi-sources-card .card-title');
+    expect(back.h, '"all sources" a finger target').toBeGreaterThanOrEqual(44);
+    expect(await brokenWords(page, '.masi-back-link'), '"all sources" whole').toEqual([]);
+    expect(
+      back.left >= title.right || back.top >= title.bottom - 1,
+      'the way back beside the title or under it, never over it',
+    ).toBe(true);
+  });
+}
+
+/** The list's header on a phone: the counts on a line of their own under the title, whole, never pressed against it. */
+for (const width of [360, 375]) {
+  test(`the Sources page's header wraps whole, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await open(page, '/masi/sources', '.masi-sources-table');
+    const title = await boxOf(page, '.masi-sources-card .card-title');
+    const counts = await boxOf(page, '.masi-sources-card > .card-header > .muted');
+    expect(await brokenWords(page, '.masi-sources-card > .card-header > .muted')).toEqual([]);
+    expect(counts.h, 'the counts on one line').toBeLessThan(30);
+    expect(
+      counts.left >= title.right + 16 || counts.top >= title.bottom,
+      'apart from the title',
+    ).toBe(true);
+  });
+}
+
+/**
+ * A report's unwell sources: each a finger target (the pill keeps its size inside), underlined as a link, the first
+ * row apart from the counts line; "and 7 more" the same. The month's runs by outcome show their words whole, and the
+ * sources' table keeps each run count with its word.
+ */
+for (const width of [390, 1366]) {
+  test(`a report's sources are links a finger can take, their words whole, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/reports/6', '[data-testid="source-health"]');
+    const m = await page.evaluate(() => {
+      const links = [...document.querySelectorAll('[data-testid="source-health"] a')];
+      const pills = links.map((a) => a.querySelector('.status-badge') as HTMLElement);
+      return {
+        links: links.length,
+        short: links.filter((a) => a.getBoundingClientRect().height < 44).length,
+        plain: pills.filter((p) => !getComputedStyle(p).textDecorationLine.includes('underline'))
+          .length,
+        more: (links[links.length - 1].textContent ?? '').trim(),
+        gap:
+          pills[0].getBoundingClientRect().top -
+          document.querySelector('[data-testid="source-counts"]')!.getBoundingClientRect().bottom,
+        cutLabels: [
+          ...document.querySelectorAll('[data-testid="bars-Runs by outcome"] .masi-bar-label'),
+        ]
+          .filter((l) => (l as HTMLElement).scrollWidth > (l as HTMLElement).clientWidth + 1)
+          .map((l) => l.textContent),
+        restRow: (() => {
+          const rows = [...document.querySelectorAll('.masi-stats tbody tr')];
+          return rows[rows.length - 1].getBoundingClientRect().height;
+        })(),
+      };
+    });
+    expect(m.links, 'fifty sources and "and 7 more"').toBe(51);
+    expect(m.more).toBe('and 7 more');
+    expect(m.short, 'every source link 44 px tall').toBe(0);
+    expect(m.plain, 'every pill underlined').toBe(0);
+    expect(m.gap, 'the pills apart from the counts line').toBeGreaterThanOrEqual(6);
+    expect(m.cutLabels, '"skipped budget" and the rest whole').toEqual([]);
+    expect(
+      await brokenWords(page, '.masi-stats tbody td .masi-nowrap'),
+      'each run count with its word',
+    ).toEqual([]);
+    expect(
+      await page.evaluate(
+        () =>
+          [...document.querySelectorAll('.masi-stats tbody td .masi-nowrap')].filter(
+            (s) => new Set([...s.getClientRects()].map((r) => Math.round(r.top))).size > 1,
+          ).length,
+      ),
+      'each "N outcome" on one line',
+    ).toBe(0);
+    expect(
+      m.restRow,
+      'the other sources a row of a few lines, not a word a line',
+    ).toBeLessThanOrEqual(110);
+  });
+}
+
+/** The overview's sources wanting a look: each name a finger target. */
+for (const width of [390, 1366]) {
+  test(`the overview's sources are links a finger can take, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi', '[data-testid="source-counts"]');
+    const heights = await page.evaluate(() =>
+      [...document.querySelectorAll('.masi-table-scroll tbody a')].map(
+        (a) => a.getBoundingClientRect().height,
+      ),
+    );
+    expect(heights).toHaveLength(5);
+    expect(Math.min(...heights), 'every name 44 px tall').toBeGreaterThanOrEqual(44);
+  });
+}
+
+/** The assistant's switch and what it says of itself stand apart; the pictures' button is drawn as the page's are. */
+test('the Sources page draws its switch and its buttons as masi does', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await open(page, '/masi/sources', '.masi-sources-table');
+  const label = await boxOf(page, '.assistant-switch > label');
+  const note = await boxOf(page, '.assistant-switch > .muted');
+  expect(note.left - label.right, 'a space between "LinkedIn)" and "off"').toBeGreaterThanOrEqual(
+    8,
+  );
+  const button = await page.evaluate(() => {
+    const b = [...document.querySelectorAll('button')].find((x) =>
+      x.textContent?.includes('Collect pictures now'),
+    )!;
+    const search = document.querySelector('.masi-filters .btn-small')!;
+    const style = (e: Element) => {
+      const s = getComputedStyle(e);
+      return `${s.fontFamily}|${s.borderRadius}|${s.backgroundColor}`;
+    };
+    return { collect: style(b), search: style(search) };
+  });
+  expect(button.collect, "the pictures' button as the page's Search button").toBe(button.search);
+});

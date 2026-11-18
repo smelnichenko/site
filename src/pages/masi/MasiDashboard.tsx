@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchMasiDashboard, MasiDashboard as Dashboard } from '../../services/api';
-import { dashboardSources } from '../../services/masiSourcesOld';
 import MasiNav from '../../components/MasiNav';
 import { badgeClass, errorMessage, formatDateTime, formatUsd, noteClass } from './format';
 import MasiTable from '../../components/MasiTable';
@@ -15,10 +14,11 @@ const DOT = SEPARATOR.trimEnd();
 /**
  * The sources at a glance: how many there are, enabled, running and wanting a look - each a link to the Sources page
  * showing them - then the ones wanting a look, worst first, at most ten, and the way to every one of them when there
- * are more. A masi before paged sources sent every source: the same is made of them (masiSourcesOld).
+ * are more.
  */
 function SourcesCard({ data }: Readonly<{ data: Dashboard }>) {
-  const { counts, attention } = dashboardSources(data);
+  const counts = data.sourceCounts;
+  const attention = data.sourcesAttention;
   const needLook = countOf(counts, 'ATTENTION');
   const parts: Array<{ key: string; value: number; to: string; words: string }> = [
     { key: 'ALL', value: counts.ALL, to: sourcesLink(), words: `${counts.ALL} sources` },
@@ -91,14 +91,17 @@ function SourcesCard({ data }: Readonly<{ data: Dashboard }>) {
               return (
                 <tr key={s.id}>
                   <td>
-                    <Link to={`/masi/sources/${s.id}`}>{s.name}</Link>
+                    <Link to={`/masi/sources/${s.id}`} className="masi-attention-name">
+                      {s.name}
+                    </Link>
                     <div className="muted">{s.key}</div>
                   </td>
                   <td className="badge-group">
                     <span className={badgeClass(state)}>{stateWords(state)}</span>
                     {s.running && <span className="status-badge">running</span>}
                   </td>
-                  <td>{s.consecutiveFailures ?? ''}</td>
+                  {/* not known from a masi before paged sources: a dash, never a zero */}
+                  <td>{s.consecutiveFailures ?? '—'}</td>
                   <td>{formatDateTime(s.lastSuccessAt)}</td>
                   <td>{s.lastError && <span className={noteClass(state)}>{s.lastError}</span>}</td>
                 </tr>

@@ -1,4 +1,5 @@
 import type { MasiReport, MasiStats } from '../../services/api';
+import type { MasiReportAnswer } from '../../services/masiSourcesOld';
 
 /** The DST-start week of 2026-03-23 .. 03-30 as the backend's fixtures add it up. */
 export const stats: MasiStats = {
@@ -100,7 +101,7 @@ export const report: MasiReport = {
  * The same report as a masi before paged sources stored it: every source's health by key ("DISABLED" for one switched
  * off), no counts - and stats listing every source, with no rest.
  */
-export const oldReport: MasiReport = {
+export const oldReport: MasiReportAnswer = {
   ...report,
   stats: { ...stats, sourcesRest: undefined },
   snapshot: {

@@ -1,21 +1,56 @@
 /**
- * The sources of a masi from before it paged them (ops plan 118 PR 3), read into the shapes masi sends since. The site
- * deploys first: until masi follows, its GET /sources is every source as an array (and it has no /sources/counts), its
- * dashboard lists every source, a report's snapshot holds every source's health by key with no counts, and its stats
- * list every source with no rest. Each is made here into what masi makes of it now, the way masi makes it, so the
- * pages read one shape. Drop this file, and the calls to it, once masi answers in the new shapes.
+ * The sources of a masi from before it paged them, read into the shapes masi sends since. The site deploys first:
+ * until masi follows, its GET /sources is every source as an array (and it has no /sources/counts), its dashboard lists
+ * every source, a report's snapshot holds every source's health by key with no counts, and its stats list every source
+ * with no rest. api.ts reads every answer through here, so the pages only ever see the new shapes; each is made the way
+ * masi makes it. Drop this file - and read the answers as the new types directly - once masi answers in the new shapes.
+ *
+ * No import but types: the fallback goes as one file, and pulls nothing of the pages' (a router) into the API layer.
  */
-import { sortRows, type SortValue } from '../components/sorting';
 import type {
-  MasiDashboardSource,
+  MasiDashboard,
+  MasiReport,
   MasiSource,
   MasiSourceCounts,
   MasiSourceFilter,
   MasiSourceState,
   MasiSourceStats,
   MasiSourcesRest,
+  MasiStats,
   Paged,
 } from './api';
+
+/** A source as the dashboard of a masi before paged sources listed every one. */
+export interface OldDashboardSource {
+  id: number;
+  key: string;
+  name: string;
+  enabled: boolean;
+  health: string;
+  lastRunAt: string | null;
+  lastSuccessAt: string | null;
+  running: boolean;
+}
+
+/** GET /dashboard of either masi: the new one's counts and sources wanting a look, or the old one's every source. */
+export type MasiDashboardAnswer = Omit<MasiDashboard, 'sourceCounts' | 'sourcesAttention'> & {
+  sourceCounts?: MasiSourceCounts;
+  sourcesAttention?: MasiSource[];
+  sources?: OldDashboardSource[];
+};
+
+/** A period's stats from either masi: the old one listed every source and sent no rest. */
+export type MasiStatsAnswer = Omit<MasiStats, 'sourcesRest'> & {
+  sourcesRest?: MasiSourcesRest | null;
+};
+
+/** A report from either masi: the old one's snapshot holds every source's health and no counts. */
+export type MasiReportAnswer = Omit<MasiReport, 'stats' | 'snapshot'> & {
+  stats: MasiStatsAnswer;
+  snapshot: Omit<MasiReport['snapshot'], 'sourceCounts'> & {
+    sourceCounts?: MasiSourceCounts | null;
+  };
+};
 
 /** What a "Show" reads of a source. */
 type Row = Pick<MasiSource, 'enabled' | 'health' | 'running'>;
@@ -67,8 +102,11 @@ function capOf(configJson: string | null): number | null {
   }
 }
 
+/** A column's value: text (compared A to Z whatever its case), a number, or null for none. */
+type Value = string | number | null;
+
 /** The columns masi sorts its sources by (SourceController.SORTS), each as the browser reads it from a row. */
-const SORTS: Record<string, (s: MasiSource) => SortValue> = {
+const SORTS: Record<string, (s: MasiSource) => Value> = {
   name: (s) => s.name,
   kind: (s) => `${s.kind} ${s.scope}`,
   cap: (s) => capOf(s.configJson),
@@ -79,21 +117,47 @@ const SORTS: Record<string, (s: MasiSource) => SortValue> = {
 };
 
 /**
+ * Masi's order (ListSort): by the column's value, a missing direction descending; empty values last whichever way;
+ * equal values by id the same way, so no page repeats or skips a row.
+ */
+function ordered(sort: string): (a: MasiSource, b: MasiSource) => number {
+  const [column, direction] = sort.split(',');
+  const value = SORTS[column] ?? SORTS.name;
+  const sign = direction === 'asc' ? 1 : -1;
+  return (a, b) => {
+    const va = value(a);
+    const vb = value(b);
+    if ((va === null || va === '') !== (vb === null || vb === ''))
+      return va === null || va === '' ? 1 : -1;
+    let by = 0;
+    if (typeof va === 'string' && typeof vb === 'string') {
+      by = va.localeCompare(vb, undefined, { sensitivity: 'base', numeric: true });
+    } else if (va !== null && vb !== null) {
+      by = Number(va) - Number(vb);
+    }
+    return sign * (by || a.id - b.id);
+  };
+}
+
+/**
  * The page of every source that masi would answer for the filter: a key or a name containing the search (case aside),
- * the "Show", the sort (empty values last, then by id the same way; name A to Z when none is asked), the page.
+ * the "Show", the sort (name A to Z when none is asked), the page.
  */
 export function pageOf(rows: readonly MasiSource[], filter: MasiSourceFilter): Paged<MasiSource> {
   const needle = (filter.q ?? '').trim().toLowerCase();
   const show = filter.state ? IN_SHOW[filter.state] : undefined;
-  const kept = rows.filter(
-    (s) =>
-      (!needle || s.key.toLowerCase().includes(needle) || s.name.toLowerCase().includes(needle)) &&
-      (!show || show(s)),
-  );
-  const sorted = sortRows(kept, filter.sort || 'name,asc', SORTS);
+  const kept = rows
+    .filter(
+      (s) =>
+        (!needle ||
+          s.key.toLowerCase().includes(needle) ||
+          s.name.toLowerCase().includes(needle)) &&
+        (!show || show(s)),
+    )
+    .sort(ordered(filter.sort || 'name,asc'));
   const start = filter.page * filter.size;
   return {
-    content: sorted.slice(start, start + filter.size),
+    content: kept.slice(start, start + filter.size),
     page: filter.page,
     size: filter.size,
     totalElements: kept.length,
@@ -115,26 +179,60 @@ export function countsOf(rows: readonly Row[]): MasiSourceCounts {
 const ATTENTION_MOST = 10;
 
 /**
- * The dashboard's sources: the counts, and the ones wanting a look - worst first, the newest among equals, at most ten
- * (masi SourceFilter.worstFirst). A dashboard of the new masi is taken as it is.
+ * The dashboard as the new masi sends it. The new masi's is taken as it is; the old one's every source is counted, and
+ * the ones wanting a look listed worst first, the newest among equals, at most ten (masi SourceFilter.worstFirst) -
+ * with no failures and no last error, which it did not send. An answer with neither is no dashboard of either masi:
+ * it is refused, never read as "no source wants a look".
  */
-export function dashboardSources(data: {
-  sourceCounts?: MasiSourceCounts;
-  sourcesAttention?: MasiSource[];
-  sources?: MasiDashboardSource[];
-}): {
-  counts: MasiSourceCounts;
-  attention: Array<MasiDashboardSource & Partial<MasiSource>>;
-} {
-  if (data.sourceCounts && data.sourcesAttention) {
-    return { counts: data.sourceCounts, attention: data.sourcesAttention };
+export function dashboardOf(answer: MasiDashboardAnswer): MasiDashboard {
+  const { sourceCounts, sourcesAttention, sources, ...rest } = answer;
+  if (sourceCounts && sourcesAttention) {
+    return { ...rest, sourceCounts, sourcesAttention };
   }
-  const all = data.sources ?? [];
-  const attention = all
+  if (!Array.isArray(sources)) {
+    throw new TypeError('The dashboard sent no sources: neither their counts nor a list of them');
+  }
+  const attention = sources
     .filter(IN_SHOW.ATTENTION)
     .sort((a, b) => healthRank(b.health) - healthRank(a.health) || b.id - a.id)
-    .slice(0, ATTENTION_MOST);
-  return { counts: countsOf(all), attention };
+    .slice(0, ATTENTION_MOST)
+    .map((s) => ({ ...s, consecutiveFailures: null, lastError: null }));
+  return { ...rest, sourceCounts: countsOf(sources), sourcesAttention: attention };
+}
+
+/** The most sources a period's stats list by name (masi PeriodStats.TOP_SOURCES). */
+const TOP_SOURCES = 25;
+
+/**
+ * A period's stats as the new masi sends them. The old masi's list every source with no rest: read as masi reads a
+ * period it stored so (PeriodStats.current) - the 25 with the most new listings, then the most closes, then by key, and
+ * the others summed; no more than 25 are every source, with an empty rest.
+ */
+export function statsOf(answer: MasiStatsAnswer): MasiStats {
+  const { sourcesRest, ...stats } = answer;
+  if (sourcesRest) return { ...stats, sourcesRest };
+  if (stats.sources.length <= TOP_SOURCES) {
+    return { ...stats, sourcesRest: { sources: 0, newListings: 0, closedListings: 0, runs: {} } };
+  }
+  const ranked = [...stats.sources].sort(
+    (a, b) =>
+      b.newListings - a.newListings || b.closedListings - a.closedListings || byKey(a.key, b.key),
+  );
+  const others: MasiSourceStats[] = ranked.slice(TOP_SOURCES);
+  const runs: Record<string, number> = {};
+  for (const o of others) {
+    for (const [status, n] of Object.entries(o.runs)) runs[status] = (runs[status] ?? 0) + n;
+  }
+  return {
+    ...stats,
+    sources: ranked.slice(0, TOP_SOURCES),
+    sourcesRest: {
+      sources: others.length,
+      newListings: others.reduce((sum, o) => sum + o.newListings, 0),
+      closedListings: others.reduce((sum, o) => sum + o.closedListings, 0),
+      runs,
+    },
+  };
 }
 
 /** The most unwell sources a report names (masi ReportPayload.Snapshot.HEALTH_MOST). */
@@ -144,73 +242,47 @@ const HEALTH_MOST = 50;
 const STATE_RANK = ['OK', 'DEGRADED', 'FAILING', 'DISABLED_AUTO', 'OFF'];
 
 /**
- * A report's sources: its counts, and the sources that wanted a look, worst first. A report a masi before paged sources
- * stored holds every source's health by key ("DISABLED" for one switched off, by hand or by its failures alike), with
- * no counts: read as masi reads it now (ReportPayload.Snapshot.current) - counted from that map, with no RUNNING (it did
- * not see what ran), and the unwell of it worst first, then by key, at most fifty.
+ * A report as the new masi sends it: its stats read by {@link statsOf}, its snapshot with counts and only the sources
+ * that wanted a look. A report with no counts is taken for the old masi's - every source's health by key, "DISABLED"
+ * for one switched off by hand or by its failures alike - and read as masi reads one it stored so
+ * (ReportPayload.Snapshot.current): counted from that map, with no RUNNING (it did not see what ran), and the unwell of
+ * it worst first, then by key, at most fifty. Unlike the dashboard, no counts is never a broken answer of the new masi:
+ * it reads every report it stored before into today's shape, counts and all.
  */
-export function reportSources(snapshot: {
-  sourceHealth: Record<string, string>;
-  sourceCounts?: MasiSourceCounts | null;
-}): { counts: MasiSourceCounts; unwell: Array<[string, string]> } {
-  if (snapshot.sourceCounts) {
-    return { counts: snapshot.sourceCounts, unwell: Object.entries(snapshot.sourceHealth) };
+export function reportOf(answer: MasiReportAnswer): MasiReport {
+  const { sourceCounts, ...snapshot } = answer.snapshot;
+  const stats = statsOf(answer.stats);
+  if (sourceCounts) {
+    return { ...answer, stats, snapshot: { ...snapshot, sourceCounts } };
   }
   const states = Object.entries(snapshot.sourceHealth).map(([key, health]): [string, string] => [
     key,
     health === 'DISABLED' ? 'OFF' : health,
   ]);
   const count = (state: string) => states.filter(([, s]) => s === state).length;
-  const unwell = states
-    .filter(([, s]) => UNWELL.has(s))
-    .sort(([ka, a], [kb, b]) => STATE_RANK.indexOf(b) - STATE_RANK.indexOf(a) || byKey(ka, kb))
-    .slice(0, HEALTH_MOST);
+  const unwell = states.filter(([, s]) => UNWELL.has(s));
   return {
-    counts: {
-      ALL: states.length,
-      // as masi counts it: every source not switched off - an old report has no DISABLED_AUTO, only DISABLED
-      ENABLED: states.length - count('OFF'),
-      ATTENTION: states.filter(([, s]) => UNWELL.has(s)).length,
-      OK: count('OK'),
-      DEGRADED: count('DEGRADED'),
-      FAILING: count('FAILING'),
-      OFF: count('OFF'),
-    },
-    unwell,
-  };
-}
-
-/** The most sources a period's stats list by name (masi PeriodStats.TOP_SOURCES). */
-const TOP_SOURCES = 25;
-
-/**
- * A period's sources: the rows listed by name and the rest summed. Stats from a masi before paged sources list every
- * source with no rest: cut as masi cuts them now (PeriodStats.current) - the 25 with the most new listings, then the
- * most closes, then by key - and the others summed. A few rows and no rest are every source: nothing to cut.
- */
-export function topSources(stats: {
-  sources: MasiSourceStats[];
-  sourcesRest?: MasiSourcesRest | null;
-}): { rows: MasiSourceStats[]; rest: MasiSourcesRest | null } {
-  if (stats.sourcesRest || stats.sources.length <= TOP_SOURCES) {
-    return { rows: stats.sources, rest: stats.sourcesRest ?? null };
-  }
-  const ranked = [...stats.sources].sort(
-    (a, b) =>
-      b.newListings - a.newListings || b.closedListings - a.closedListings || byKey(a.key, b.key),
-  );
-  const others = ranked.slice(TOP_SOURCES);
-  const runs: Record<string, number> = {};
-  for (const o of others) {
-    for (const [status, n] of Object.entries(o.runs)) runs[status] = (runs[status] ?? 0) + n;
-  }
-  return {
-    rows: ranked.slice(0, TOP_SOURCES),
-    rest: {
-      sources: others.length,
-      newListings: others.reduce((sum, o) => sum + o.newListings, 0),
-      closedListings: others.reduce((sum, o) => sum + o.closedListings, 0),
-      runs,
+    ...answer,
+    stats,
+    snapshot: {
+      ...snapshot,
+      sourceHealth: Object.fromEntries(
+        [...unwell]
+          .sort(
+            ([ka, a], [kb, b]) => STATE_RANK.indexOf(b) - STATE_RANK.indexOf(a) || byKey(ka, kb),
+          )
+          .slice(0, HEALTH_MOST),
+      ),
+      sourceCounts: {
+        ALL: states.length,
+        // as masi counts it: every source not switched off - an old report has no DISABLED_AUTO, only DISABLED
+        ENABLED: states.length - count('OFF'),
+        ATTENTION: unwell.length,
+        OK: count('OK'),
+        DEGRADED: count('DEGRADED'),
+        FAILING: count('FAILING'),
+        OFF: count('OFF'),
+      },
     },
   };
 }
