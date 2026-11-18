@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import StatsPanel, { Bars } from './StatsPanel';
 import { stats } from './statsFixture';
+import type { MasiSourceStats } from '../../services/api';
 import { looseSeparators } from './testUtils';
 
 /** Where a link leads: its path and its query, as one object. */
@@ -242,7 +243,7 @@ describe('StatsPanel figures are links to their rows', () => {
       within(screen.getByTestId('bars-LLM cost by purpose')).queryByRole('link'),
     ).not.toBeInTheDocument();
     expect(
-      within(screen.getByTestId('bars-Runs per source')).queryByRole('link'),
+      within(screen.getByTestId('bars-Runs by outcome')).queryByRole('link'),
     ).not.toBeInTheDocument();
   });
 
@@ -386,5 +387,91 @@ describe('StatsPanel reads as text', () => {
     expect(links.length).toBeGreaterThanOrEqual(10);
     const names = links.map((a) => a.getAttribute('aria-label') ?? (a.textContent ?? '').trim());
     expect(names.filter((n) => !/[a-z]/i.test(n))).toEqual([]);
+  });
+});
+
+describe('StatsPanel sources', () => {
+  /** The figures of one source in the period. */
+  function source(i: number, newListings: number, runs: Record<string, number>): MasiSourceStats {
+    return { key: `src${i}`, name: `Source ${i}`, newListings, closedListings: 1, runs };
+  }
+
+  it('lists the sources with the most new listings, then the others summed in one row', () => {
+    render(<StatsPanel stats={stats} />);
+    expect(screen.getByText('the 2 sources with the most new listings')).toBeInTheDocument();
+    const rest = screen.getByRole('row', { name: /223 other sources/ });
+    expect(
+      within(rest)
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual(['223 other sources', '0', '0', '40 ok, 3 skipped budget']);
+    // no list holds the others' listings alone: their figures are text
+    expect(within(rest).queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('sums the runs of every source by outcome: the rows shown and the rest', () => {
+    render(<StatsPanel stats={stats} />);
+    // cv.ee 1 ok and 1 error, Bolt none, the rest 40 ok and 3 skipped: an outcome with none is no bar
+    expect(screen.getByTestId('bars-Runs by outcome')).toHaveTextContent(
+      /^Runs by outcomeok41error1skipped budget3$/,
+    );
+    expect(screen.queryByTestId('bars-Runs per source')).not.toBeInTheDocument();
+  });
+
+  it('draws no rest row when every source is a row: none left over, or no rest sent with a few rows', () => {
+    const view = render(
+      <StatsPanel
+        stats={{
+          ...stats,
+          sourcesRest: { sources: 0, newListings: 0, closedListings: 0, runs: {} },
+        }}
+      />,
+    );
+    expect(screen.queryByRole('row', { name: /other source/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/with the most new listings/)).not.toBeInTheDocument();
+    view.unmount();
+    render(<StatsPanel stats={{ ...stats, sourcesRest: undefined }} />);
+    expect(screen.getAllByRole('row')).toHaveLength(3); // the header, cv.ee and Bolt
+    expect(screen.queryByRole('row', { name: /other source/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/with the most new listings/)).not.toBeInTheDocument();
+  });
+
+  it('says one other source in the singular', () => {
+    render(
+      <StatsPanel
+        stats={{
+          ...stats,
+          sourcesRest: { sources: 1, newListings: 4, closedListings: 2, runs: { OK: 1 } },
+        }}
+      />,
+    );
+    expect(screen.getByRole('row', { name: /^1 other source 4 2 1 ok$/ })).toBeInTheDocument();
+  });
+
+  /** The site deploys before masi: the old masi's stats list every source and send no rest. */
+  it("cuts the old masi's every source to the 25 with the most new listings, the others summed", () => {
+    // 30 sources: src0 has the most new listings, src29 the fewest; two tie on listings and are told by their closes
+    const all = Array.from({ length: 30 }, (_, i) => source(i, 30 - i, { OK: 1, ERROR: i % 2 }));
+    all[26] = { ...all[26], newListings: 30, closedListings: 9 };
+    render(<StatsPanel stats={{ ...stats, sources: all, sourcesRest: undefined }} />);
+    expect(screen.getByText('the 25 sources with the most new listings')).toBeInTheDocument();
+    const names = screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => within(r).getAllByRole('cell')[0].textContent);
+    expect(names).toHaveLength(26);
+    expect(names.slice(0, 3)).toEqual(['Source 26', 'Source 0', 'Source 1']);
+    expect(names[25]).toBe('5 other sources');
+    // the five left: src24, 25, 27, 28, 29 - 6 + 5 + 3 + 2 + 1 new listings, one close each, five ok runs and three errors (the odd ones)
+    const rest = screen.getByRole('row', { name: /5 other sources/ });
+    expect(
+      within(rest)
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual(['5 other sources', '17', '5', '5 ok, 3 error']);
+    // every run counted once, in the rows or the rest
+    expect(screen.getByTestId('bars-Runs by outcome')).toHaveTextContent(
+      /^Runs by outcomeok30error15$/,
+    );
   });
 });

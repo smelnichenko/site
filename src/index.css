@@ -1865,6 +1865,8 @@ a.muted,
   color: var(--accent, #2563eb);
   cursor: pointer;
   font: inherit;
+  /* a link reads as the text around it: a button's own centring set a wrapped source name apart from its key */
+  text-align: inherit;
   text-decoration: underline;
 }
 
@@ -1928,6 +1930,13 @@ a.muted,
 /* a date of the filter's period is one piece: "23 Mar" on one line and "2026" on the next reads as two dates */
 .masi-nowrap {
   white-space: nowrap;
+}
+
+/* the dashboard's way to every source wanting a look, under the first ten: a finger target on a line of its own */
+.masi-see-all {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 /* a picture that opens larger: the picture is the button, with no button drawn around it */
@@ -2528,6 +2537,16 @@ a.muted,
   left: 12px;
   width: calc(100cqw - 24px);
   overflow-x: auto;
+}
+/* An opened source's runs keep their words: they sit in a cell of the sources table, whose fixed columns break
+   anywhere (.masi-table-fixed td), and took that over - on a phone each date stood a letter to a line. Whole words and
+   the table's own width; the panel above scrolls it. */
+.masi-source-detail .masi-runs {
+  min-width: 800px;
+}
+.masi-source-detail .masi-runs th,
+.masi-source-detail .masi-runs td {
+  overflow-wrap: normal;
 }
 .masi-config {
   max-height: 320px;

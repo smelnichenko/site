@@ -20,8 +20,14 @@ import type {
   MasiMatch,
   MasiPackage,
   MasiPackageSend,
+  MasiDashboard,
   MasiReport,
   MasiSendPreview,
+  MasiSource,
+  MasiSourceCounts,
+  MasiSourceRun,
+  MasiSourceState,
+  MasiSourceStats,
   Paged,
   PagedResponse,
   RssFeedMonitorConfig,
@@ -330,7 +336,6 @@ const bigReport: MasiReport = {
       rowsExact: true,
     },
     sources: [
-      ...report.stats.sources,
       {
         key: 'tootukassa',
         name: 'Eesti Töötukassa töövahenduse portaal (töökohad ja praktikakohad)',
@@ -338,7 +343,15 @@ const bigReport: MasiReport = {
         closedListings: 1206,
         runs: { OK: 30, ERROR: 1 },
       },
+      ...report.stats.sources,
     ],
+    // the other 222 sources summed: the three rows and these add up to the registry's figures
+    sourcesRest: {
+      sources: 222,
+      newListings: 1071,
+      closedListings: 1003,
+      runs: { OK: 2904, ERROR: 41, TIMEOUT: 6, SKIPPED_BUDGET: 118 },
+    },
     topCompanies: [
       { id: 3, name: `${LONG_TITLE} AS`, newJobs: 112 },
       { id: 4, name: null, newJobs: 9 },
@@ -1044,57 +1057,418 @@ function statsDay(d: Date) {
   };
 }
 
-/** The Sources page's sources: GitHub's config is long - the box it shows in scrolls, never the page. */
-const SOURCES = [
-  {
-    id: 1,
-    key: 'github',
-    name: 'GitHub — IT specialists in Estonia',
-    kind: 'DETERMINISTIC',
-    scope: 'PEOPLE',
-    baseUrl: 'https://api.github.com',
-    cron: '0 23 * * * *',
-    nextRunAt: '2026-09-22T09:23:00Z',
-    enabled: true,
-    configJson: JSON.stringify({
-      token: '****',
-      locations: ['Estonia', 'Tallinn', 'Tartu', 'Narva', 'Pärnu'],
-      queries: [
-        'location:Estonia language:Java',
-        'location:Tallinn language:Kotlin',
-        'location:Tartu language:TypeScript',
-      ],
-      requestsPerDay: 4500,
-      orgs: [],
-    }),
-    termsNote: null,
-    health: 'OK',
-    consecutiveFailures: 0,
-    lastRunAt: '2026-09-22T08:23:00Z',
-    lastSuccessAt: '2026-09-22T08:23:00Z',
-    lastError: null,
-    running: false,
-  },
-  {
-    id: 2,
-    key: 'cvee',
-    name: 'cv.ee',
-    kind: 'DETERMINISTIC',
-    scope: 'JOBS',
-    baseUrl: 'https://cv.ee',
-    cron: '0 17 * * * *',
-    nextRunAt: '2026-09-22T09:17:00Z',
-    enabled: true,
-    configJson: null,
-    termsNote: null,
-    health: 'OK',
-    consecutiveFailures: 0,
-    lastRunAt: '2026-09-22T08:17:00Z',
-    lastSuccessAt: '2026-09-22T08:17:00Z',
-    lastError: null,
-    running: false,
-  },
+/** GitHub's config is long: the box an opened source shows it in scrolls, never the page. */
+const GITHUB_CONFIG = JSON.stringify({
+  token: '****',
+  locations: ['Estonia', 'Tallinn', 'Tartu', 'Narva', 'Pärnu'],
+  queries: [
+    'location:Estonia language:Java',
+    'location:Tallinn language:Kotlin',
+    'location:Tartu language:TypeScript',
+  ],
+  requestsPerDay: 4500,
+  orgs: [],
+});
+
+/** The registry's own sources, as production names them: [key, name, kind, scope]. GitHub is id 1, cv.ee 2. */
+const NAMED_SOURCES: Array<[string, string, string, string]> = [
+  ['github', 'GitHub — IT specialists in Estonia', 'DETERMINISTIC', 'PEOPLE'],
+  ['cvee', 'cv.ee', 'DETERMINISTIC', 'JOBS'],
+  ['cvkeskus', 'CV Keskus', 'DETERMINISTIC', 'JOBS'],
+  ['cvpro', 'CVPro', 'DETERMINISTIC', 'JOBS'],
+  ['linkedin', 'LinkedIn (Estonia)', 'BROWSER', 'JOBS'],
+  [
+    'tootukassa',
+    'Eesti Töötukassa töövahenduse portaal (töökohad ja praktikakohad)',
+    'DETERMINISTIC',
+    'JOBS',
+  ],
+  ['meetfrank', 'MeetFrank (Estonia)', 'DETERMINISTIC', 'JOBS'],
+  ['meetfrankpeople', 'MeetFrank people', 'DETERMINISTIC', 'PEOPLE'],
+  ['bolt', 'Bolt careers', 'BROWSER', 'JOBS'],
+  ['ariregister', 'Äriregister open data', 'DETERMINISTIC', 'COMPANIES'],
+  ['ariregisteraruanded', 'Äriregister annual reports', 'DETERMINISTIC', 'COMPANIES'],
+  ['ariregisterpeople', 'Äriregister people', 'DETERMINISTIC', 'PEOPLE'],
+  ['emta', 'EMTA quarterly figures', 'DETERMINISTIC', 'COMPANIES'],
+  ['itl', 'ITL members', 'LLM_EXTRACT', 'COMPANIES'],
+  ['tehnopol', 'Tehnopol companies', 'LLM_EXTRACT', 'COMPANIES'],
+  ['places:ee', 'Estonian places (ADS)', 'DETERMINISTIC', 'PLACES'],
+  ['addresses:ee', 'Estonian addresses (ADS)', 'DETERMINISTIC', 'PLACES'],
+  ['icims:nortal', 'Nortal (iCIMS)', 'DETERMINISTIC', 'JOBS'],
+  ['teamdash:bigbank', 'Bigbank (Teamdash)', 'DETERMINISTIC', 'JOBS'],
+  ['teamdash:cybernetica', 'Cybernetica (Teamdash)', 'DETERMINISTIC', 'JOBS'],
+  ['teamdash:helmes', 'Helmes (Teamdash)', 'DETERMINISTIC', 'JOBS'],
+  ['teamdash:tehik', 'TEHIK (Teamdash)', 'DETERMINISTIC', 'JOBS'],
+  ['teamdashlanding:lhv', 'LHV (Teamdash landing page)', 'BROWSER', 'JOBS'],
+  ['manual', 'Added by hand', 'DETERMINISTIC', 'JOBS'],
+  ['partner', 'Partner API', 'DETERMINISTIC', 'BOTH'],
 ];
+
+/** The companies masi reads an ATS board of, by their own names; the rest of the 225 made up the same way. */
+const ATS_COMPANIES = [
+  'Wise',
+  'Bolt',
+  'Pipedrive',
+  'Veriff',
+  'Skeleton',
+  'Playtech',
+  'Twilio',
+  'Glia',
+  'Starship',
+  'Salv',
+  'Pactum',
+  'Testlio',
+  'Swedbank',
+  'Telia',
+  'Luminor',
+  'Inbank',
+  'Milrem',
+  'Ridango',
+  'Comodule',
+  'Fractory',
+  'Ericsson',
+  'Microsoft',
+  'Kuehnenagel',
+  'Breakwatertech',
+  'Sisutech',
+  'Datel',
+  'IBKR',
+];
+const ATS_VENDORS = [
+  'Greenhouse',
+  'Lever',
+  'SmartRecruiters',
+  'Teamtailor',
+  'Workable',
+  'Recruitee',
+];
+const MADE_UP_FIRST = [
+  'Nord',
+  'Balti',
+  'Viru',
+  'Saare',
+  'Lääne',
+  'Kesk',
+  'Põhja',
+  'Luna',
+  'Vool',
+  'Tark',
+  'Kiir',
+  'Hele',
+  'Selge',
+  'Tugev',
+];
+const MADE_UP_LAST = [
+  'soft',
+  'data',
+  'pay',
+  'labs',
+  'tech',
+  'cloud',
+  'logic',
+  'works',
+  'systems',
+  'grid',
+  'code',
+  'net',
+  'ware',
+];
+
+/** A slug as masi keys it: lower case, no diacritics, no spaces. */
+function slug(name: string): string {
+  return name
+    .normalize('NFD')
+    .replaceAll(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+/** Production's source states on 2026-11-18: 196 well, 3 degraded, 1 failing, 1 switched off by its failures, 24 by hand. */
+const DEGRADED: Record<string, string> = {
+  'ats:pipedrive': 'guard aborted 1 request(s) to www.googletagmanager.com',
+  meetfrank: 'returned 429 Too Many Requests: the day budget halved',
+  'ats:veriff': '3 postings had no title and were skipped',
+};
+const FAILING: Record<string, string> = {
+  cvkeskus: 'returned 503 Service Unavailable (4 runs in a row)',
+};
+const AUTO_DISABLED: Record<string, string> = {
+  'ats:ibkr': 'returned 404 Not Found: the board is gone (switched off after 10 failures)',
+};
+const RUNNING = new Set(['cvee', 'linkedin']);
+const OFF_NAMED = new Set(['manual', 'partner', 'bolt']);
+
+/** The layout test's now, and an hour: the sources' times are around it. */
+const SOURCES_NOW = Date.parse('2026-09-22T06:00:00Z');
+const HOUR = 3_600_000;
+
+/** A source's config as masi seeds it: an ATS board's vendor and company; every fourth one a daily request cap. */
+function configOf(id: number, key: string, name: string): string | null {
+  const board = /^(.*?)(?: OÜ)? \((.*)\)$/.exec(name);
+  const cap = id % 4 === 0 ? { dailyRequestCap: (id % 9) * 50 + 50 } : {};
+  if (key.startsWith('ats:') && board) {
+    return JSON.stringify({
+      vendor: board[2].toLowerCase(),
+      company: board[1],
+      country: 'ee',
+      ...cap,
+    });
+  }
+  // no config of its own: the collector's defaults
+  return 'dailyRequestCap' in cap ? JSON.stringify(cap) : null;
+}
+
+/** One source of the registry, in the state production had it in. */
+function registrySource(
+  id: number,
+  key: string,
+  name: string,
+  kind: string,
+  scope: string,
+): MasiSource {
+  let health = 'OK';
+  let enabled = true;
+  let lastError: string | null = null;
+  let consecutiveFailures = 0;
+  if (key in DEGRADED) {
+    health = 'DEGRADED';
+    lastError = DEGRADED[key];
+    consecutiveFailures = 1;
+  } else if (key in FAILING) {
+    health = 'FAILING';
+    lastError = FAILING[key];
+    consecutiveFailures = 4;
+  } else if (key in AUTO_DISABLED) {
+    health = 'DISABLED_AUTO';
+    enabled = false;
+    lastError = AUTO_DISABLED[key];
+    consecutiveFailures = 10;
+  }
+  if (OFF_NAMED.has(key) || (id > 204 && health === 'OK')) enabled = false;
+  const fires = enabled && health !== 'FAILING';
+  return {
+    id,
+    key,
+    name,
+    kind,
+    scope,
+    baseUrl: key === 'github' ? 'https://api.github.com' : null,
+    cron: `0 ${id % 60} ${id % 3 === 0 ? '*/2' : '*'} * * *`,
+    nextRunAt: fires ? new Date(SOURCES_NOW + ((id % 120) + 1) * 60_000).toISOString() : null,
+    enabled,
+    configJson: key === 'github' ? GITHUB_CONFIG : configOf(id, key, name),
+    termsNote: null,
+    health,
+    consecutiveFailures,
+    lastRunAt: new Date(SOURCES_NOW - ((id % 5) + 1) * HOUR).toISOString(),
+    lastSuccessAt:
+      health === 'OK' || health === 'DEGRADED'
+        ? new Date(SOURCES_NOW - ((id % 5) + 1) * HOUR).toISOString()
+        : new Date(SOURCES_NOW - (30 + id) * HOUR).toISOString(),
+    lastError,
+    running: RUNNING.has(key),
+  };
+}
+
+/** The 225 sources: the named ones, the ATS boards of real companies, then made-up companies' boards to production's size. */
+const SOURCES: MasiSource[] = (() => {
+  const rows: Array<[string, string, string, string]> = [...NAMED_SOURCES];
+  ATS_COMPANIES.forEach((c, i) =>
+    rows.push([
+      `ats:${slug(c)}`,
+      `${c} (${ATS_VENDORS[i % ATS_VENDORS.length]})`,
+      'DETERMINISTIC',
+      'JOBS',
+    ]),
+  );
+  for (const first of MADE_UP_FIRST) {
+    for (const last of MADE_UP_LAST) {
+      if (rows.length === 225) break;
+      const company = `${first}${last}`;
+      const vendor = ATS_VENDORS[rows.length % ATS_VENDORS.length];
+      rows.push([`ats:${slug(company)}`, `${company} OÜ (${vendor})`, 'DETERMINISTIC', 'JOBS']);
+    }
+  }
+  return rows.map(([key, name, kind, scope], i) => registrySource(i + 1, key, name, kind, scope));
+})();
+
+/** A source's state as masi's SourceState reads it. */
+function stateOf(s: MasiSource): string {
+  if (s.health === 'DISABLED_AUTO') return 'DISABLED_AUTO';
+  return s.enabled ? s.health : 'OFF';
+}
+
+/** Which sources each "Show" lists, as masi's SourceFilter. */
+const SHOWS: Record<MasiSourceState, (s: MasiSource) => boolean> = {
+  ENABLED: (s) => s.enabled,
+  RUNNING: (s) => s.running,
+  ATTENTION: (s) => ['DEGRADED', 'FAILING', 'DISABLED_AUTO'].includes(stateOf(s)),
+  OK: (s) => stateOf(s) === 'OK',
+  DEGRADED: (s) => stateOf(s) === 'DEGRADED',
+  FAILING: (s) => stateOf(s) === 'FAILING',
+  DISABLED_AUTO: (s) => stateOf(s) === 'DISABLED_AUTO',
+  OFF: (s) => stateOf(s) === 'OFF',
+};
+
+/** What masi sorts each column by: a number or text, null for none (last whichever way). */
+const SOURCE_COLUMNS: Record<string, (s: MasiSource) => string | number | null> = {
+  name: (s) => s.name.toLowerCase(),
+  kind: (s) => `${s.kind} ${s.scope}`,
+  cap: (s) => {
+    const cap: unknown = s.configJson
+      ? (JSON.parse(s.configJson) as Record<string, unknown>).dailyRequestCap
+      : null;
+    return typeof cap === 'number' ? cap : null;
+  },
+  health: (s) => ['OK', 'DEGRADED', 'FAILING'].indexOf(s.health) + 1 || 4,
+  lastSuccessAt: (s) => s.lastSuccessAt,
+  nextRunAt: (s) => s.nextRunAt,
+};
+
+/** masi's GET /sources over the registry: a key or a name containing q, the "Show", the sort, the page. */
+function sourcesPage(q: URLSearchParams): Paged<MasiSource> {
+  const needle = (q.get('q') ?? '').trim().toLowerCase();
+  const show = SHOWS[q.get('state') as MasiSourceState] as ((s: MasiSource) => boolean) | undefined;
+  const [column, direction] = (q.get('sort') || 'name,asc').split(',');
+  const value = SOURCE_COLUMNS[column] ?? SOURCE_COLUMNS.name;
+  const sign = direction === 'asc' ? 1 : -1;
+  const kept = SOURCES.filter(
+    (s) =>
+      (!needle || s.key.toLowerCase().includes(needle) || s.name.toLowerCase().includes(needle)) &&
+      (!show || show(s)),
+  ).sort((a, b) => {
+    const va = value(a);
+    const vb = value(b);
+    if ((va === null) !== (vb === null)) return va === null ? 1 : -1;
+    let by = 0;
+    if (va !== null && vb !== null && va !== vb) by = va < vb ? -1 : 1;
+    return sign * (by || a.id - b.id);
+  });
+  const page = Number(q.get('page') ?? 0);
+  const size = Number(q.get('size') ?? 50);
+  return {
+    content: kept.slice(page * size, (page + 1) * size),
+    page,
+    size,
+    totalElements: kept.length,
+  };
+}
+
+/** masi's GET /sources/counts: every source, and each "Show"'s. */
+const SOURCE_COUNTS: MasiSourceCounts = {
+  ALL: SOURCES.length,
+  ...Object.fromEntries(
+    Object.entries(SHOWS).map(([show, listed]) => [show, SOURCES.filter(listed).length]),
+  ),
+};
+
+/** A source's last runs: a running one's unfinished run first, as far as it has got; then the finished ones. */
+function sourceRuns(id: number): Paged<MasiSourceRun> {
+  const source = SOURCES.find((s) => s.id === id);
+  const statuses = ['OK', 'OK', 'SKIPPED_BUDGET', 'OK', 'ERROR', 'OK'];
+  const finished: MasiSourceRun[] = statuses.map((status, i) => ({
+    id: id * 100 + i + 1,
+    sourceId: id,
+    startedAt: new Date(SOURCES_NOW - (i + 1) * 2 * HOUR).toISOString(),
+    finishedAt: new Date(SOURCES_NOW - (i + 1) * 2 * HOUR + 4 * 60_000).toISOString(),
+    status,
+    complete: status === 'OK',
+    fetched: status === 'SKIPPED_BUDGET' ? 0 : 12 + i,
+    parsed: status === 'OK' ? 240 + i * 7 : 0,
+    newJobs: status === 'OK' ? i + 2 : 0,
+    updatedListings: status === 'OK' ? 230 : 0,
+    closedListings: status === 'OK' ? i : 0,
+    newCompanies: status === 'OK' ? i % 2 : 0,
+    newContacts: 0,
+    error: { SKIPPED_BUDGET: 'the day budget is spent', ERROR: 'returned 500' }[status] ?? null,
+  }));
+  const running: MasiSourceRun[] = source?.running
+    ? [
+        {
+          ...finished[0],
+          id: id * 100,
+          startedAt: new Date(SOURCES_NOW - 5 * 60_000).toISOString(),
+          finishedAt: null,
+          status: 'RUNNING',
+          complete: false,
+          fetched: 1267,
+          parsed: 0,
+          newContacts: 369,
+          error: null,
+        },
+      ]
+    : [];
+  const content = [...running, ...finished];
+  return { content, page: 0, size: 20, totalElements: content.length };
+}
+
+/** The overview at production's size: the tiles' figures, the source counts and the first ten wanting a look. */
+const dashboard: MasiDashboard = {
+  openJobs: 2318,
+  newJobs7d: 412,
+  closedJobs7d: 377,
+  companiesHiring: 611,
+  packages: { NEW: 3, PREPARED: 12, REVIEWED: 4, APPLIED: 38, SKIPPED: 51, FAILED: 2 },
+  llm: {
+    today: 0.84,
+    dailyBudget: 3,
+    month: 18.4,
+    monthlyBudget: 60,
+    enabled: true,
+    monthByPurpose: { EXTRACT: 4.1, TUNE: 11.2, LETTER: 1.9, SCORE: 1.2, ENRICH: 0 },
+    averagePackageCostMonth: 0.31,
+  },
+  cv: {
+    activeVersion: 7,
+    completeness: 92,
+    gaps: ['role 3 has no metric'],
+    actives: [
+      { language: 'en', version: 7 },
+      { language: 'et', version: 9 },
+    ],
+  },
+  sourceCounts: SOURCE_COUNTS,
+  sourcesAttention: sourcesPage(new URLSearchParams('state=ATTENTION&sort=health,desc&size=10'))
+    .content,
+  tuningPausedUntil: null,
+};
+
+/**
+ * A month's report as the old masi stored it, before it paged its sources: every source's health by key ("DISABLED" for
+ * one switched off, by hand or by its failures), no counts, and its stats listing every source with no rest. The site
+ * makes the counts, the unwell badges and the 25 rows and a rest of it (masiSourcesOld).
+ */
+const oldSourceStats: MasiSourceStats[] = SOURCES.map((s): MasiSourceStats => ({
+  key: s.key,
+  name: s.name,
+  newListings: s.scope === 'JOBS' && s.enabled ? (s.id * 37) % 23 : 0,
+  closedListings: s.scope === 'JOBS' && s.enabled ? (s.id * 23) % 19 : 0,
+  runs: s.enabled ? { OK: 28 + (s.id % 3), ERROR: s.id % 7 === 0 ? 2 : 0 } : {},
+}));
+const sum = (pick: (row: MasiSourceStats) => number) =>
+  oldSourceStats.reduce((total, row) => total + pick(row), 0);
+/** The old masi's monthly report (see oldSourceStats): the site reads it into today's shape. */
+const oldReport: MasiReport = {
+  ...bigReport,
+  id: 7,
+  stats: {
+    ...bigReport.stats,
+    // the registry's listings are its sources' listings: the rows the site keeps and the rest it sums add up to them
+    registry: {
+      ...bigReport.stats.registry,
+      newListings: sum((row) => row.newListings),
+      closedListings: sum((row) => row.closedListings),
+    },
+    sources: oldSourceStats,
+    sourcesRest: undefined,
+  },
+  snapshot: {
+    ...bigReport.snapshot,
+    sourceHealth: Object.fromEntries(
+      SOURCES.map((s) => [s.key, s.enabled ? s.health : 'DISABLED']),
+    ),
+    sourceCounts: undefined,
+  },
+};
 
 const SOURCE_CHANGES = [
   {
@@ -1107,7 +1481,7 @@ const SOURCE_CHANGES = [
   {
     field: 'config',
     oldValue: JSON.stringify({ orgs: ['bolt', 'wise', 'pipedrive'] }),
-    newValue: SOURCES[0].configJson,
+    newValue: GITHUB_CONFIG,
     changedBy: 'a migration',
     changedAt: '2026-09-20T03:00:00Z',
   },
@@ -1241,14 +1615,26 @@ export function answer(url: URL): Answer | undefined {
     [/^\/persons\/of-company\/\d+$/, () => ({ status: 200, body: [] })],
     [/^\/contacts\/pictures\/for$/, () => ({ status: 200, body: {} })], // no faces: the names alone
     [/^\/persons\/\d+$/, () => ({ status: 200, body: person })],
-    // the Sources page: two sources (one with a long config), their changes, the deployment's switches
-    [/^\/sources$/, () => ({ status: 200, body: SOURCES })],
+    // the Sources page: production's 225 sources a page at a time (GitHub's config long), every "Show"'s count, one
+    // source alone, their runs and changes, the deployment's switches
+    [/^\/sources$/, () => ({ status: 200, body: sourcesPage(q) })],
+    [/^\/sources\/counts$/, () => ({ status: 200, body: SOURCE_COUNTS })],
     [/^\/sources\/switches$/, () => ({ status: 200, body: SWITCHES })],
+    [
+      /^\/sources\/\d+$/,
+      () => {
+        const source = SOURCES.find((s) => s.id === Number(path.split('/')[2]));
+        return source
+          ? { status: 200, body: source }
+          : { status: 404, body: { error: 'Not found' } };
+      },
+    ],
     [/^\/sources\/\d+\/history$/, () => ({ status: 200, body: SOURCE_CHANGES })],
     [
       /^\/sources\/\d+\/runs$/,
-      () => ({ status: 200, body: { content: [], page: 0, size: 20, totalElements: 0 } }),
+      () => ({ status: 200, body: sourceRuns(Number(path.split('/')[2])) }),
     ],
+    [/^\/dashboard$/, () => ({ status: 200, body: dashboard })],
     [
       /^\/assistant$/,
       () => ({ status: 200, body: { enabled: false, gmailReady: false, linkedinReady: false } }),
@@ -1285,6 +1671,7 @@ export function answer(url: URL): Answer | undefined {
     ],
     [/^\/reports\/5$/, () => ({ status: 200, body: report })],
     [/^\/reports\/6$/, () => ({ status: 200, body: bigReport })],
+    [/^\/reports\/7$/, () => ({ status: 200, body: oldReport })],
     [/^\/listings$/, () => ({ status: 200, body: listingPage })],
     [
       /^\/calendar\/events$/,

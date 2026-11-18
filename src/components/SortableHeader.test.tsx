@@ -58,8 +58,8 @@ describe('SortableHeader', () => {
 });
 
 /** The URL as the page holds it, for the hook's test. */
-function Probe() {
-  const { sort, setSort } = useUrlSort('lastSeenAt,desc');
+function Probe({ param, paged }: Readonly<{ param?: string; paged?: boolean }>) {
+  const { sort, setSort } = useUrlSort('lastSeenAt,desc', param, paged);
   const location = useLocation();
   return (
     <div>
@@ -88,5 +88,20 @@ describe('useUrlSort', () => {
     expect(search.get('sort')).toBe('name,asc');
     expect(search.get('q')).toBe('anna');
     expect(search.has('page')).toBe(false);
+  });
+
+  it("keeps the page for a table the pager does not page: a source's runs under a page of sources", async () => {
+    render(
+      <MemoryRouter initialEntries={['/list?sort=name,asc&page=3']}>
+        <Routes>
+          <Route path="/list" element={<Probe param="runsSort" paged={false} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'sort by name' }));
+    const search = new URLSearchParams(screen.getByTestId('search').textContent ?? '');
+    expect(search.get('runsSort')).toBe('name,asc');
+    expect(search.get('sort')).toBe('name,asc');
+    expect(search.get('page')).toBe('3');
   });
 });

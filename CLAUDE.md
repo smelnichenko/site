@@ -33,7 +33,7 @@ src/
     masi/MasiPackages, masi/MasiPackageDetail (JOBS — /masi/packages, /masi/packages/:id: the review queue, re-tune)
     masi/MasiCompanies, masi/MasiCompanyDetail (JOBS — /masi/companies, /masi/companies/:id: registry, the register placement, agency, people)
     masi/MasiPersons, masi/MasiPersonDetail (JOBS — /masi/persons, /masi/persons/:id: people and their ties; /masi/contacts redirects here)
-    masi/MasiSources                        (JOBS — /masi/sources)
+    masi/MasiSources, masi/MasiSourceDetail (JOBS — /masi/sources, /masi/sources/:id: the sources a page at a time with each "Show"'s count, one source alone)
     masi/MasiCalendar, masi/MasiActivity    (JOBS — /masi/calendar, /masi/activity: bookings and day counts, the activity log)
     masi/MasiReports, masi/MasiReportDetail (JOBS — /masi/reports, /masi/reports/:id: stored weekly/monthly reports, live stats over a date range)
     Chess                                   (PLAY — PvP + AI)

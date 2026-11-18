@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import DailyCharts from './DailyCharts';
 import type { MasiOutcomes, MasiStats, MasiStatsDay } from '../../services/api';
+import { topSources } from '../../services/masiSourcesOld';
 import { formatDateTime, formatUsd } from './format';
 import { formatAmount } from './salary';
 import MasiTable from '../../components/MasiTable';
@@ -75,6 +76,28 @@ function entries(
   return Object.entries(record)
     .filter(([, v]) => v > 0)
     .map(([label, value]) => ({ label, value, link: link?.(label, value) }));
+}
+
+/** "2 ok, 1 error": the runs by outcome, a dash for none. */
+function runsLine(runs: Record<string, number>): string {
+  return (
+    Object.entries(runs)
+      .filter(([, n]) => n > 0)
+      .map(([k, n]) => `${n} ${k.toLowerCase().replace('_', ' ')}`)
+      .join(', ') || '—'
+  );
+}
+
+/** The runs of every source summed by outcome ("ok", "skipped budget"): the rows shown and the rest add up to all. */
+function runsByOutcome(runs: Array<Record<string, number>>): Record<string, number> {
+  const sum: Record<string, number> = {};
+  for (const r of runs) {
+    for (const [status, n] of Object.entries(r)) {
+      const label = status.toLowerCase().replace('_', ' ');
+      sum[label] = (sum[label] ?? 0) + n;
+    }
+  }
+  return sum;
 }
 
 function newJobs(n: number): string {
@@ -271,10 +294,9 @@ export default function StatsPanel({
   stats,
   days,
 }: Readonly<{ stats: MasiStats; days?: MasiStatsDay[] }>) {
-  const runs = stats.sources.map((s) => ({
-    label: s.name,
-    value: Object.values(s.runs).reduce((a, b) => a + b, 0),
-  }));
+  // the sources with the most new listings and the others summed; every source of an older masi cut so here
+  const { rows: sources, rest } = topSources(stats);
+  const outcomes = runsByOutcome([...sources.map((s) => s.runs), rest?.runs ?? {}]);
   const w = { from: stats.from, to: stats.to };
   const r = stats.registry;
   // closes and reposts of a report stored before they were counted as rows: a list would hold fewer, so no link
@@ -425,11 +447,14 @@ export default function StatsPanel({
         />
         <Bars title="LLM cost by purpose" rows={entries(stats.llm.byPurpose)} unit="usd" />
         <Bars title="LLM cost by model" rows={entries(stats.llm.byModel)} unit="usd" />
-        <Bars title="Runs per source" rows={runs} />
+        <Bars title="Runs by outcome" rows={entries(outcomes)} />
       </div>
       <SalaryCard salary={stats.salary} window={w} />
       <div className="card">
         <div className="card-title">Sources</div>
+        {rest && rest.sources > 0 && (
+          <div className="muted">the {sources.length} sources with the most new listings</div>
+        )}
         <MasiTable label="Sources in the period">
           <thead>
             <tr>
@@ -440,7 +465,7 @@ export default function StatsPanel({
             </tr>
           </thead>
           <tbody>
-            {stats.sources.map((s) => (
+            {sources.map((s) => (
               <tr key={s.key}>
                 <td>{s.name}</td>
                 <td>
@@ -457,14 +482,18 @@ export default function StatsPanel({
                     name={`${counted(s.closedListings, 'closed listing', 'closed listings')} on ${s.name}`}
                   />
                 </td>
-                <td>
-                  {Object.entries(s.runs)
-                    .filter(([, n]) => n > 0)
-                    .map(([k, n]) => `${n} ${k.toLowerCase().replace('_', ' ')}`)
-                    .join(', ') || '—'}
-                </td>
+                <td>{runsLine(s.runs)}</td>
               </tr>
             ))}
+            {rest && rest.sources > 0 && (
+              // no list holds the other sources' listings alone: their sums are text
+              <tr>
+                <td>{counted(rest.sources, 'other source', 'other sources')}</td>
+                <td>{rest.newListings}</td>
+                <td>{rest.closedListings}</td>
+                <td>{runsLine(rest.runs)}</td>
+              </tr>
+            )}
           </tbody>
         </MasiTable>
       </div>

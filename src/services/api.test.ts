@@ -1323,3 +1323,174 @@ describe('api - masi send on click', () => {
     await expect(api.fetchMasiPackageSend(11)).rejects.toThrow('Failed to load the send');
   });
 });
+
+describe('api - masi sources, a page at a time', () => {
+  /** A source as masi lists it. */
+  function source(id: number, key: string, over: Partial<api.MasiSource> = {}): api.MasiSource {
+    return {
+      id,
+      key,
+      name: key,
+      kind: 'ATS',
+      scope: 'JOBS',
+      baseUrl: null,
+      cron: '0 0 * * * *',
+      nextRunAt: '2026-11-18T20:00:00Z',
+      enabled: true,
+      configJson: null,
+      termsNote: null,
+      health: 'OK',
+      consecutiveFailures: 0,
+      lastRunAt: null,
+      lastSuccessAt: null,
+      lastError: null,
+      running: false,
+      ...over,
+    };
+  }
+  const counts = {
+    ALL: 225,
+    ENABLED: 200,
+    RUNNING: 2,
+    ATTENTION: 5,
+    OK: 196,
+    DEGRADED: 3,
+    FAILING: 1,
+    DISABLED_AUTO: 1,
+    OFF: 24,
+  };
+  /** Answers each call by its path: the page and the counts are asked together, in no fixed order. */
+  function answer(byPath: Record<string, Response>) {
+    mockFetch.mockImplementation((url: string) =>
+      Promise.resolve(byPath[url.split('?')[0]] ?? mockResponse({}, { status: 599 })),
+    );
+  }
+
+  it('asks for the page with its search, Show, sort and size, and the counts beside it', async () => {
+    const page = { content: [source(1, 'ats:wise')], page: 2, size: 50, totalElements: 120 };
+    answer({
+      '/api/masi/sources': mockResponse(page),
+      '/api/masi/sources/counts': mockResponse(counts),
+    });
+    const got = await api.fetchMasiSourceList({
+      q: 'wise',
+      state: 'ATTENTION',
+      sort: 'health,desc',
+      page: 2,
+      size: 50,
+    });
+    expect(got).toEqual({ page, counts });
+    // asked together, in no fixed order
+    expect(new Set(mockFetch.mock.calls.map((c) => c[0] as string))).toEqual(
+      new Set([
+        '/api/masi/sources/counts',
+        '/api/masi/sources?q=wise&state=ATTENTION&sort=health%2Cdesc&page=2&size=50',
+      ]),
+    );
+  });
+
+  it('leaves out a search and a Show that are not set, and keeps page zero', async () => {
+    answer({
+      '/api/masi/sources': mockResponse({ content: [], page: 0, size: 50, totalElements: 0 }),
+      '/api/masi/sources/counts': mockResponse(counts),
+    });
+    await api.fetchMasiSourceList({ q: undefined, state: undefined, page: 0, size: 50 });
+    expect(mockFetch.mock.calls.map((c) => c[0] as string)).toContain(
+      '/api/masi/sources?page=0&size=50',
+    );
+  });
+
+  it("fails with the counts' error when the new masi cannot count: a page without its counts is not shown", async () => {
+    answer({
+      '/api/masi/sources': mockResponse({ content: [], page: 0, size: 50, totalElements: 0 }),
+      '/api/masi/sources/counts': mockResponse({ error: 'counting failed' }, { status: 500 }),
+    });
+    await expect(api.fetchMasiSourceList({ page: 0, size: 50 })).rejects.toThrow('counting failed');
+  });
+
+  it("fails with the page's error when masi cannot list", async () => {
+    answer({
+      '/api/masi/sources': mockResponse({ error: "unknown sort column 'x'" }, { status: 400 }),
+      '/api/masi/sources/counts': mockResponse(counts),
+    });
+    await expect(api.fetchMasiSourceList({ sort: 'x,asc', page: 0, size: 50 })).rejects.toThrow(
+      "unknown sort column 'x'",
+    );
+  });
+
+  /** The site deploys before masi: the old one answers every source as an array, and has no counts. */
+  it("pages and counts the old masi's array as the new masi would: search, Show, sort, page", async () => {
+    const all = [
+      source(1, 'ats:bolt', { name: 'Bolt', health: 'DEGRADED' }),
+      source(2, 'ats:wise', { name: 'Wise', health: 'DISABLED_AUTO', enabled: false }),
+      source(3, 'cvee', { name: 'cv.ee', running: true }),
+      source(4, 'cvkeskus', { name: 'CV Keskus', health: 'FAILING' }),
+      source(5, 'linkedin', { name: 'LinkedIn', enabled: false }),
+      source(6, 'ats:pipedrive', { name: 'pipedrive', health: 'DEGRADED' }),
+    ];
+    answer({
+      '/api/masi/sources': mockResponse(all),
+      // the old masi reads "counts" as a source id: a 400, and no counts
+      '/api/masi/sources/counts': mockResponse({ error: 'Bad request' }, { status: 400 }),
+    });
+    const counted = {
+      ALL: 6,
+      ENABLED: 4,
+      RUNNING: 1,
+      ATTENTION: 4,
+      OK: 1,
+      DEGRADED: 2,
+      FAILING: 1,
+      DISABLED_AUTO: 1,
+      OFF: 1,
+    };
+    const names = (p: api.Paged<api.MasiSource>) => p.content.map((s) => s.name);
+
+    // the worst first; the newest first among equals, as masi breaks a tie by id the same way
+    const attention = await api.fetchMasiSourceList({
+      state: 'ATTENTION',
+      sort: 'health,desc',
+      page: 0,
+      size: 50,
+    });
+    expect(names(attention.page)).toEqual(['Wise', 'CV Keskus', 'pipedrive', 'Bolt']);
+    expect(attention.page.totalElements).toBe(4);
+    expect(attention.counts).toEqual(counted);
+
+    // no sort asked: by name, A to Z whatever its case ("pipedrive" before "Wise"); pages of two, the last
+    const last = await api.fetchMasiSourceList({ page: 2, size: 2 });
+    expect(names(last.page)).toEqual(['pipedrive', 'Wise']);
+    expect(last.page).toMatchObject({ page: 2, size: 2, totalElements: 6 });
+
+    // a key or a name containing the search, case aside; off is switched off by hand, never by its failures
+    const search = await api.fetchMasiSourceList({ q: ' ATS: ', page: 0, size: 50 });
+    expect(names(search.page)).toEqual(['Bolt', 'pipedrive', 'Wise']);
+    const off = await api.fetchMasiSourceList({ state: 'OFF', page: 0, size: 50 });
+    expect(names(off.page)).toEqual(['LinkedIn']);
+    const running = await api.fetchMasiSourceList({ state: 'RUNNING', page: 0, size: 50 });
+    expect(names(running.page)).toEqual(['cv.ee']);
+  });
+
+  it("sorts the old masi's array by the daily cap as a number and by the next run, empty values last either way", async () => {
+    const all = [
+      source(1, 'a', { configJson: '{"dailyRequestCap":100}' }),
+      source(2, 'b', { configJson: '{"dailyRequestCap":20}' }),
+      source(3, 'c', { configJson: '{"dailyRequestCap":2.5}' }), // no whole number: no cap
+      source(4, 'd', { configJson: null }),
+      source(5, 'e', { nextRunAt: '2026-11-18T19:00:00Z' }),
+      source(6, 'f', { nextRunAt: '2026-11-18T18:00:00Z', enabled: false }), // switched off: no next run
+    ];
+    answer({ '/api/masi/sources': mockResponse(all) });
+    const keys = async (sort: string) =>
+      (await api.fetchMasiSourceList({ sort, page: 0, size: 50 })).page.content.map((s) => s.key);
+    expect(await keys('cap,asc')).toEqual(['b', 'a', 'c', 'd', 'e', 'f']);
+    expect(await keys('cap,desc')).toEqual(['a', 'b', 'f', 'e', 'd', 'c']);
+    expect(await keys('nextRunAt,asc')).toEqual(['e', 'a', 'b', 'c', 'd', 'f']);
+  });
+
+  it('reads one source by its id', async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse(source(8, 'ats:wise')));
+    expect((await api.fetchMasiSource(8)).key).toBe('ats:wise');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/masi/sources/8');
+  });
+});

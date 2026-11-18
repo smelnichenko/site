@@ -1,14 +1,18 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { SortableHeader } from '../../components/SortableHeader';
 import { sortRows, useUrlSort, type SortValue } from '../../components/sorting';
 import { DeploymentSwitches, SourceConfig } from './SourceConfig';
 import {
   fetchMasiAssistant,
+  fetchMasiSource,
+  fetchMasiSourceList,
   fetchMasiSourceRuns,
-  fetchMasiSources,
   MasiAssistant,
   MasiSource,
+  MasiSourceCounts,
   MasiSourceRun,
+  MasiSourceState,
   Paged,
   patchMasiAssistant,
   patchMasiSource,
@@ -16,9 +20,13 @@ import {
 } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
 import LoadingButton from '../../components/LoadingButton';
-import { badgeClass, errorMessage, formatDateTime, noteClass } from './format';
+import { badgeClass, errorMessage, formatDateTime, noteClass, pageParam } from './format';
 import MasiTable from '../../components/MasiTable';
 import PictureStatus from './PictureStatus';
+import { countOf, showOf, SHOW_WORDS, SHOWS } from './sourceStates';
+
+/** A page of sources: the operator's choice (2026-11-18), as masi's own default. */
+const PAGE_SIZE = 50;
 
 /** A draft the operator is still editing (differs from what the server had) survives the reload every action triggers. */
 function keepEdits(
@@ -106,19 +114,6 @@ function progressOf(row: MasiSourceRun | undefined, now: number): string {
   return parts.join(' · ');
 }
 
-/** Health from the best to the worst, as the Health column sorts it. */
-const HEALTH_ORDER = ['OK', 'DEGRADED', 'FAILING', 'DISABLED_AUTO'];
-
-/** What each column of the sources list sorts by (ops plan 112): what its cell shows. */
-const SOURCE_SORTS: Record<string, (s: MasiSource) => SortValue> = {
-  name: (s) => s.name,
-  kind: (s) => `${s.kind} ${s.scope}`,
-  nextRunAt: (s) => s.nextRunAt,
-  cap: (s) => (capOf(s.configJson) === '' ? null : Number(capOf(s.configJson))),
-  health: (s) => HEALTH_ORDER.indexOf(s.health),
-  lastSuccessAt: (s) => s.lastSuccessAt,
-};
-
 /** What each column of a source's runs sorts by; the error by whether there is one. */
 const RUN_SORTS: Record<string, (r: MasiSourceRun) => SortValue> = {
   startedAt: (r) => r.startedAt,
@@ -130,36 +125,177 @@ const RUN_SORTS: Record<string, (r: MasiSourceRun) => SortValue> = {
   error: (r) => (r.error ? 1 : 0),
 };
 
-/** Every collector agent: enable, cron, run now, and its last runs; a source without a bean (FAILING) cannot be enabled. */
-export default function MasiSources() {
+/** A source's last runs, sorted here (the 20 newest: the page's poll reads their newest first). */
+function SourceRuns({
+  sourceKey,
+  runs,
+  sort,
+  onSort,
+}: Readonly<{
+  sourceKey: string;
+  runs: MasiSourceRun[];
+  sort: string;
+  onSort: (next: string) => void;
+}>) {
+  const head = (column: string, label: string) => (
+    <SortableHeader column={column} label={label} sort={sort} onSort={onSort} />
+  );
+  return (
+    <table className="table masi-runs" data-testid={`runs-${sourceKey}`}>
+      <thead>
+        <tr>
+          {head('startedAt', 'Started')}
+          {head('status', 'Status')}
+          {head('parsed', 'Parsed')}
+          {head('newJobs', 'New jobs')}
+          {head('closedListings', 'Closed')}
+          {head('newCompanies', 'Companies')}
+          {head('error', 'Error')}
+        </tr>
+      </thead>
+      <tbody>
+        {sortRows(runs, sort, RUN_SORTS).map((r) => (
+          <tr key={r.id}>
+            <td>{formatDateTime(r.startedAt)}</td>
+            <td>
+              <span className={badgeClass(r.status)}>
+                {r.status.toLowerCase().replace('_', ' ')}
+              </span>
+              {!r.complete && r.status === 'OK' ? ' (incomplete)' : ''}
+            </td>
+            <td>{r.parsed}</td>
+            <td>{r.newJobs}</td>
+            <td>{r.closedListings}</td>
+            <td>{r.newCompanies}</td>
+            <td>{r.error && <span className={noteClass(r.status)}>{r.error}</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** A source's health as the "Show" select names it: switched off by its failures is "auto-disabled". */
+function healthWords(health: string): string {
+  return health === 'DISABLED_AUTO' ? SHOW_WORDS.DISABLED_AUTO : health.toLowerCase();
+}
+
+/** "(225)" after a "Show", once the counts are read. */
+function counted(counts: MasiSourceCounts | null, show: MasiSourceState | 'ALL'): string {
+  return counts ? ` (${countOf(counts, show)})` : '';
+}
+
+/**
+ * The sources' search and "Show", each choice with how many it lists; a new search or choice starts at the first page
+ * (the parent drops the page with it).
+ */
+function SourceFilters({
+  q,
+  show,
+  counts,
+  onChange,
+}: Readonly<{
+  q: string;
+  show: MasiSourceState | undefined;
+  counts: MasiSourceCounts | null;
+  onChange: (key: 'q' | 'state', value: string) => void;
+}>) {
+  return (
+    <form
+      className="form-row masi-filters"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const typed = new FormData(e.currentTarget).get('q');
+        onChange('q', typeof typed === 'string' ? typed.trim() : '');
+      }}
+    >
+      <input
+        key={q}
+        type="search"
+        name="q"
+        aria-label="Search key or name"
+        placeholder="key or name…"
+        defaultValue={q}
+      />
+      <select
+        aria-label="Show"
+        value={show ?? ''}
+        onChange={(e) => onChange('state', e.target.value)}
+      >
+        <option value="">all{counted(counts, 'ALL')}</option>
+        {SHOWS.map((s) => (
+          <option key={s} value={s}>
+            {SHOW_WORDS[s]}
+            {counted(counts, s)}
+          </option>
+        ))}
+      </select>
+      <button type="submit" className="btn-small">
+        Search
+      </button>
+    </form>
+  );
+}
+
+/**
+ * The collector agents, a page at a time (ops plan 118 PR 3): search a key or a name, show one state or group with how
+ * many each lists, sorted by masi; enable, cron, requests a day, run now, and an opened source's config and last runs.
+ * With `sourceId` (the route /masi/sources/:id), that source alone, opened. A source without a bean (FAILING) cannot be
+ * enabled.
+ */
+export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }>) {
+  const alone = sourceId !== undefined;
+  const [params, setParams] = useSearchParams();
+  const q = params.get('q') ?? '';
+  const show = showOf(params.get('state'));
+  const pageNo = pageParam(params.get('page'));
+  const { sort, setSort } = useUrlSort('name,asc');
+  // a source's last runs: the 20 newest, sorted here - the page's poll reads their newest first; their sort keeps the
+  // page of sources where it is
+  const { sort: runsSort, setSort: setRunsSort } = useUrlSort('startedAt,desc', 'runsSort', false);
   const [sources, setSources] = useState<MasiSource[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<MasiSourceCounts | null>(null);
   const [runs, setRuns] = useState<Record<number, MasiSourceRun[]>>({});
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<number | null>(sourceId ?? null);
   const [cronDraft, setCronDraft] = useState<Record<number, string>>({});
   const [capDraft, setCapDraft] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [assistant, setAssistant] = useState<MasiAssistant | null>(null);
-  const { sort, setSort } = useUrlSort('name,asc');
-  // a source's last runs: the 20 newest, sorted here - the page's poll reads their newest first
-  const { sort: runsSort, setSort: setRunsSort } = useUrlSort('startedAt,desc', 'runsSort');
 
   const serverCron = useRef<Map<number, string>>(new Map());
-  const reload = useCallback(async (signal?: AbortSignal) => {
-    const list = await fetchMasiSources(signal);
+  const take = useCallback((list: MasiSource[]) => {
     const before = serverCron.current;
     setCronDraft((drafts) => keepEdits(drafts, before, list));
     serverCron.current = new Map(list.map((s) => [s.id, s.cron]));
     setSources(list);
   }, []);
+  // the page in view, and every "Show"'s count with it; alone, the one source
+  const reload = useCallback(
+    async (signal?: AbortSignal) => {
+      if (sourceId !== undefined) {
+        take([await fetchMasiSource(sourceId, signal)]);
+        return;
+      }
+      const answer = await fetchMasiSourceList(
+        { q: q || undefined, state: show, sort, page: pageNo, size: PAGE_SIZE },
+        signal,
+      );
+      take(answer.page.content);
+      setTotal(answer.page.totalElements);
+      setCounts(answer.counts);
+    },
+    [sourceId, q, show, sort, pageNo, take],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
       try {
         await reload(controller.signal);
-        setAssistant(await fetchMasiAssistant(controller.signal));
+        setError(null);
       } catch (e: unknown) {
         if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load sources'));
       }
@@ -167,11 +303,39 @@ export default function MasiSources() {
     return () => controller.abort();
   }, [reload]);
 
+  // the assistant's switch is the list's, not a source's: read once, not with every page
+  useEffect(() => {
+    if (alone) return undefined;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        setAssistant(await fetchMasiAssistant(controller.signal));
+      } catch (e: unknown) {
+        if (!controller.signal.aborted) setError(errorMessage(e, 'Failed to load the assistant'));
+      }
+    })();
+    return () => controller.abort();
+  }, [alone]);
+
+  // alone, the source is opened: its runs read at once, as a press on its name reads them
+  useEffect(() => {
+    if (sourceId === undefined) return undefined;
+    const controller = new AbortController();
+    fetchMasiSourceRuns(sourceId, controller.signal).then(
+      (r) => setRuns((cur) => ({ ...cur, [sourceId]: r.content })),
+      (e: unknown) => {
+        if (!controller.signal.aborted) setMessage(errorMessage(e, 'Failed to load runs'));
+      },
+    );
+    return () => controller.abort();
+  }, [sourceId]);
+
   /**
    * While anything is running, its figures are read again every few seconds.
    *
    * The collector writes them as it goes (masi, RunProgress), so this is what turns 'running' into something an
-   * operator can watch. Nothing polls when nothing runs: an idle page should not cost requests.
+   * operator can watch. Nothing polls when nothing runs: an idle page should not cost requests. Only the page in view
+   * is polled: a running source on another page is polled when it is shown.
    */
   /** The instant of the last successful poll: the age shown beside a running source counts from it. */
   const [tick, setTick] = useState(0);
@@ -206,6 +370,7 @@ export default function MasiSources() {
     };
   }, [runningIds]);
 
+  /** An action, then the page and its counts read again: a source switched or run may move to another "Show". */
   async function act(id: number, fn: () => Promise<unknown>, done: string) {
     setBusyId(id);
     setMessage(null);
@@ -234,17 +399,41 @@ export default function MasiSources() {
     }
   }
 
+  /** A filter changed: in the URL, and back to the first page; a page change keeps the filters. */
+  function set(key: 'q' | 'state' | 'page', value: string) {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    if (key !== 'page') next.delete('page');
+    setParams(next);
+  }
+
+  /** A column header: sorted by masi in the list, plain for the source alone. */
+  const head = (column: string, label: string): ReactElement =>
+    alone ? (
+      <th>{label}</th>
+    ) : (
+      <SortableHeader column={column} label={label} sort={sort} onSort={setSort} />
+    );
+
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  let summary = '';
+  if (!alone && counts) {
+    summary = `${countOf(counts, 'ENABLED')} of ${counts.ALL} enabled · ${total} shown`;
+  }
   return (
     <div className="masi">
       <MasiNav />
       <div className="card">
         <div className="card-header">
-          <span className="card-title">Sources</span>
-          <span className="muted">
-            {sources
-              ? `${sources.filter((s) => s.enabled).length} of ${sources.length} enabled`
-              : ''}
-          </span>
+          <span className="card-title">{alone ? (sources?.[0]?.name ?? 'Source') : 'Sources'}</span>
+          {alone ? (
+            <Link to="/masi/sources" className="muted">
+              all sources
+            </Link>
+          ) : (
+            <span className="muted">{summary}</span>
+          )}
         </div>
         {error && (
           <div className="error" role="alert">
@@ -253,7 +442,7 @@ export default function MasiSources() {
         )}
         {message && <div className="muted">{message}</div>}
         {!sources && !error && <div className="loading">Loading sources...</div>}
-        {sources && (
+        {sources && !alone && (
           <>
             <div className="assistant-switch">
               <label>
@@ -274,222 +463,182 @@ export default function MasiSources() {
             </div>
             <PictureStatus />
             <DeploymentSwitches />
-            <MasiTable
-              label="Sources"
-              className="masi-sources-table"
-              columns={['26%', '10%', '14%', '12%', '10%', '14%', '14%']}
-              minWidth={1000}
-            >
-              <thead>
-                <tr>
-                  <SortableHeader column="name" label="Source" sort={sort} onSort={setSort} />
-                  <SortableHeader column="kind" label="Kind" sort={sort} onSort={setSort} />
-                  <SortableHeader column="nextRunAt" label="Cron" sort={sort} onSort={setSort} />
-                  <SortableHeader column="cap" label="Requests/day" sort={sort} onSort={setSort} />
-                  <SortableHeader column="health" label="Health" sort={sort} onSort={setSort} />
-                  <SortableHeader
-                    column="lastSuccessAt"
-                    label="Last success"
-                    sort={sort}
-                    onSort={setSort}
-                  />
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortRows(sources, sort, SOURCE_SORTS).map((s) => (
-                  <Fragment key={s.id}>
-                    <tr>
-                      <td>
-                        <button
-                          type="button"
-                          className="link-button"
-                          onClick={() => void showRuns(s.id)}
-                        >
-                          {s.name}
-                        </button>
-                        <div className="muted">{s.key}</div>
-                      </td>
-                      <td>
-                        {s.kind.toLowerCase()} · {s.scope.toLowerCase()}
-                      </td>
-                      <td>
-                        <input
-                          aria-label={`Cron for ${s.key}`}
-                          value={cronDraft[s.id] ?? s.cron}
-                          onChange={(e) =>
-                            setCronDraft((cur) => ({ ...cur, [s.id]: e.target.value }))
-                          }
-                          onBlur={() => {
-                            const next = (cronDraft[s.id] ?? s.cron).trim();
-                            if (next && next !== s.cron)
-                              void act(
-                                s.id,
-                                () => patchMasiSource(s.id, { cron: next }),
-                                `${s.key}: cron saved`,
-                              );
-                          }}
-                          style={{ width: '10em', fontFamily: 'monospace' }}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          min={0}
-                          step={1}
-                          aria-label={`Requests per day for ${s.key}`}
-                          placeholder="no cap"
-                          value={capDraft[s.id] ?? capOf(s.configJson)}
-                          onChange={(e) =>
-                            setCapDraft((cur) => ({ ...cur, [s.id]: e.target.value }))
-                          }
-                          onBlur={(e) => {
-                            const next = (capDraft[s.id] ?? capOf(s.configJson)).trim();
-                            if (!e.target.checkValidity()) return; // a negative or fractional cap is not saved
-                            if (next !== capOf(s.configJson))
-                              void act(
-                                s.id,
-                                () =>
-                                  patchMasiSource(s.id, {
-                                    configJson: withCap(s.configJson, next),
-                                  }),
-                                next === ''
-                                  ? `${s.key}: no request cap`
-                                  : `${s.key}: ${next} requests a day`,
-                              );
-                          }}
-                          style={{ width: '6em' }}
-                        />
-                      </td>
-                      <td>
-                        <span className={badgeClass(s.health)}>
-                          {s.running ? 'running' : s.health.toLowerCase().replace('_', ' ')}
-                        </span>
-                        {s.running && progressOf(runs[s.id]?.[0], tick) && (
-                          <div className="muted" data-testid={`progress-${s.key}`}>
-                            {progressOf(runs[s.id]?.[0], tick)}
-                          </div>
-                        )}
-                        {s.consecutiveFailures > 0 && (
-                          <div className="muted">{s.consecutiveFailures} failure(s) in a row</div>
-                        )}
-                        {s.lastError && <div className={noteClass(s.health)}>{s.lastError}</div>}
-                      </td>
-                      <td>{formatDateTime(s.lastSuccessAt)}</td>
-                      <td className="badge-group">
-                        <LoadingButton
-                          className={s.enabled ? 'status-badge' : 'status-badge add'}
-                          onClick={() =>
+            <SourceFilters q={q} show={show} counts={counts} onChange={set} />
+          </>
+        )}
+        {sources?.length === 0 && <div className="empty-state">No sources match.</div>}
+        {sources && sources.length > 0 && (
+          <MasiTable
+            label="Sources"
+            className="masi-sources-table"
+            // sized for what the cells hold at the narrowest (1000 px): "deterministic" unbroken (119 px with its
+            // padding), the cron field (154 px) and the widest health badge ("auto-disabled", 140 px) whole - measured in
+            // the layout harness, 2026-11-18
+            columns={['20%', '12%', '16%', '12%', '14%', '13%', '13%']}
+            minWidth={1000}
+          >
+            <thead>
+              <tr>
+                {head('name', 'Source')}
+                {head('kind', 'Kind')}
+                {head('nextRunAt', 'Cron')}
+                {head('cap', 'Requests/day')}
+                {head('health', 'Health')}
+                {head('lastSuccessAt', 'Last success')}
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* the server's order: masi sorts the whole list, the page is a slice of it */}
+              {sources.map((s) => (
+                <Fragment key={s.id}>
+                  <tr>
+                    <td>
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => void showRuns(s.id)}
+                      >
+                        {s.name}
+                      </button>
+                      <div className="muted">{s.key}</div>
+                    </td>
+                    <td>
+                      {s.kind.toLowerCase()} · {s.scope.toLowerCase()}
+                    </td>
+                    <td>
+                      <input
+                        aria-label={`Cron for ${s.key}`}
+                        value={cronDraft[s.id] ?? s.cron}
+                        onChange={(e) =>
+                          setCronDraft((cur) => ({ ...cur, [s.id]: e.target.value }))
+                        }
+                        onBlur={() => {
+                          const next = (cronDraft[s.id] ?? s.cron).trim();
+                          if (next && next !== s.cron)
                             void act(
                               s.id,
-                              () => patchMasiSource(s.id, { enabled: !s.enabled }),
-                              `${s.key}: ${s.enabled ? 'disabled' : 'enabled'}`,
-                            )
-                          }
-                          loading={busyId === s.id}
-                          label={s.enabled ? 'Disable' : 'Enable'}
-                        />
-                        <LoadingButton
-                          className="status-badge action"
-                          onClick={() =>
-                            void act(s.id, () => runMasiSource(s.id), `${s.key}: run started`)
-                          }
-                          loading={busyId === s.id}
-                          label="Run now"
-                        />
+                              () => patchMasiSource(s.id, { cron: next }),
+                              `${s.key}: cron saved`,
+                            );
+                        }}
+                        style={{ width: '10em', fontFamily: 'monospace' }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        aria-label={`Requests per day for ${s.key}`}
+                        placeholder="no cap"
+                        value={capDraft[s.id] ?? capOf(s.configJson)}
+                        onChange={(e) => setCapDraft((cur) => ({ ...cur, [s.id]: e.target.value }))}
+                        onBlur={(e) => {
+                          const next = (capDraft[s.id] ?? capOf(s.configJson)).trim();
+                          if (!e.target.checkValidity()) return; // a negative or fractional cap is not saved
+                          if (next !== capOf(s.configJson))
+                            void act(
+                              s.id,
+                              () =>
+                                patchMasiSource(s.id, {
+                                  configJson: withCap(s.configJson, next),
+                                }),
+                              next === ''
+                                ? `${s.key}: no request cap`
+                                : `${s.key}: ${next} requests a day`,
+                            );
+                        }}
+                        style={{ width: '6em' }}
+                      />
+                    </td>
+                    <td>
+                      <span className={badgeClass(s.health)}>
+                        {s.running ? 'running' : healthWords(s.health)}
+                      </span>
+                      {s.running && progressOf(runs[s.id]?.[0], tick) && (
+                        <div className="muted" data-testid={`progress-${s.key}`}>
+                          {progressOf(runs[s.id]?.[0], tick)}
+                        </div>
+                      )}
+                      {s.consecutiveFailures > 0 && (
+                        <div className="muted">{s.consecutiveFailures} failure(s) in a row</div>
+                      )}
+                      {s.lastError && <div className={noteClass(s.health)}>{s.lastError}</div>}
+                    </td>
+                    <td>{formatDateTime(s.lastSuccessAt)}</td>
+                    <td className="badge-group">
+                      <LoadingButton
+                        className={s.enabled ? 'status-badge' : 'status-badge add'}
+                        onClick={() =>
+                          void act(
+                            s.id,
+                            () => patchMasiSource(s.id, { enabled: !s.enabled }),
+                            `${s.key}: ${s.enabled ? 'disabled' : 'enabled'}`,
+                          )
+                        }
+                        loading={busyId === s.id}
+                        label={s.enabled ? 'Disable' : 'Enable'}
+                      />
+                      <LoadingButton
+                        className="status-badge action"
+                        onClick={() =>
+                          void act(s.id, () => runMasiSource(s.id), `${s.key}: run started`)
+                        }
+                        loading={busyId === s.id}
+                        label="Run now"
+                      />
+                    </td>
+                  </tr>
+                  {openId === s.id && (
+                    <tr>
+                      <td colSpan={7}>
+                        <div className="masi-source-detail">
+                          <SourceConfig id={s.id} configJson={s.configJson} />
+                          <h3 className="masi-subtitle">Runs</h3>
+                          {!runs[s.id] && <div className="loading">Loading runs...</div>}
+                          {runs[s.id]?.length === 0 && (
+                            <div className="empty-state">No runs yet.</div>
+                          )}
+                          {runs[s.id] && runs[s.id].length > 0 && (
+                            <SourceRuns
+                              sourceKey={s.key}
+                              runs={runs[s.id]}
+                              sort={runsSort}
+                              onSort={setRunsSort}
+                            />
+                          )}
+                        </div>
                       </td>
                     </tr>
-                    {openId === s.id && (
-                      <tr>
-                        <td colSpan={7}>
-                          <div className="masi-source-detail">
-                            <SourceConfig id={s.id} configJson={s.configJson} />
-                            <h3 className="masi-subtitle">Runs</h3>
-                            {!runs[s.id] && <div className="loading">Loading runs...</div>}
-                            {runs[s.id]?.length === 0 && (
-                              <div className="empty-state">No runs yet.</div>
-                            )}
-                            {runs[s.id] && runs[s.id].length > 0 && (
-                              <table className="table masi-runs" data-testid={`runs-${s.key}`}>
-                                <thead>
-                                  <tr>
-                                    <SortableHeader
-                                      column="startedAt"
-                                      label="Started"
-                                      sort={runsSort}
-                                      onSort={setRunsSort}
-                                    />
-                                    <SortableHeader
-                                      column="status"
-                                      label="Status"
-                                      sort={runsSort}
-                                      onSort={setRunsSort}
-                                    />
-                                    <SortableHeader
-                                      column="parsed"
-                                      label="Parsed"
-                                      sort={runsSort}
-                                      onSort={setRunsSort}
-                                    />
-                                    <SortableHeader
-                                      column="newJobs"
-                                      label="New jobs"
-                                      sort={runsSort}
-                                      onSort={setRunsSort}
-                                    />
-                                    <SortableHeader
-                                      column="closedListings"
-                                      label="Closed"
-                                      sort={runsSort}
-                                      onSort={setRunsSort}
-                                    />
-                                    <SortableHeader
-                                      column="newCompanies"
-                                      label="Companies"
-                                      sort={runsSort}
-                                      onSort={setRunsSort}
-                                    />
-                                    <SortableHeader
-                                      column="error"
-                                      label="Error"
-                                      sort={runsSort}
-                                      onSort={setRunsSort}
-                                    />
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {sortRows(runs[s.id], runsSort, RUN_SORTS).map((r) => (
-                                    <tr key={r.id}>
-                                      <td>{formatDateTime(r.startedAt)}</td>
-                                      <td>
-                                        <span className={badgeClass(r.status)}>
-                                          {r.status.toLowerCase().replace('_', ' ')}
-                                        </span>
-                                        {!r.complete && r.status === 'OK' ? ' (incomplete)' : ''}
-                                      </td>
-                                      <td>{r.parsed}</td>
-                                      <td>{r.newJobs}</td>
-                                      <td>{r.closedListings}</td>
-                                      <td>{r.newCompanies}</td>
-                                      <td>
-                                        {r.error && (
-                                          <span className={noteClass(r.status)}>{r.error}</span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))}
-              </tbody>
-            </MasiTable>
-          </>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </MasiTable>
+        )}
+        {!alone && pages > 1 && (
+          <div className="pagination">
+            <button
+              type="button"
+              className="btn-small"
+              disabled={pageNo <= 0}
+              onClick={() => set('page', String(pageNo - 1))}
+            >
+              Previous
+            </button>
+            <span className="pagination-info">
+              page {pageNo + 1} of {pages}
+            </span>
+            <button
+              type="button"
+              className="btn-small"
+              disabled={pageNo + 1 >= pages}
+              onClick={() => set('page', String(pageNo + 1))}
+            >
+              Next
+            </button>
+          </div>
         )}
       </div>
     </div>

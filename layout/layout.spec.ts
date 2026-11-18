@@ -92,6 +92,55 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       },
     },
     { name: 'jobs', path: '/masi/jobs', ready: 'table', drawn: { 'tbody tr': [3, UNBROKEN_PART] } },
+    {
+      name: "the overview, production's sources counted and the ones wanting a look listed",
+      path: '/masi',
+      ready: '[data-testid="source-counts"]',
+      widths: [360, 390, 1366],
+      drawn: {
+        '[data-testid="source-counts"] .masi-figure-link': [4, '5 need a look'],
+        '.masi-table-scroll tbody tr': [5, 'returned 404 Not Found'],
+      },
+    },
+    {
+      name: "the sources, a page of production's 225",
+      path: '/masi/sources',
+      ready: '.masi-sources-table',
+      widths: [360, 390, 1366],
+      drawn: {
+        '.masi-sources-table > tbody > tr': [50],
+        '.masi .card-header .muted': [1, '200 of 225 enabled · 225 shown'],
+        'select[aria-label="Show"] option': [9, 'needs a look (5)'],
+        '.pagination-info': [1, 'page 1 of 5'],
+      },
+    },
+    {
+      name: 'the sources that need a look, worst first',
+      path: '/masi/sources?state=ATTENTION&sort=health,desc',
+      ready: '.masi-sources-table',
+      drawn: { '.masi-sources-table > tbody > tr': [5, 'returned 404 Not Found'] },
+    },
+    {
+      name: 'one source alone, running, opened',
+      path: '/masi/sources/2',
+      ready: '[data-testid="runs-cvee"]',
+      widths: [360, 390, 1366],
+      drawn: {
+        '[data-testid="runs-cvee"] tbody tr': [7, 'running'],
+        '[data-testid="progress-cvee"]': [1, '1,267 calls'],
+      },
+    },
+    {
+      name: "a report the old masi stored: every source's health, read into counts and the unwell",
+      path: '/masi/reports/7',
+      ready: '[data-testid="source-health"]',
+      widths: [360, 1366],
+      drawn: {
+        '[data-testid="source-counts"]': [1, '225 sources · 200 enabled · 4 needed a look'],
+        '[data-testid="source-health"] a': [4, 'cvkeskus: failing'],
+        '.masi-stats tbody tr': [26, '200 other sources'],
+      },
+    },
     { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [50] } },
     {
       name: 'a weekly report, every figure a link',
@@ -1331,6 +1380,23 @@ for (const width of [1366, 1920]) {
   });
 }
 
+test('a source name wrapped on a phone reads from the left, as the key under it', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, '/masi/sources', 'table tbody tr .link-button');
+  const names = page.locator('table tbody tr .link-button');
+  // the premise: some name wraps at this width (two lines or more)
+  const heights = await names.evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect().height));
+  const line = Math.min(...heights);
+  expect(heights.some((h) => h > line * 1.5)).toBe(true);
+  for (const align of await names.evaluateAll((bs) =>
+    bs.map((b) => getComputedStyle(b).textAlign),
+  )) {
+    expect(align).not.toBe('center');
+  }
+});
+
 test('the people list scrolls inside its card on a phone, the page never sideways', async ({
   page,
 }) => {
@@ -1463,7 +1529,8 @@ for (const width of [390, 1366]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    await open(page, '/masi/sources', '.masi-switches dd');
+    // GitHub is past the first page of 225 by name: found by its key, as the operator would
+    await open(page, '/masi/sources?q=github', '.masi-switches dd');
     await page.getByRole('button', { name: 'GitHub — IT specialists in Estonia' }).click();
     await page.getByRole('list', { name: 'Changes' }).waitFor();
     const m = await page.evaluate(() => {
@@ -1498,6 +1565,43 @@ for (const width of [390, 1366]) {
     expect(m.switchGroups).toBe(6);
     expect(m.changes).toBe(3);
     expect(m.cutSwitches, 'no switch cut').toBe(0);
+  });
+}
+
+/**
+ * An opened source's runs read whole. In the sources table every cell may break anywhere (its fixed columns), and the
+ * runs table under an opened row took that over: on a phone each date stood a letter to a line, a run 400 px tall. The
+ * runs keep their words, and their panel scrolls them sideways - never the page.
+ */
+for (const width of [390, 1366]) {
+  test(`an opened source's runs read whole, their panel scrolling them, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/sources/2', '[data-testid="runs-cvee"] tbody tr');
+    const m = await page.evaluate(() => {
+      const runs = document.querySelector('[data-testid="runs-cvee"]') as HTMLElement;
+      const panel = runs.closest('.masi-source-detail') as HTMLElement;
+      const heights = (sel: string) =>
+        [...runs.querySelectorAll(sel)].map((r) => Math.round(r.getBoundingClientRect().height));
+      return {
+        // its own rows: the sources table's body is an ancestor too
+        rows: heights(':scope > tbody > tr'),
+        headers: heights(':scope > thead th'),
+        panelRight: Math.round(panel.getBoundingClientRect().right),
+        viewport: document.documentElement.clientWidth,
+        pageScrolls:
+          document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      };
+    });
+    expect(m.rows.length, "the fixture's runs are drawn").toBe(7);
+    expect(
+      Math.max(...m.rows),
+      'a run is a line or two, not a column of letters',
+    ).toBeLessThanOrEqual(80);
+    expect(Math.max(...m.headers), 'a header a line or two').toBeLessThanOrEqual(80);
+    expect(m.panelRight, 'the panel inside the page').toBeLessThanOrEqual(m.viewport + 1);
+    expect(m.pageScrolls, 'the page never sideways').toBe(false);
   });
 }
 
