@@ -22,13 +22,7 @@ vi.mock('../../services/api', () => ({
   fetchMasiSwitches: vi.fn(() => Promise.resolve({})),
   fetchMasiSourceHistory: vi.fn(() => Promise.resolve([])),
 }));
-// the old masi's fallback reads a real answer through the real call: no login behind it
-vi.mock('../../services/oidcClient', () => ({
-  getAccessToken: vi.fn(() => Promise.resolve('token')),
-  login: vi.fn(),
-}));
 const api = await import('../../services/api');
-const real = await vi.importActual<typeof import('../../services/api')>('../../services/api');
 
 /** Every "Show" counted, as masi's /sources/counts answers. */
 function countsOf(over: Partial<MasiSourceCounts> = {}): MasiSourceCounts {
@@ -157,7 +151,6 @@ beforeEach(() => {
     gmailReady: false,
     linkedinReady: false,
   });
-  vi.unstubAllGlobals();
 });
 
 describe('MasiSources', () => {
@@ -914,35 +907,5 @@ describe('MasiSources', () => {
       );
       expect(screen.queryByTestId('source-page')).not.toBeInTheDocument();
     });
-  });
-
-  /** The site deploys before masi: the old masi answers every source as an array and has no counts. */
-  it("pages and counts the old masi's whole list in the browser, as the new one would", async () => {
-    vi.mocked(api.fetchMasiSourceList).mockImplementation(real.fetchMasiSourceList);
-    const fetch = vi.fn((url: string) =>
-      Promise.resolve(
-        url.startsWith('/api/masi/sources/counts')
-          ? new Response(JSON.stringify({ error: 'Bad request' }), { status: 400 })
-          : new Response(
-              JSON.stringify([
-                wise,
-                cvee,
-                bolt,
-                { ...cvee, id: 9, key: 'cvkeskus', name: 'CV Keskus' },
-              ]),
-            ),
-      ),
-    );
-    vi.stubGlobal('fetch', fetch);
-    renderAt('/masi/sources?state=ATTENTION&sort=health,desc', '/masi/sources', <MasiSources />);
-    // the worst first: failing before degraded; the two off ones not listed
-    await screen.findByText('Wise (Greenhouse)');
-    expect(rowNames()).toEqual(['Wise (Greenhouse)', 'Bolt (Greenhouse)']);
-    expect(screen.getByText('2 of 4 enabled · 2 match')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'needs a look (2)' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'off (2)' })).toBeInTheDocument();
-    expect(fetch.mock.calls[0][0]).toBe(
-      '/api/masi/sources?state=ATTENTION&sort=health%2Cdesc&page=0&size=50',
-    );
   });
 });

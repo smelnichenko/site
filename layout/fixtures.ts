@@ -27,7 +27,6 @@ import type {
   MasiSourceCounts,
   MasiSourceRun,
   MasiSourceState,
-  MasiSourceStats,
   Paged,
   PagedResponse,
   RssFeedMonitorConfig,
@@ -36,7 +35,6 @@ import type {
   MasiContactPicture,
   MasiPictureTries,
 } from '../src/services/api';
-import type { MasiReportAnswer } from '../src/services/masiSourcesOld';
 import { readFileSync } from 'node:fs';
 import {
   bookings,
@@ -1474,44 +1472,6 @@ const dashboard: MasiDashboard = {
   tuningPausedUntil: null,
 };
 
-/**
- * A month's report as the old masi stored it, before it paged its sources: every source's health by key ("DISABLED" for
- * one switched off, by hand or by its failures), no counts, and its stats listing every source with no rest. The site
- * makes the counts, the unwell badges and the 25 rows and a rest of it (masiSourcesOld).
- */
-const oldSourceStats: MasiSourceStats[] = SOURCES.map((s): MasiSourceStats => ({
-  key: s.key,
-  name: s.name,
-  newListings: s.scope === 'JOBS' && s.enabled ? (s.id * 37) % 23 : 0,
-  closedListings: s.scope === 'JOBS' && s.enabled ? (s.id * 23) % 19 : 0,
-  runs: s.enabled ? { OK: 28 + (s.id % 3), ERROR: s.id % 7 === 0 ? 2 : 0 } : {},
-}));
-const sum = (pick: (row: MasiSourceStats) => number) =>
-  oldSourceStats.reduce((total, row) => total + pick(row), 0);
-/** The old masi's monthly report (see oldSourceStats): the site reads it into today's shape. */
-const oldReport: MasiReportAnswer = {
-  ...bigReport,
-  id: 7,
-  stats: {
-    ...bigReport.stats,
-    // the registry's listings are its sources' listings: the rows the site keeps and the rest it sums add up to them
-    registry: {
-      ...bigReport.stats.registry,
-      newListings: sum((row) => row.newListings),
-      closedListings: sum((row) => row.closedListings),
-    },
-    sources: oldSourceStats,
-    sourcesRest: undefined,
-  },
-  snapshot: {
-    ...bigReport.snapshot,
-    sourceHealth: Object.fromEntries(
-      SOURCES.map((s) => [s.key, s.enabled ? s.health : 'DISABLED']),
-    ),
-    sourceCounts: undefined,
-  },
-};
-
 const SOURCE_CHANGES = [
   {
     field: 'enabled',
@@ -1713,7 +1673,6 @@ export function answer(url: URL): Answer | undefined {
     ],
     [/^\/reports\/5$/, () => ({ status: 200, body: report })],
     [/^\/reports\/6$/, () => ({ status: 200, body: bigReport })],
-    [/^\/reports\/7$/, () => ({ status: 200, body: oldReport })],
     [/^\/listings$/, () => ({ status: 200, body: listingPage })],
     [
       /^\/calendar\/events$/,

@@ -11,8 +11,8 @@ import { countOf, sourcesLink, stateWords } from './sourceStates';
 /**
  * The sources as the report found them: how many there were, enabled and wanting a look (words: the counts were then,
  * the Sources page is now), and a badge for each that wanted a look - a link to that one source as it is today (by its
- * key: a report names its sources so) - then how many more there were than the report names. A report a masi before
- * paged sources stored held every source's health: read into the same by the API layer.
+ * key: a report names its sources so) - then how many more there were than the report names. A report stored before
+ * masi counted its sources comes the same, masi reading it from the health it kept.
  */
 function SourceHealth({ snapshot }: Readonly<{ snapshot: MasiReport['snapshot'] }>) {
   const counts = snapshot.sourceCounts;

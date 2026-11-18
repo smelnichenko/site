@@ -130,17 +130,6 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
         '[data-testid="progress-cvee"]': [1, '1,267 calls'],
       },
     },
-    {
-      name: "a report the old masi stored: every source's health, read into counts and the unwell",
-      path: '/masi/reports/7',
-      ready: '[data-testid="source-health"]',
-      widths: [360, 1366],
-      drawn: {
-        '[data-testid="source-counts"]': [1, '225 sources · 200 enabled · 4 needed a look'],
-        '[data-testid="source-health"] a': [4, 'cvkeskus: failing'],
-        '.masi-stats tbody tr': [26, '200 other sources'],
-      },
-    },
     { name: 'packages', path: '/masi/packages', ready: 'table', drawn: { 'tbody tr': [50] } },
     {
       name: 'a weekly report, every figure a link',

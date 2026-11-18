@@ -3,16 +3,10 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MasiReportDetail from './MasiReportDetail';
 import { looseSeparators, renderAt } from './testUtils';
-import { oldReport, report } from './statsFixture';
+import { report } from './statsFixture';
 
 vi.mock('../../services/api', () => ({ fetchMasiReport: vi.fn(), mailMasiReportDigest: vi.fn() }));
-// the old masi's report is read through the real call: no login behind it
-vi.mock('../../services/oidcClient', () => ({
-  getAccessToken: vi.fn(() => Promise.resolve('token')),
-  login: vi.fn(),
-}));
 const api = await import('../../services/api');
-const real = await vi.importActual<typeof import('../../services/api')>('../../services/api');
 
 beforeEach(() => {
   vi.mocked(api.fetchMasiReport).mockReset();
@@ -126,27 +120,5 @@ describe('MasiReportDetail', () => {
       '225 sources · 200 enabled · none needed a look',
     );
     expect(screen.queryByTestId('source-health')).not.toBeInTheDocument();
-  });
-
-  /** The site deploys before masi: a report the old masi stored, or answers, holds every source's health and no counts. */
-  it("counts an old report's every source, and names only the ones that wanted a look", async () => {
-    vi.mocked(api.fetchMasiReport).mockImplementation(real.fetchMasiReport);
-    vi.stubGlobal('fetch', () => Promise.resolve(new Response(JSON.stringify(oldReport))));
-    renderAt('/masi/reports/5', '/masi/reports/:id', <MasiReportDetail />);
-    // six sources, one switched off ("DISABLED"), three unwell
-    expect(await screen.findByTestId('source-counts')).toHaveTextContent(
-      '6 sources · 5 enabled · 3 needed a look',
-    );
-    const badges = within(screen.getByTestId('source-health')).getAllByRole('link');
-    expect(badges.map((b) => b.textContent)).toEqual([
-      'cvkeskus: failing',
-      'ats:pipedrive: degraded',
-      'bolt: degraded',
-    ]);
-    expect(screen.getByTestId('source-health')).not.toHaveTextContent('cvee');
-    expect(screen.getByTestId('source-health')).not.toHaveTextContent('ats:wise');
-    // its stats listed every source, two: no rest left over
-    expect(screen.queryByRole('row', { name: /other source/ })).not.toBeInTheDocument();
-    vi.unstubAllGlobals();
   });
 });

@@ -311,7 +311,7 @@ export default function StatsPanel({
   stats,
   days,
 }: Readonly<{ stats: MasiStats; days?: MasiStatsDay[] }>) {
-  // the sources with the most new listings, and the others summed (an older masi's every source cut so by the API)
+  // the sources with the most new listings, and the others summed
   const sources = stats.sources;
   const rest = stats.sourcesRest;
   const outcomes = runsByOutcome([...sources.map((s) => s.runs), rest.runs]);

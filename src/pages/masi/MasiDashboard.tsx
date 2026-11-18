@@ -100,8 +100,7 @@ function SourcesCard({ data }: Readonly<{ data: Dashboard }>) {
                     <span className={badgeClass(state)}>{stateWords(state)}</span>
                     {s.running && <span className="status-badge">running</span>}
                   </td>
-                  {/* not known from a masi before paged sources: a dash, never a zero */}
-                  <td>{s.consecutiveFailures ?? '—'}</td>
+                  <td>{s.consecutiveFailures}</td>
                   <td>{formatDateTime(s.lastSuccessAt)}</td>
                   <td>{s.lastError && <span className={noteClass(state)}>{s.lastError}</span>}</td>
                 </tr>
