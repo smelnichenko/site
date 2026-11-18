@@ -576,7 +576,7 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
               all sources
             </Link>
           ) : (
-            <span className="muted masi-nowrap">{summary}</span>
+            <span className="muted">{summary}</span>
           )}
         </div>
         {error && (

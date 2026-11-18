@@ -9,7 +9,7 @@
  * and the calendar's week and day: no two bookings on top of each other, every day's hour grid at the same height.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { answer } from './fixtures';
+import { answer, type Answer } from './fixtures';
 
 const WIDTHS = [390, 1366];
 /** A Tuesday morning in Tallinn: the calendar's today, and the fixtures' first day. */
@@ -245,6 +245,8 @@ async function open(
   page: Page,
   path: string,
   ready: string,
+  /** One test's own answers, asked before the fixtures': a case the fixtures' registry does not hold. */
+  own?: (url: URL) => Answer | undefined,
 ): Promise<{ unanswered: string[]; errors: string[] }> {
   const unanswered: string[] = [];
   const errors: string[] = [];
@@ -262,7 +264,7 @@ async function open(
   await page.clock.setFixedTime(NOW);
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
-    const a = route.request().method() === 'GET' ? answer(url) : undefined;
+    const a = route.request().method() === 'GET' ? (own?.(url) ?? answer(url)) : undefined;
     if (!a) {
       unanswered.push(`${route.request().method()} ${url.pathname}${url.search}`);
       await route.fulfill({ status: 599, json: { error: 'no fixture' } });
@@ -1579,6 +1581,31 @@ test("the Sources page shows masi's refusal of a sort it does not know", async (
 });
 
 /**
+ * A source opened in the list, on a phone: its runs sit in a cell of the sources table, whose columns break anywhere -
+ * the runs table keeps a width of its own, scrolled in the panel, so no date stands a letter to a line.
+ */
+test('a source opened in the list reads its runs whole on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, '/masi/sources?q=cvee', '.masi-sources-table');
+  await page.getByRole('button', { name: 'cv.ee', exact: true }).click();
+  await page.locator('[data-testid="runs-cvee"] tbody tr').first().waitFor();
+  const m = await page.evaluate(() => {
+    const runs = document.querySelector('[data-testid="runs-cvee"]') as HTMLElement;
+    return {
+      // the premise: the runs inside a cell of the sources table
+      inTable: !!runs.closest('.masi-sources-table td'),
+      rows: [...runs.querySelectorAll(':scope > tbody > tr')].map(
+        (r) => r.getBoundingClientRect().height,
+      ),
+    };
+  });
+  expect(m.inTable).toBe(true);
+  expect(m.rows).toHaveLength(7);
+  expect(Math.max(...m.rows), 'a run a line or two').toBeLessThanOrEqual(80);
+  expect(await brokenWords(page, '[data-testid="runs-cvee"] td'), 'no word cut').toEqual([]);
+});
+
+/**
  * An opened source's runs read whole. In the sources table every cell may break anywhere (its fixed columns), and the
  * runs table under an opened row took that over: on a phone each date stood a letter to a line, a run 400 px tall. The
  * runs keep their words, and their panel scrolls them sideways - never the page.
@@ -1696,6 +1723,19 @@ async function boxOf(page: Page, selector: string) {
   };
 }
 
+/** How many lines an element's text takes, and how wide it is laid on one (its lines' widths summed). */
+async function textLines(page: Page, selector: string): Promise<{ lines: number; width: number }> {
+  return page.evaluate((sel) => {
+    const r = document.createRange();
+    r.selectNodeContents(document.querySelector(sel)!);
+    const rects = [...r.getClientRects()].filter((x) => x.width > 0);
+    return {
+      lines: new Set(rects.map((x) => Math.round(x.top))).size,
+      width: rects.reduce((sum, x) => sum + x.width, 0),
+    };
+  }, selector);
+}
+
 /** The words of an element's text that a line break cuts in two, as "word" - none when every word is whole. */
 async function brokenWords(page: Page, selector: string): Promise<string[]> {
   return page.evaluate((sel) => {
@@ -1778,6 +1818,19 @@ for (const [width, height] of [
       await page.evaluate(() => document.activeElement?.classList.contains('masi-source-list')),
       'the focus at the list',
     ).toBe(true);
+    // from the keyboard too: Next pressed with Enter puts the focus on the list with no ring round all of it, and the
+    // next Tab rings the search box as every control is ringed
+    await page.getByRole('button', { name: 'Next' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.masi-sources-pager .pagination-info')).toHaveText('page 3 of 5');
+    const ring = () =>
+      page.evaluate(() => {
+        const e = document.activeElement as HTMLElement;
+        return { what: e.id || e.className, outline: getComputedStyle(e).outlineStyle };
+      });
+    expect(await ring()).toEqual({ what: 'masi-source-list', outline: 'none' });
+    await page.keyboard.press('Tab');
+    expect(await ring()).toEqual({ what: 'source-q', outline: 'auto' });
   });
 }
 
@@ -1879,6 +1932,8 @@ for (const [width, height, id] of [
     const title = await boxOf(page, '.masi-sources-card .card-title');
     expect(back.h, '"all sources" a finger target').toBeGreaterThanOrEqual(44);
     expect(await brokenWords(page, '.masi-back-link'), '"all sources" whole').toEqual([]);
+    // under the longest source name (id 6) too: "all sources" on one line, never squeezed to "all / sources"
+    expect((await textLines(page, '.masi-back-link')).lines, '"all sources" on one line').toBe(1);
     expect(
       back.left >= title.right || back.top >= title.bottom - 1,
       'the way back beside the title or under it, never over it',
@@ -1891,14 +1946,21 @@ for (const width of [360, 375]) {
   test(`the Sources page's header wraps whole, at ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
     await open(page, '/masi/sources', '.masi-sources-table');
+    const header = await boxOf(page, '.masi-sources-card > .card-header');
     const title = await boxOf(page, '.masi-sources-card .card-title');
     const counts = await boxOf(page, '.masi-sources-card > .card-header > .muted');
+    // the premise: the title's words, the gap and the counts' words are wider than the header - however the boxes are
+    // squeezed, they cannot share a line whole
+    const titleText = await textLines(page, '.masi-sources-card .card-title');
+    const countsText = await textLines(page, '.masi-sources-card > .card-header > .muted');
+    expect(titleText.width + 16 + countsText.width, 'too wide for one line').toBeGreaterThan(
+      header.w,
+    );
+    expect(countsText.lines, 'the counts on one line').toBe(1);
+    expect(counts.top, 'the counts under the title').toBeGreaterThanOrEqual(title.bottom);
+    expect(counts.right, 'inside the card').toBeLessThanOrEqual(header.right + 1);
     expect(await brokenWords(page, '.masi-sources-card > .card-header > .muted')).toEqual([]);
     expect(counts.h, 'the counts on one line').toBeLessThan(30);
-    expect(
-      counts.left >= title.right + 16 || counts.top >= title.bottom,
-      'apart from the title',
-    ).toBe(true);
   });
 }
 
@@ -1959,6 +2021,30 @@ for (const width of [390, 1366]) {
       m.restRow,
       'the other sources a row of a few lines, not a word a line',
     ).toBeLessThanOrEqual(110);
+  });
+}
+
+/**
+ * The overview when more sources want a look than it lists (a bad day: twelve, ten at most listed): "See all 12" is a
+ * finger target on its own line under them.
+ */
+for (const width of [390, 1366]) {
+  test(`the overview's "See all" is a link a finger can take, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const usual = answer(new URL('https://pmon.dev/api/masi/dashboard'))?.body as Record<
+      string,
+      unknown
+    >;
+    const counts = usual.sourceCounts as Record<string, number>;
+    await open(page, '/masi', '.masi-see-all', (url) =>
+      url.pathname === '/api/masi/dashboard'
+        ? { status: 200, body: { ...usual, sourceCounts: { ...counts, ATTENTION: 12 } } }
+        : undefined,
+    );
+    await expect(page.locator('.masi-see-all')).toHaveText('See all 12');
+    const b = await boxOf(page, '.masi-see-all');
+    expect(b.h, '"See all" 44 px tall').toBeGreaterThanOrEqual(44);
+    expect(b.w, 'and 44 px wide').toBeGreaterThanOrEqual(44);
   });
 }
 

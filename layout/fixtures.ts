@@ -1324,7 +1324,14 @@ const SHOWS: Record<MasiSourceState, (s: MasiSource) => boolean> = {
   OFF: (s) => stateOf(s) === 'OFF',
 };
 
-/** What masi sorts each column by: a number or text, null for none (last whichever way). */
+/** masi's SourceFilter.healthRank: well 0, degraded 1, failing 2, anything else (switched off by its failures) 3. */
+const HEALTH_RANK: Record<string, number> = { OK: 0, DEGRADED: 1, FAILING: 2 };
+
+/**
+ * What masi sorts each column by (SourceController.SORTS): a number or text, null for none (last whichever way). This
+ * and the filters below emulate masi's GET /sources for the layout harness only, so its pages draw what masi would
+ * send; masi's own SourceListTest pins the real behaviour against its database.
+ */
 const SOURCE_COLUMNS: Record<string, (s: MasiSource) => string | number | null> = {
   name: (s) => s.name.toLowerCase(),
   kind: (s) => `${s.kind} ${s.scope}`,
@@ -1334,7 +1341,7 @@ const SOURCE_COLUMNS: Record<string, (s: MasiSource) => string | number | null> 
       : null;
     return typeof cap === 'number' ? cap : null;
   },
-  health: (s) => ['OK', 'DEGRADED', 'FAILING'].indexOf(s.health) + 1 || 4,
+  health: (s) => HEALTH_RANK[s.health] ?? 3,
   lastSuccessAt: (s) => s.lastSuccessAt,
   nextRunAt: (s) => s.nextRunAt,
 };

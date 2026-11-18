@@ -23,23 +23,26 @@ function NoSource({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
+/** A source's id as a route carries it: a whole number from 1, in plain digits. */
+const SOURCE_ID = /^[1-9]\d*$/;
+
 /**
  * One source alone (/masi/sources/:id), opened as the Sources page opens a row - its config, its changes and its last
  * runs - with its actions, and the way back to every source. Where the dashboard, a report and the weekly digest lead.
- * Keyed by the id: another source is a fresh page, never the last one's state. An id that is no whole number is no
- * source: said so, with nothing asked of masi.
+ * Keyed by the id: another source is a fresh page, never the last one's state. An id is plain digits, as masi writes
+ * them (12, never 012, 1e3 or 12.0 - which Number would read as one); anything else is no source: said so, with
+ * nothing asked of masi.
  */
 export default function MasiSourceDetail() {
-  const { id } = useParams();
-  const sourceId = Number(id);
-  if (!id || !Number.isInteger(sourceId) || sourceId < 1) {
+  const { id = '' } = useParams();
+  if (!SOURCE_ID.test(id)) {
     return (
       <NoSource>
         <div className="empty-state">&quot;{id}&quot; is no source&apos;s id.</div>
       </NoSource>
     );
   }
-  return <MasiSources key={id} sourceId={sourceId} />;
+  return <MasiSources key={id} sourceId={Number(id)} />;
 }
 
 /** The most rows a search holds (masi's page at its largest): a key is in far fewer names and keys than that. */

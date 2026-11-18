@@ -2563,19 +2563,15 @@ a.muted,
   width: calc(100cqw - 24px);
   overflow-x: auto;
 }
-/* An opened source - a row's panel, or the source alone - scrolls its runs inside it, never the page. Its runs keep
-   their words: in a row they sit in a cell of the sources table, whose fixed columns break anywhere
-   (.masi-table-fixed td), and took that over - on a phone each date stood a letter to a line. Whole words and the
-   table's own width. */
+/* An opened source - a row's panel, or the source alone - scrolls its runs inside it, never the page. Its runs have
+   a width of their own: in a row they sit in a cell of the sources table, whose fixed columns break anywhere
+   (.masi-table-fixed td), and a runs table only as wide as the phone took that over - each date stood a letter to a
+   line. At 800 px every column holds its words (measured: a date two lines, no word cut). */
 .masi-source-opened {
   overflow-x: auto;
 }
 .masi-source-opened .masi-runs {
   min-width: 800px;
-}
-.masi-source-opened .masi-runs th,
-.masi-source-opened .masi-runs td {
-  overflow-wrap: normal;
 }
 /* The source alone, read down as one record: a 1000 px row put its cron, health and actions off a phone's screen. */
 .masi-source-own {
@@ -2601,7 +2597,8 @@ a.muted,
   margin-bottom: 20px;
 }
 /* The Sources page's header: the title and its counts (or the way back) wrap onto two lines on a phone rather than
-   squeezing either - each stays whole on its line. */
+   squeezing either. A flex line takes an item only at its whole width, so each stays whole on its line - the counts
+   and "all sources" need no nowrap of their own (measured at 360 px, under the longest source name). */
 .masi-sources-card > .card-header {
   flex-wrap: wrap;
   gap: 4px 16px;
@@ -2611,7 +2608,6 @@ a.muted,
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  white-space: nowrap;
 }
 /* the assistant's switch and what it says of itself, apart, on one line where they fit */
 .assistant-switch {
