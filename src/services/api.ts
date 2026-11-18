@@ -98,6 +98,16 @@ export interface PageStats {
 }
 
 import { getAccessToken, login } from './oidcClient';
+import {
+  countsOf,
+  dashboardOf,
+  pageOf,
+  reportOf,
+  statsOf,
+  type MasiDashboardAnswer,
+  type MasiReportAnswer,
+  type MasiStatsAnswer,
+} from './masiSourcesOld';
 
 const API_BASE = '/api';
 
@@ -1722,7 +1732,10 @@ export interface MasiSource {
   scope: string;
   baseUrl: string | null;
   cron: string;
-  /** When the cron next fires (masi's scheduler zone); null when it cannot be read. */
+  /**
+   * When the cron next fires (masi's scheduler zone); null when it cannot be read, or - since masi pages its sources -
+   * when the source will not fire (switched off, or failing).
+   */
   nextRunAt: string | null;
   enabled: boolean;
   configJson: string | null;
@@ -1856,18 +1869,24 @@ export interface MasiDashboard {
     /** Every active CV, one per language, the primary first (absent from a masi before per-language views). */
     actives?: MasiActiveCv[];
   };
-  sources: Array<{
-    id: number;
-    key: string;
-    name: string;
-    enabled: boolean;
-    health: string;
-    lastRunAt: string | null;
-    lastSuccessAt: string | null;
-    running: boolean;
-  }>;
+  /** How many sources each "Show" of the Sources page lists, and ALL. */
+  sourceCounts: MasiSourceCounts;
+  /**
+   * The sources wanting a look, worst first, at most 10: the first rows of the Sources page's "needs a look" sorted by
+   * health, descending.
+   */
+  sourcesAttention: MasiSourceAttention[];
   tuningPausedUntil: string | null;
 }
+
+/**
+ * A source wanting a look, as the overview lists it. Its failures in a row and last error are null when not known: a
+ * masi before paged sources did not send them (masiSourcesOld).
+ */
+export type MasiSourceAttention = Pick<
+  MasiSource,
+  'id' | 'key' | 'name' | 'enabled' | 'health' | 'lastRunAt' | 'lastSuccessAt' | 'running'
+> & { consecutiveFailures: number | null; lastError: string | null };
 
 function query(params: Record<string, string | number | boolean | undefined>): string {
   const q = new URLSearchParams();
@@ -1911,8 +1930,11 @@ async function masiSend<T>(
   return readJson<T>(response);
 }
 
-export function fetchMasiDashboard(signal?: AbortSignal): Promise<MasiDashboard> {
-  return masiGet('/dashboard', signal, 'load the dashboard');
+/** The overview; an older masi's every source read into its counts and the ones wanting a look (masiSourcesOld). */
+export async function fetchMasiDashboard(signal?: AbortSignal): Promise<MasiDashboard> {
+  return dashboardOf(
+    await masiGet<MasiDashboardAnswer>('/dashboard', signal, 'load the dashboard'),
+  );
 }
 
 export function fetchMasiJobs(
@@ -2581,8 +2603,59 @@ export function patchMasiPerson(
   return masiSend(`/persons/${id}`, 'PATCH', patch, 'save the person');
 }
 
-export function fetchMasiSources(signal?: AbortSignal): Promise<MasiSource[]> {
-  return masiGet('/sources', signal, 'load sources');
+/**
+ * A "Show" of the Sources page (masi SourceFilter): every enabled source, the ones running now, the ones wanting a look
+ * (degraded, failing or switched off by their failures), or one state - OK, DEGRADED and FAILING are enabled ones,
+ * DISABLED_AUTO is switched off by its failures, OFF by hand.
+ */
+export type MasiSourceState =
+  'ENABLED' | 'RUNNING' | 'ATTENTION' | 'OK' | 'DEGRADED' | 'FAILING' | 'DISABLED_AUTO' | 'OFF';
+
+/**
+ * How many sources each "Show" lists, and ALL of them: each its filter's rows counted, so a count is the total of that
+ * filter's pages. A report stored before masi paged its sources has no RUNNING and no DISABLED_AUTO.
+ */
+export type MasiSourceCounts = Partial<Record<MasiSourceState, number>> & { ALL: number };
+
+/** The Sources page's request: the search, the "Show", the sort (`column,asc|desc`) and the page. */
+export interface MasiSourceFilter {
+  q?: string;
+  state?: MasiSourceState;
+  sort?: string;
+  page: number;
+  size: number;
+}
+
+/**
+ * A page of the sources and every "Show"'s count (masi GET /sources and /sources/counts, asked together). A masi before
+ * it paged its sources answers every source as an array and has no counts: the page and the counts are then made here,
+ * from that array, the way masi makes them (masiSourcesOld).
+ */
+export async function fetchMasiSourceList(
+  filter: MasiSourceFilter,
+  signal?: AbortSignal,
+): Promise<{ page: Paged<MasiSource>; counts: MasiSourceCounts }> {
+  const [answer, counts] = await Promise.all([
+    masiGet<Paged<MasiSource> | MasiSource[]>(
+      `/sources${query({ ...filter })}`,
+      signal,
+      'load sources',
+    ),
+    // settled here: the old masi has no counts, and its failure must not be an unhandled rejection
+    masiGet<MasiSourceCounts>('/sources/counts', signal, 'load the source counts').catch(
+      (e: unknown) => (e instanceof Error ? e : new Error('Failed to load the source counts')),
+    ),
+  ]);
+  if (Array.isArray(answer)) {
+    return { page: pageOf(answer, filter), counts: countsOf(answer) };
+  }
+  if (counts instanceof Error) throw counts;
+  return { page: answer, counts };
+}
+
+/** One source, as a row of the Sources page shows it. */
+export function fetchMasiSource(id: number, signal?: AbortSignal): Promise<MasiSource> {
+  return masiGet(`/sources/${id}`, signal, 'load the source');
 }
 
 export interface MasiAssistant {
@@ -2924,13 +2997,14 @@ export interface MasiStats {
      */
     rowsExact?: boolean | null;
   };
-  sources: Array<{
-    key: string;
-    name: string;
-    newListings: number;
-    closedListings: number;
-    runs: Record<string, number>;
-  }>;
+  /** The sources with the most new listings in the period, at most 25. */
+  sources: MasiSourceStats[];
+  /**
+   * The sources not listed above, summed, so the rows and this add up to the registry's totals. Masi sends it every
+   * time - a period it stored listing every source is read with one, empty (no source) when it listed no more than 25;
+   * masiSourcesOld makes the same of an older masi's answer, which has none.
+   */
+  sourcesRest: MasiSourcesRest;
   topCompanies: Array<{ id: number; name: string | null; newJobs: number }>;
   titles: Array<{ value: string; count: number }>;
   seniority: Record<string, number>;
@@ -2965,6 +3039,23 @@ export interface MasiStats {
   };
 }
 
+/** One source's figures in a period. */
+export interface MasiSourceStats {
+  key: string;
+  name: string;
+  newListings: number;
+  closedListings: number;
+  runs: Record<string, number>;
+}
+
+/** The sources of a period not listed by name: how many, and their figures summed. */
+export interface MasiSourcesRest {
+  sources: number;
+  newListings: number;
+  closedListings: number;
+  runs: Record<string, number>;
+}
+
 export type MasiResponse = 'REPLIED' | 'INTERVIEW' | 'OFFER' | 'REJECTED';
 
 export interface MasiOutcomes {
@@ -2988,8 +3079,14 @@ export interface MasiReport extends MasiReportSummary {
     asOf: string;
     openJobs: number;
     companiesHiring: number;
+    /**
+     * The sources that wanted a look at generation, worst first, at most 50, each its state (DEGRADED, FAILING,
+     * DISABLED_AUTO); how many there were is in the counts.
+     */
     sourceHealth: Record<string, string>;
     packagesNow: Record<string, number>;
+    /** How many sources each "Show" listed at generation (a report stored before has no RUNNING, no DISABLED_AUTO). */
+    sourceCounts: MasiSourceCounts;
   };
 }
 
@@ -3017,8 +3114,14 @@ export function fetchMasiStatsDaily(
   return masiGet(`/stats/daily${query({ from, to })}`, signal, 'load the days');
 }
 
-export function fetchMasiStats(from: string, to: string, signal?: AbortSignal): Promise<MasiStats> {
-  return masiGet(`/stats${query({ from, to })}`, signal, 'load stats');
+export async function fetchMasiStats(
+  from: string,
+  to: string,
+  signal?: AbortSignal,
+): Promise<MasiStats> {
+  return statsOf(
+    await masiGet<MasiStatsAnswer>(`/stats${query({ from, to })}`, signal, 'load stats'),
+  );
 }
 
 export function fetchMasiReports(
@@ -3028,8 +3131,8 @@ export function fetchMasiReports(
   return masiGet(`/reports${query({ kind })}`, signal, 'load reports');
 }
 
-export function fetchMasiReport(id: number, signal?: AbortSignal): Promise<MasiReport> {
-  return masiGet(`/reports/${id}`, signal, 'load the report');
+export async function fetchMasiReport(id: number, signal?: AbortSignal): Promise<MasiReport> {
+  return reportOf(await masiGet<MasiReportAnswer>(`/reports/${id}`, signal, 'load the report'));
 }
 
 /** "Mail me this report": the weekly digest of a stored report, now, to the caller. The answer has no body. */
@@ -3042,6 +3145,16 @@ export async function mailMasiReportDigest(id: number): Promise<void> {
 }
 
 /** Writes (or returns) the report for the period containing `day`; without a day, the last complete one. */
-export function generateMasiReport(kind: 'WEEKLY' | 'MONTHLY', day?: string): Promise<MasiReport> {
-  return masiSend('/reports/generate', 'POST', { kind, day }, 'generate the report');
+export async function generateMasiReport(
+  kind: 'WEEKLY' | 'MONTHLY',
+  day?: string,
+): Promise<MasiReport> {
+  return reportOf(
+    await masiSend<MasiReportAnswer>(
+      '/reports/generate',
+      'POST',
+      { kind, day },
+      'generate the report',
+    ),
+  );
 }

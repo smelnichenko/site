@@ -1,8 +1,11 @@
+import type { ReactNode } from 'react';
+
 /** A masi list's sortable column header (ops plan 112); the sort itself is in ./sorting. */
 interface Props {
   /** The column's name as the list's endpoint (or its browser sort) knows it. */
   column: string;
-  label: string;
+  /** Its words; may say where a long one may break (a <wbr>), which its accessible name never shows. */
+  label: ReactNode;
   /** The list's sort now: `column,asc|desc`. */
   sort: string;
   onSort: (next: string) => void;

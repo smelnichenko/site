@@ -3,18 +3,20 @@ import { useSearchParams } from 'react-router-dom';
 /**
  * How every masi list sorts (ops plan 112): the sort lives in the URL as `sort=column,asc|desc`, so it survives a
  * reload and a shared link; a new sort starts again at page 1. A header press sorts by that column ascending, the next
- * press descending. A page with a second sortable table names its own parameter.
+ * press descending. A page with a second sortable table names its own parameter; `paged` false for a table the page's
+ * pager does not page (a source's runs under a page of sources): its sort keeps the page where it is.
  */
 export function useUrlSort(
   fallback: string,
   param = 'sort',
+  paged = true,
 ): { sort: string; setSort: (next: string) => void } {
   const [params, setParams] = useSearchParams();
   const sort = params.get(param) || fallback;
   function setSort(next: string) {
     const changed = new URLSearchParams(params);
     changed.set(param, next);
-    changed.delete('page');
+    if (paged) changed.delete('page');
     setParams(changed);
   }
   return { sort, setSort };

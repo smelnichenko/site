@@ -5,6 +5,7 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthProvider';
 import { LoadingProvider } from './contexts/LoadingProvider';
 import * as oidcClient from './services/oidcClient';
+import * as api from './services/api';
 
 vi.mock('./services/oidcClient', () => ({
   trySilentAuth: vi.fn(),
@@ -16,6 +17,28 @@ vi.mock('./services/oidcClient', () => ({
   refreshAndGetUserInfo: vi.fn(),
 }));
 vi.mock('./services/keyStore', () => ({ clear: vi.fn() }));
+// hoisted with the mocks that read it
+const { wise } = vi.hoisted(() => ({
+  wise: {
+    id: 8,
+    key: 'ats:wise',
+    name: 'Wise (Greenhouse)',
+    kind: 'DETERMINISTIC',
+    scope: 'JOBS',
+    baseUrl: null,
+    cron: '0 17 * * * *',
+    nextRunAt: null,
+    enabled: true,
+    configJson: null,
+    termsNote: null,
+    health: 'OK',
+    consecutiveFailures: 0,
+    lastRunAt: null,
+    lastSuccessAt: null,
+    lastError: null,
+    running: false,
+  },
+}));
 vi.mock('./services/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./services/api')>()),
   fetchMasiJobs: vi.fn().mockResolvedValue({ content: [], page: 0, size: 50, totalElements: 0 }),
@@ -43,6 +66,16 @@ vi.mock('./services/api', async (importOriginal) => ({
   fetchMasiActivity: vi
     .fn()
     .mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0 }),
+  // one source: its own page and the search a report's badge makes for its key
+  fetchMasiSource: vi.fn().mockResolvedValue(wise),
+  fetchMasiSourceList: vi.fn().mockResolvedValue({
+    page: { content: [wise], page: 0, size: 200, totalElements: 1 },
+    counts: { ALL: 1 },
+  }),
+  fetchMasiSourceRuns: vi
+    .fn()
+    .mockResolvedValue({ content: [], page: 0, size: 20, totalElements: 0 }),
+  fetchMasiSourceHistory: vi.fn().mockResolvedValue([]),
 }));
 
 const originalLocation = globalThis.location;
@@ -190,6 +223,42 @@ describe('masi routes and nav', () => {
     await screen.findByRole('navigation');
     expect(screen.queryByText('No listings match.')).not.toBeInTheDocument();
   });
+
+  /** Where the overview, a report's badges and the weekly digest lead: one source's page, by its id or its key. */
+  it.each(['/masi/sources/8', '/masi/sources/key/ats%3Awise'])(
+    'renders one source at %s with the Sources tab, for a JOBS holder',
+    async (route) => {
+      vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
+        email: 'me@example.com',
+        uuid: 'u1',
+        permissions: ['JOBS'],
+      });
+      renderApp(route);
+      expect(
+        await screen.findByText('Wise (Greenhouse)', { selector: '.card-title' }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Sources' })).toHaveClass('active');
+    },
+  );
+
+  it.each(['/masi/sources/8', '/masi/sources/key/ats%3Awise'])(
+    'keeps %s from a holder without JOBS',
+    async (route) => {
+      vi.mocked(api.fetchMasiSource).mockClear();
+      vi.mocked(api.fetchMasiSourceList).mockClear();
+      vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
+        email: 'me@example.com',
+        uuid: 'u1',
+        permissions: ['METRICS'],
+      });
+      renderApp(route);
+      // the navigation drawn: a page let in mounts with it, and asks masi as it mounts
+      await screen.findAllByRole('navigation');
+      expect(api.fetchMasiSource).not.toHaveBeenCalled();
+      expect(api.fetchMasiSourceList).not.toHaveBeenCalled();
+      expect(screen.queryByText('Wise (Greenhouse)')).not.toBeInTheDocument();
+    },
+  );
 
   it('redirects /masi/jobs away and hides the Jobs link without JOBS', async () => {
     vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({

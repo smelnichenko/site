@@ -1,4 +1,5 @@
 import type { MasiReport, MasiStats } from '../../services/api';
+import type { MasiReportAnswer } from '../../services/masiSourcesOld';
 
 /** The DST-start week of 2026-03-23 .. 03-30 as the backend's fixtures add it up. */
 export const stats: MasiStats = {
@@ -29,6 +30,13 @@ export const stats: MasiStats = {
       runs: { OK: 0 },
     },
   ],
+  // the registry's other sources: no listing in the week, a run or two each
+  sourcesRest: {
+    sources: 223,
+    newListings: 0,
+    closedListings: 0,
+    runs: { OK: 40, SKIPPED_BUDGET: 3 },
+  },
   topCompanies: [
     { id: 3, name: 'Nortal AS', newJobs: 2 },
     { id: 4, name: null, newJobs: 1 },
@@ -67,7 +75,45 @@ export const report: MasiReport = {
     asOf: '2026-03-30T03:00:00Z',
     openJobs: 254,
     companiesHiring: 86,
-    sourceHealth: { cvee: 'OK', bolt: 'DISABLED' },
+    // the sources that wanted a look, worst first; how many each "Show" listed
+    sourceHealth: {
+      'ats:wise': 'DISABLED_AUTO',
+      cvkeskus: 'FAILING',
+      'ats:pipedrive': 'DEGRADED',
+      bolt: 'DEGRADED',
+    },
+    sourceCounts: {
+      ALL: 225,
+      ENABLED: 200,
+      RUNNING: 1,
+      ATTENTION: 4,
+      OK: 197,
+      DEGRADED: 2,
+      FAILING: 1,
+      DISABLED_AUTO: 1,
+      OFF: 24,
+    },
     packagesNow: { NEW: 0, PREPARED: 2, APPLIED: 1, SKIPPED: 0 },
+  },
+};
+
+/**
+ * The same report as a masi before paged sources stored it: every source's health by key ("DISABLED" for one switched
+ * off), no counts - and stats listing every source, with no rest.
+ */
+export const oldReport: MasiReportAnswer = {
+  ...report,
+  stats: { ...stats, sourcesRest: undefined },
+  snapshot: {
+    ...report.snapshot,
+    sourceHealth: {
+      'ats:pipedrive': 'DEGRADED',
+      'ats:wise': 'DISABLED',
+      bolt: 'DEGRADED',
+      cvee: 'OK',
+      cvkeskus: 'FAILING',
+      linkedin: 'OK',
+    },
+    sourceCounts: undefined,
   },
 };

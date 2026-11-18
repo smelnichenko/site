@@ -114,6 +114,7 @@ export default function PictureStatus() {
       </table>
       {status.enabled ? (
         <LoadingButton
+          className="btn-small"
           loading={busy}
           loadingLabel="Starting…"
           label="Collect pictures now"

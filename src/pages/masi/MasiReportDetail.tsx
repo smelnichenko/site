@@ -6,6 +6,49 @@ import MasiNav from '../../components/MasiNav';
 import StatsPanel from './StatsPanel';
 import { badgeClass, errorMessage, formatDateTime, periodLabel } from './format';
 import { SEPARATOR } from './figureLinks';
+import { countOf, sourcesLink, stateWords } from './sourceStates';
+
+/**
+ * The sources as the report found them: how many there were, enabled and wanting a look (words: the counts were then,
+ * the Sources page is now), and a badge for each that wanted a look - a link to that one source as it is today (by its
+ * key: a report names its sources so) - then how many more there were than the report names. A report a masi before
+ * paged sources stored held every source's health: read into the same by the API layer.
+ */
+function SourceHealth({ snapshot }: Readonly<{ snapshot: MasiReport['snapshot'] }>) {
+  const counts = snapshot.sourceCounts;
+  const unwell = Object.entries(snapshot.sourceHealth);
+  const needLook = countOf(counts, 'ATTENTION');
+  const more = needLook - unwell.length;
+  return (
+    <>
+      <div className="muted" data-testid="source-counts">
+        {counts.ALL} sources{SEPARATOR}
+        {countOf(counts, 'ENABLED')} enabled{SEPARATOR}
+        {needLook === 0 ? 'none needed a look' : `${needLook} needed a look`}
+      </div>
+      {unwell.length > 0 && (
+        <div className="badge-group" data-testid="source-health">
+          {unwell.map(([key, state]) => (
+            <Link
+              key={key}
+              to={`/masi/sources/key/${encodeURIComponent(key)}`}
+              className="masi-badge-link"
+            >
+              <span className={badgeClass(state)}>
+                {key}: {stateWords(state)}
+              </span>
+            </Link>
+          ))}
+          {more > 0 && (
+            <Link to={sourcesLink('ATTENTION')} className="masi-badge-link">
+              <span className="status-badge">and {more} more</span>
+            </Link>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
 
 /** One stored report: the period's stats as frozen, plus the registry and the caller's queue as of generation. */
 export default function MasiReportDetail() {
@@ -95,13 +138,7 @@ export default function MasiReportDetail() {
             )}
           </div>
         )}
-        <div className="badge-group" data-testid="source-health">
-          {Object.entries(report.snapshot.sourceHealth).map(([key, health]) => (
-            <span key={key} className={badgeClass(health)}>
-              {key}: {health.toLowerCase().replace('_', ' ')}
-            </span>
-          ))}
-        </div>
+        <SourceHealth snapshot={report.snapshot} />
       </div>
       <StatsPanel stats={report.stats} />
     </div>

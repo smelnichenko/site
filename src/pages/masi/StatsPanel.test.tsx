@@ -48,7 +48,10 @@ describe('StatsPanel', () => {
     expect(screen.getByTestId('salary-line')).toHaveTextContent(
       '2500 – 4500 · median 2750 to 4500',
     );
-    expect(screen.getByText('1 ok, 1 error')).toBeInTheDocument(); // the source row's runs
+    // the source row's runs, each count with its word
+    const cvee = within(screen.getByRole('row', { name: /^cv\.ee/ })).getAllByRole('cell');
+    expect(cvee[3]).toHaveTextContent(/^1 ok, 1 error$/);
+    expect(within(cvee[3]).getByText('1 error')).toHaveClass('masi-nowrap');
     expect(screen.getByTestId('tokens-line')).toHaveTextContent(
       '1050 in · 200 cache read · 300 cache write · 400 out',
     );
@@ -242,7 +245,7 @@ describe('StatsPanel figures are links to their rows', () => {
       within(screen.getByTestId('bars-LLM cost by purpose')).queryByRole('link'),
     ).not.toBeInTheDocument();
     expect(
-      within(screen.getByTestId('bars-Runs per source')).queryByRole('link'),
+      within(screen.getByTestId('bars-Runs by outcome')).queryByRole('link'),
     ).not.toBeInTheDocument();
   });
 
@@ -386,5 +389,65 @@ describe('StatsPanel reads as text', () => {
     expect(links.length).toBeGreaterThanOrEqual(10);
     const names = links.map((a) => a.getAttribute('aria-label') ?? (a.textContent ?? '').trim());
     expect(names.filter((n) => !/[a-z]/i.test(n))).toEqual([]);
+  });
+});
+
+describe('StatsPanel sources', () => {
+  /** The figures of one source in the period. */
+  it('lists the sources with the most new listings, then the others summed in one row', () => {
+    render(<StatsPanel stats={stats} />);
+    expect(screen.getByText('the 2 sources with the most new listings')).toBeInTheDocument();
+    const rest = screen.getByRole('row', { name: /223 other sources/ });
+    expect(
+      within(rest)
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual(['223 other sources', '0', '0', '40 ok, 3 skipped budget']);
+    // no list holds the others' listings alone: their figures are text
+    expect(within(rest).queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('sums the runs of every source by outcome: the rows shown and the rest', () => {
+    render(<StatsPanel stats={stats} />);
+    // cv.ee 1 ok and 1 error, Bolt none, the rest 40 ok and 3 skipped: an outcome with none is no bar
+    expect(screen.getByTestId('bars-Runs by outcome')).toHaveTextContent(
+      /^Runs by outcomeok41error1skipped budget3$/,
+    );
+    expect(screen.queryByTestId('bars-Runs per source')).not.toBeInTheDocument();
+    // its labels are words, each shown whole (the layout harness measures it); any bar's label says itself whole
+    // when pointed at, should its column cut it
+    expect(screen.getByTestId('bars-Runs by outcome')).toHaveClass('masi-bars-words');
+    expect(screen.getByText('skipped budget')).toHaveAttribute('title', 'skipped budget');
+    expect(screen.getByTestId('bars-Titles')).not.toHaveClass('masi-bars-words');
+    expect(screen.getByText('senior java developer')).toHaveAttribute(
+      'title',
+      'senior java developer',
+    );
+  });
+
+  it('draws no rest row when every source is a row: an empty rest', () => {
+    render(
+      <StatsPanel
+        stats={{
+          ...stats,
+          sourcesRest: { sources: 0, newListings: 0, closedListings: 0, runs: {} },
+        }}
+      />,
+    );
+    expect(screen.getAllByRole('row')).toHaveLength(3); // the header, cv.ee and Bolt
+    expect(screen.queryByRole('row', { name: /other source/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/with the most new listings/)).not.toBeInTheDocument();
+  });
+
+  it('says one other source in the singular', () => {
+    render(
+      <StatsPanel
+        stats={{
+          ...stats,
+          sourcesRest: { sources: 1, newListings: 4, closedListings: 2, runs: { OK: 1 } },
+        }}
+      />,
+    );
+    expect(screen.getByRole('row', { name: /^1 other source 4 2 1 ok$/ })).toBeInTheDocument();
   });
 });

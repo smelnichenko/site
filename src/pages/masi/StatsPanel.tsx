@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { Fragment, type ReactElement } from 'react';
 import DailyCharts from './DailyCharts';
 import type { MasiOutcomes, MasiStats, MasiStatsDay } from '../../services/api';
 import { formatDateTime, formatUsd } from './format';
@@ -34,19 +34,29 @@ function shown(value: number, unit?: string): string | number {
 }
 
 /** A horizontal bar per row, scaled to the largest; plain CSS so the tests can read the widths. */
+/**
+ * `words`: the labels are a few known words, each shown whole ("skipped budget"); otherwise a label longer than its
+ * column is cut, and said whole when pointed at.
+ */
 export function Bars({
   title,
   rows,
   unit,
-}: Readonly<{ title: string; rows: BarRow[]; unit?: string }>) {
+  words,
+}: Readonly<{ title: string; rows: BarRow[]; unit?: string; words?: boolean }>) {
   const max = rows.reduce((m, r) => Math.max(m, r.value), 0);
   return (
-    <div className="card masi-bars" data-testid={`bars-${title}`}>
+    <div
+      className={words ? 'card masi-bars masi-bars-words' : 'card masi-bars'}
+      data-testid={`bars-${title}`}
+    >
       <div className="card-title">{title}</div>
       {rows.length === 0 && <div className="empty-state">Nothing in this period.</div>}
       {rows.map((r) => (
         <div key={r.label} className="masi-bar">
-          <span className="masi-bar-label">{r.label}</span>
+          <span className="masi-bar-label" title={r.label}>
+            {r.label}
+          </span>
           <span className="masi-bar-track">
             <span
               className="masi-bar-fill"
@@ -75,6 +85,36 @@ function entries(
   return Object.entries(record)
     .filter(([, v]) => v > 0)
     .map(([label, value]) => ({ label, value, link: link?.(label, value) }));
+}
+
+/** "2 ok, 1 error": the runs by outcome, each count with its word on one line (a line breaks after a comma); a dash for none. */
+function RunsLine({ runs }: Readonly<{ runs: Record<string, number> }>) {
+  const parts = Object.entries(runs).filter(([, n]) => n > 0);
+  return (
+    <>
+      {parts.length === 0 && '—'}
+      {parts.map(([k, n], i) => (
+        <Fragment key={k}>
+          {i > 0 && ', '}
+          <span className="masi-nowrap">
+            {n} {k.toLowerCase().replace('_', ' ')}
+          </span>
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+/** The runs of every source summed by outcome ("ok", "skipped budget"): the rows shown and the rest add up to all. */
+function runsByOutcome(runs: Array<Record<string, number>>): Record<string, number> {
+  const sum: Record<string, number> = {};
+  for (const r of runs) {
+    for (const [status, n] of Object.entries(r)) {
+      const label = status.toLowerCase().replace('_', ' ');
+      sum[label] = (sum[label] ?? 0) + n;
+    }
+  }
+  return sum;
 }
 
 function newJobs(n: number): string {
@@ -271,10 +311,10 @@ export default function StatsPanel({
   stats,
   days,
 }: Readonly<{ stats: MasiStats; days?: MasiStatsDay[] }>) {
-  const runs = stats.sources.map((s) => ({
-    label: s.name,
-    value: Object.values(s.runs).reduce((a, b) => a + b, 0),
-  }));
+  // the sources with the most new listings, and the others summed (an older masi's every source cut so by the API)
+  const sources = stats.sources;
+  const rest = stats.sourcesRest;
+  const outcomes = runsByOutcome([...sources.map((s) => s.runs), rest.runs]);
   const w = { from: stats.from, to: stats.to };
   const r = stats.registry;
   // closes and reposts of a report stored before they were counted as rows: a list would hold fewer, so no link
@@ -425,12 +465,20 @@ export default function StatsPanel({
         />
         <Bars title="LLM cost by purpose" rows={entries(stats.llm.byPurpose)} unit="usd" />
         <Bars title="LLM cost by model" rows={entries(stats.llm.byModel)} unit="usd" />
-        <Bars title="Runs per source" rows={runs} />
+        <Bars title="Runs by outcome" rows={entries(outcomes)} words />
       </div>
       <SalaryCard salary={stats.salary} window={w} />
       <div className="card">
         <div className="card-title">Sources</div>
-        <MasiTable label="Sources in the period">
+        {rest.sources > 0 && (
+          <div className="muted">the {sources.length} sources with the most new listings</div>
+        )}
+        <MasiTable
+          label="Sources in the period"
+          // the runs' words kept together need room: below 600 px the table scrolls in its card, never a word a line
+          columns={['33%', '16%', '14%', '37%']}
+          minWidth={600}
+        >
           <thead>
             <tr>
               <th>Source</th>
@@ -440,7 +488,7 @@ export default function StatsPanel({
             </tr>
           </thead>
           <tbody>
-            {stats.sources.map((s) => (
+            {sources.map((s) => (
               <tr key={s.key}>
                 <td>{s.name}</td>
                 <td>
@@ -458,13 +506,21 @@ export default function StatsPanel({
                   />
                 </td>
                 <td>
-                  {Object.entries(s.runs)
-                    .filter(([, n]) => n > 0)
-                    .map(([k, n]) => `${n} ${k.toLowerCase().replace('_', ' ')}`)
-                    .join(', ') || '—'}
+                  <RunsLine runs={s.runs} />
                 </td>
               </tr>
             ))}
+            {rest.sources > 0 && (
+              // no list holds the other sources' listings alone: their sums are text
+              <tr>
+                <td>{counted(rest.sources, 'other source', 'other sources')}</td>
+                <td>{rest.newListings}</td>
+                <td>{rest.closedListings}</td>
+                <td>
+                  <RunsLine runs={rest.runs} />
+                </td>
+              </tr>
+            )}
           </tbody>
         </MasiTable>
       </div>

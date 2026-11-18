@@ -411,6 +411,12 @@ a.card-title {
   margin-top: 8px;
 }
 
+/* in a masi pager the words stand between Previous and Next, centred with them: the margin is for the info line
+   under a react-paginate list (the monitor's pages), and set the words 4 px low here */
+.pagination > .pagination-info {
+  margin-top: 0;
+}
+
 /* Auth pages */
 .auth-container {
   display: flex;
@@ -1367,7 +1373,8 @@ a.muted,
 }
 
 /* an input in a masi table (a cron, a request cap) is a control, not a 19 px text slot */
-.masi .table input {
+.masi .table input,
+.masi-source-own input {
   min-height: 36px;
   padding: 4px 8px;
   border: 1px solid #ccc;
@@ -1865,6 +1872,8 @@ a.muted,
   color: var(--accent, #2563eb);
   cursor: pointer;
   font: inherit;
+  /* a link reads as the text around it: a button's own centring set a wrapped source name apart from its key */
+  text-align: inherit;
   text-decoration: underline;
 }
 
@@ -1883,6 +1892,10 @@ a.muted,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* bars of a few known words ("skipped budget"): the labels' column as wide as the longest, never cut */
+.masi-bars-words .masi-bar {
+  grid-template-columns: max-content minmax(0, 1fr) auto;
 }
 .masi-bar-track {
   display: block;
@@ -1928,6 +1941,27 @@ a.muted,
 /* a date of the filter's period is one piece: "23 Mar" on one line and "2026" on the next reads as two dates */
 .masi-nowrap {
   white-space: nowrap;
+}
+
+/* a source a report or the overview names: the link a finger target (44 px) round the pill or the name, which keep
+   their own size - the box also holds a report's first row of pills 8 px off the counts line above them; underlined,
+   as a figure link is - a pill's colour does not say it leads anywhere */
+.masi-badge-link,
+.masi-attention-name {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.masi-badge-link .status-badge {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+/* the dashboard's way to every source wanting a look, under the first ten: a finger target on a line of its own */
+.masi-see-all {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 /* a picture that opens larger: the picture is the button, with no button drawn around it */
@@ -2528,6 +2562,70 @@ a.muted,
   left: 12px;
   width: calc(100cqw - 24px);
   overflow-x: auto;
+}
+/* An opened source - a row's panel, or the source alone - scrolls its runs inside it, never the page. Its runs have
+   a width of their own: in a row they sit in a cell of the sources table, whose fixed columns break anywhere
+   (.masi-table-fixed td), and a runs table only as wide as the phone took that over - each date stood a letter to a
+   line. At 800 px every column holds its words (measured: a date two lines, no word cut). */
+.masi-source-opened {
+  overflow-x: auto;
+}
+.masi-source-opened .masi-runs {
+  min-width: 800px;
+}
+/* The source alone, read down as one record: a 1000 px row put its cron, health and actions off a phone's screen. */
+.masi-source-own {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  align-items: baseline;
+  margin: 0 0 12px;
+}
+.masi-source-own dt {
+  font-weight: 600;
+  color: #555;
+}
+.masi-source-own dd {
+  margin: 0;
+  min-width: 0;
+}
+.masi-source-actions {
+  margin-bottom: 12px;
+}
+/* the list, then the collection's own panels (cards of their own) a card's gap under it */
+.masi-source-list {
+  margin-bottom: 20px;
+}
+/* The Sources page's header: the title and its counts (or the way back) wrap onto two lines on a phone rather than
+   squeezing either. A flex line takes an item only at its whole width, so each stays whole on its line - the counts
+   and "all sources" need no nowrap of their own (measured at 360 px, under the longest source name). */
+.masi-sources-card > .card-header {
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+/* "all sources": the way back from one source, a finger target in the header */
+.masi-back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+/* the assistant's switch and what it says of itself, apart, on one line where they fit */
+.assistant-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+/* a page change focuses the list's top so a keyboard starts at the new rows: a box, not a control - no ring round
+   the whole list */
+.masi-source-list:focus {
+  outline: none;
+}
+/* the sources' pager: Previous and Next are finger targets (the list is long; they are pressed often) */
+.masi-sources-pager .btn-small {
+  min-width: 44px;
+  min-height: 44px;
 }
 .masi-config {
   max-height: 320px;

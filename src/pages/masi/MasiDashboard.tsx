@@ -2,8 +2,122 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchMasiDashboard, MasiDashboard as Dashboard } from '../../services/api';
 import MasiNav from '../../components/MasiNav';
-import { badgeClass, errorMessage, formatDateTime, formatUsd } from './format';
+import { badgeClass, errorMessage, formatDateTime, formatUsd, noteClass } from './format';
 import MasiTable from '../../components/MasiTable';
+import FigureLink, { Tied } from './FigureLink';
+import { SEPARATOR } from './figureLinks';
+import { countOf, sourcesLink, sourceState, stateWords } from './sourceStates';
+
+/** The separator a figure link is tied to (Tied): the no-break space and the dot, the space after it outside. */
+const DOT = SEPARATOR.trimEnd();
+
+/**
+ * The sources at a glance: how many there are, enabled, running and wanting a look - each a link to the Sources page
+ * showing them - then the ones wanting a look, worst first, at most ten, and the way to every one of them when there
+ * are more.
+ */
+function SourcesCard({ data }: Readonly<{ data: Dashboard }>) {
+  const counts = data.sourceCounts;
+  const attention = data.sourcesAttention;
+  const needLook = countOf(counts, 'ATTENTION');
+  const parts: Array<{ key: string; value: number; to: string; words: string }> = [
+    { key: 'ALL', value: counts.ALL, to: sourcesLink(), words: `${counts.ALL} sources` },
+    {
+      key: 'ENABLED',
+      value: countOf(counts, 'ENABLED'),
+      to: sourcesLink('ENABLED'),
+      words: `${countOf(counts, 'ENABLED')} enabled`,
+    },
+    {
+      key: 'RUNNING',
+      value: countOf(counts, 'RUNNING'),
+      to: sourcesLink('RUNNING'),
+      words: `${countOf(counts, 'RUNNING')} running`,
+    },
+    {
+      key: 'ATTENTION',
+      value: needLook,
+      to: sourcesLink('ATTENTION'),
+      words: `${needLook} ${needLook === 1 ? 'needs' : 'need'} a look`,
+    },
+  ];
+  return (
+    <section className="card" aria-label="Sources">
+      <div className="card-header">
+        <span className="card-title">Sources</span>
+        <Link to="/masi/sources" className="muted">
+          manage
+        </Link>
+      </div>
+      <div className="muted" data-testid="source-counts">
+        {parts.map((p, i) => (
+          <span key={p.key}>
+            {i < parts.length - 1 ? (
+              <Tied after={DOT}>
+                <FigureLink value={p.value} to={p.to}>
+                  {p.words}
+                </FigureLink>
+              </Tied>
+            ) : (
+              <FigureLink value={p.value} to={p.to}>
+                {p.words}
+              </FigureLink>
+            )}
+            {i < parts.length - 1 && ' '}
+          </span>
+        ))}
+      </div>
+      {attention.length === 0 ? (
+        <div className="empty-state">All enabled sources are well.</div>
+      ) : (
+        <MasiTable
+          label="Sources that need a look"
+          // the state column holds the widest badge ("auto-disabled", 146 px with its padding) at the narrowest
+          columns={['20%', '19%', '12%', '15%', '34%']}
+          minWidth={800}
+        >
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>State</th>
+              <th>Failures in a row</th>
+              <th>Last success</th>
+              <th>Last error</th>
+            </tr>
+          </thead>
+          <tbody>
+            {attention.map((s) => {
+              const state = sourceState(s);
+              return (
+                <tr key={s.id}>
+                  <td>
+                    <Link to={`/masi/sources/${s.id}`} className="masi-attention-name">
+                      {s.name}
+                    </Link>
+                    <div className="muted">{s.key}</div>
+                  </td>
+                  <td className="badge-group">
+                    <span className={badgeClass(state)}>{stateWords(state)}</span>
+                    {s.running && <span className="status-badge">running</span>}
+                  </td>
+                  {/* not known from a masi before paged sources: a dash, never a zero */}
+                  <td>{s.consecutiveFailures ?? '—'}</td>
+                  <td>{formatDateTime(s.lastSuccessAt)}</td>
+                  <td>{s.lastError && <span className={noteClass(state)}>{s.lastError}</span>}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </MasiTable>
+      )}
+      {needLook > attention.length && (
+        <Link to={sourcesLink('ATTENTION')} className="masi-see-all">
+          See all {needLook}
+        </Link>
+      )}
+    </section>
+  );
+}
 
 /** The overview: the registry this week, the review funnel, the LLM spend against its budgets, the CV master, the sources. */
 export default function MasiDashboard() {
@@ -107,38 +221,7 @@ export default function MasiDashboard() {
           )}
         </Link>
       </div>
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">Sources</span>
-          <Link to="/masi/sources" className="muted">
-            manage
-          </Link>
-        </div>
-        <MasiTable label="Sources">
-          <thead>
-            <tr>
-              <th>Source</th>
-              <th>Enabled</th>
-              <th>Health</th>
-              <th>Last run</th>
-              <th>Last success</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.sources.map((s) => (
-              <tr key={s.id}>
-                <td>{s.name}</td>
-                <td>{s.enabled ? 'yes' : 'no'}</td>
-                <td>
-                  <span className={badgeClass(s.health)}>{s.running ? 'running' : s.health}</span>
-                </td>
-                <td>{formatDateTime(s.lastRunAt)}</td>
-                <td>{formatDateTime(s.lastSuccessAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </MasiTable>
-      </div>
+      <SourcesCard data={data} />
     </div>
   );
 }
