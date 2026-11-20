@@ -10,8 +10,12 @@ clone:
   - name: git
     image: woodpeckerci/plugin-git
     settings:
+      home: /tmp  # non-root: its credentials file in a home it can write
       partial: false
       depth: 100
+    backend_options:
+      kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }
 
 # The checks are separate steps on purpose. Chained into one step, a formatting nit fails the whole
 # thing and hides whether the tests pass; you fix the format, push, and only then learn about a test
@@ -28,6 +32,7 @@ steps:
       - npm ci --prefer-offline --no-audit --no-fund # never --silent: a failed install must say why
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
         resources:
           requests: { memory: 512Mi }
           limits: { memory: 2Gi }
@@ -45,6 +50,7 @@ steps:
       - npx tsc --noEmit -p layout # the layout harness and its fixtures, typed against the API
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
         resources:
           requests: { memory: 1Gi }
           limits: { memory: 2Gi }
@@ -60,6 +66,7 @@ steps:
       - npm run format:check
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
         # Type-aware linting loads the whole TS program: measured ~1.0 GB peak RSS.
         resources:
           requests: { memory: 1280Mi }
@@ -72,6 +79,7 @@ steps:
       - npm run test:coverage
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
         resources:
           requests: { memory: 1Gi }
           limits: { memory: 2Gi }
@@ -89,6 +97,7 @@ steps:
       - npm run test:layout
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1001, runAsGroup: 1001 }  # pwuser, the image's own
         resources:
           requests: { memory: 1Gi }
           limits: { memory: 3Gi }
@@ -105,6 +114,7 @@ steps:
       - sonar-scanner -Dsonar.projectKey=schnappy-site-pr -Dsonar.projectName='Schnappy Site (pull requests)'
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
         secrets:
           - name: woodpecker-ci-secrets
             key: sonar_token

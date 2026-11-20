@@ -8,8 +8,12 @@ clone:
   - name: git
     image: woodpeckerci/plugin-git
     settings:
+      home: /tmp  # non-root: its credentials file in a home it can write
       partial: false
       depth: 100
+    backend_options:
+      kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }
 
 steps:
   - name: test
@@ -27,6 +31,7 @@ steps:
       - npm run test:coverage
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
         resources:
           requests: { memory: 1Gi }
           limits: { memory: 2Gi }
@@ -44,6 +49,7 @@ steps:
       - npx sonarqube-scanner -Dsonar.qualitygate.wait=false
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
         secrets:
           - name: woodpecker-ci-secrets
             key: sonar_token
@@ -77,6 +83,7 @@ steps:
     depends_on: [test, sonar]
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
         secrets:
           - name: woodpecker-ci-secrets
             key: nexus_npm_registry
@@ -104,6 +111,7 @@ steps:
     depends_on: [build-dist]
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: false, runAsUser: 0, runAsGroup: 0 }  # Kaniko builds as root - root only inside its user namespace
         secrets:
           - name: woodpecker-ci-secrets
             key: registry_user
@@ -116,9 +124,8 @@ steps:
 
   # ============== UPDATE INFRA REPO (Argo CD syncs) ==============
   - name: update-infra
-    image: alpine:latest
+    image: git.pmon.dev/schnappy/ansible-lint:latest  # git in it; its user ci (uid 1000) - no apk add as root
     commands:
-      - apk add --no-cache git
       - printf "machine git.pmon.dev\nlogin woodpecker\npassword %s\n" "$INFRA_TOKEN" > ~/.netrc && chmod 600 ~/.netrc
       - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
       - |
@@ -147,6 +154,7 @@ steps:
     depends_on: [push-image]
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }
         secrets:
           - name: woodpecker-ci-secrets
             key: infra_repo_token
@@ -155,9 +163,8 @@ steps:
 
   # ============== PROMOTE TO PROD (operator 2026-10-22: no more half-year pile-ups) ==============
   - name: promote-prod
-    image: alpine:latest
+    image: git.pmon.dev/schnappy/ansible-lint:latest  # git in it; its user ci (uid 1000) - no apk add as root
     commands:
-      - apk add --no-cache git
       - printf 'machine git.pmon.dev\nlogin woodpecker\npassword %s\n' "$INFRA_TOKEN" > ~/.netrc && chmod 600 ~/.netrc
       - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
       - |
@@ -190,6 +197,7 @@ steps:
     depends_on: [update-infra]
     backend_options:
       kubernetes:
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }
         secrets:
           - name: woodpecker-ci-secrets
             key: infra_repo_token
