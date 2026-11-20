@@ -124,7 +124,7 @@ steps:
 
   # ============== UPDATE INFRA REPO (Argo CD syncs) ==============
   - name: update-infra
-    image: git.pmon.dev/schnappy/ansible-lint:latest  # git in it; its user ci (uid 1000) - no apk add as root
+    image: git.pmon.dev/schnappy/ci-tools:latest  # git in it; its user ci (uid 1000) - no apk add as root
     commands:
       - printf "machine git.pmon.dev\nlogin woodpecker\npassword %s\n" "$INFRA_TOKEN" > ~/.netrc && chmod 600 ~/.netrc
       - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
@@ -163,7 +163,7 @@ steps:
 
   # ============== PROMOTE TO PROD (operator 2026-10-22: no more half-year pile-ups) ==============
   - name: promote-prod
-    image: git.pmon.dev/schnappy/ansible-lint:latest  # git in it; its user ci (uid 1000) - no apk add as root
+    image: git.pmon.dev/schnappy/ci-tools:latest  # git in it; its user ci (uid 1000) - no apk add as root
     commands:
       - printf 'machine git.pmon.dev\nlogin woodpecker\npassword %s\n' "$INFRA_TOKEN" > ~/.netrc && chmod 600 ~/.netrc
       - GIT_HASH=$(echo "$CI_COMMIT_SHA" | cut -c1-7)
