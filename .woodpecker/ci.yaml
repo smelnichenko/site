@@ -10,7 +10,7 @@ clone:
   - name: git
     image: woodpeckerci/plugin-git
     settings:
-      home: /tmp  # non-root: its credentials file in a home it can write
+      home: /tmp # non-root: its credentials file in a home it can write
       partial: false
       depth: 100
     backend_options:
@@ -32,7 +32,7 @@ steps:
       - npm ci --prefer-offline --no-audit --no-fund # never --silent: a failed install must say why
     backend_options:
       kubernetes:
-        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 } # node, the image's own
         resources:
           requests: { memory: 512Mi }
           limits: { memory: 2Gi }
@@ -50,7 +50,7 @@ steps:
       - npx tsc --noEmit -p layout # the layout harness and its fixtures, typed against the API
     backend_options:
       kubernetes:
-        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 } # node, the image's own
         resources:
           requests: { memory: 1Gi }
           limits: { memory: 2Gi }
@@ -62,11 +62,10 @@ steps:
     depends_on: [typecheck]
     commands:
       - npm run lint
-      - 'echo "prettier config for src/App.tsx:"; npx prettier --find-config-path src/App.tsx; cat "$(npx prettier --find-config-path src/App.tsx)"; ls -la . ..; env | grep -i -E "prettier|npm_config" || true; npx prettier --version'
       - npm run format:check
     backend_options:
       kubernetes:
-        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 } # node, the image's own
         # Type-aware linting loads the whole TS program: measured ~1.0 GB peak RSS.
         resources:
           requests: { memory: 1280Mi }
@@ -79,7 +78,7 @@ steps:
       - npm run test:coverage
     backend_options:
       kubernetes:
-        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 } # node, the image's own
         resources:
           requests: { memory: 1Gi }
           limits: { memory: 2Gi }
@@ -98,7 +97,7 @@ steps:
     backend_options:
       kubernetes:
         # ubuntu (1000), the workspace's owner: the clone and npm ci ran as 1000, and pwuser (1001) could not write
-        # node_modules/.vite-temp (pipeline 307). The browsers in /ms-playwright are world-readable.
+        # node_modules/.vite-temp. The browsers in /ms-playwright are world-readable.
         securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }
         resources:
           requests: { memory: 1Gi }
@@ -116,7 +115,7 @@ steps:
       - sonar-scanner -Dsonar.projectKey=schnappy-site-pr -Dsonar.projectName='Schnappy Site (pull requests)'
     backend_options:
       kubernetes:
-        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }  # node, the image's own
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 } # node, the image's own
         secrets:
           - name: woodpecker-ci-secrets
             key: sonar_token
