@@ -98,8 +98,8 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       ready: '[data-testid="source-counts"]',
       widths: [360, 390, 1366],
       drawn: {
-        '[data-testid="source-counts"] .masi-figure-link': [4, '5 need a look'],
-        '.masi-table-scroll tbody tr': [5, 'returned 404 Not Found'],
+        '[data-testid="source-counts"] .masi-figure-link': [4, '8 need a look'],
+        '.masi-table-scroll tbody tr': [8, 'returned 404 Not Found'],
       },
     },
     {
@@ -110,7 +110,7 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       drawn: {
         '.masi-sources-table > tbody > tr': [50],
         '.masi .card-header .muted': [1, '200 of 225 enabled · 225 match'],
-        '#source-show option': [9, 'needs a look (5)'],
+        '#source-show option': [9, 'needs a look (8)'],
         '.pagination-info': [1, 'page 1 of 5'],
       },
     },
@@ -118,7 +118,7 @@ const PAGES: Array<{ name: string; path: string; ready: string; drawn: Drawn; wi
       name: 'the sources that need a look, worst first',
       path: '/masi/sources?state=ATTENTION&sort=health,desc',
       ready: '.masi-sources-table',
-      drawn: { '.masi-sources-table > tbody > tr': [5, 'returned 404 Not Found'] },
+      drawn: { '.masi-sources-table > tbody > tr': [8, 'returned 404 Not Found'] },
     },
     {
       name: 'one source alone, running, opened',
@@ -2047,7 +2047,7 @@ for (const width of [390, 1366]) {
         (a) => a.getBoundingClientRect().height,
       ),
     );
-    expect(heights).toHaveLength(5);
+    expect(heights).toHaveLength(8);
     expect(Math.min(...heights), 'every name 44 px tall').toBeGreaterThanOrEqual(44);
   });
 }

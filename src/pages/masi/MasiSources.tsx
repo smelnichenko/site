@@ -31,7 +31,7 @@ import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDateTime, noteClass, pageParam } from './format';
 import MasiTable from '../../components/MasiTable';
 import PictureStatus from './PictureStatus';
-import { showOf, SHOW_WORDS, SHOWS } from './sourceStates';
+import { factNotes, showOf, SHOW_WORDS, SHOWS } from './sourceStates';
 
 /** A page of sources: the operator's choice (2026-11-18), as masi's own default. */
 const PAGE_SIZE = 50;
@@ -505,7 +505,10 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
     />
   );
 
-  /** A source's health: its badge (running while it runs), how far a run has got, its failures and last note. */
+  /**
+   * A source's health: its badge (running while it runs), how far a run has got, its failures, its last note, and what
+   * its facts say (masi makes a source with one degraded: these lines say why).
+   */
   const healthOf = (s: MasiSource) => (
     <>
       <span className={badgeClass(s.health)}>{s.running ? 'running' : healthWords(s.health)}</span>
@@ -518,6 +521,11 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
         <div className="muted">{s.consecutiveFailures} failure(s) in a row</div>
       )}
       {s.lastError && <div className={noteClass(s.health)}>{s.lastError}</div>}
+      {factNotes(s).map((note) => (
+        <div key={note} className="masi-note masi-note-warning" data-testid={`fact-${s.key}`}>
+          {note}
+        </div>
+      ))}
     </>
   );
 
