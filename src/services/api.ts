@@ -1736,6 +1736,16 @@ export interface MasiSource {
   lastSuccessAt: string | null;
   lastError: string | null;
   running: boolean;
+  /**
+   * What the source's alerts said, now its detail on this page (masi SourceFacts, as of the answer). A source with any
+   * of them is degraded (masi answers its health so): since when it has had no success for too long; since when it has
+   * counted no misses while still succeeding (none of its listings can close); how many hosts its last run was refused,
+   * and which - sorted, ", " between them (null for a run that kept no names). Empty for a source that does not fire.
+   */
+  staleSince: string | null;
+  notClosingSince: string | null;
+  refusedHosts: number;
+  refusedHostNames: string | null;
 }
 
 export interface MasiSourceRun {

@@ -6,7 +6,7 @@ import { badgeClass, errorMessage, formatDateTime, formatUsd, noteClass } from '
 import MasiTable from '../../components/MasiTable';
 import FigureLink, { Tied } from './FigureLink';
 import { SEPARATOR } from './figureLinks';
-import { sourcesLink, sourceState, stateWords } from './sourceStates';
+import { factNotes, sourcesLink, sourceState, stateWords } from './sourceStates';
 
 /** The separator a figure link is tied to (Tied): the no-break space and the dot, the space after it outside. */
 const DOT = SEPARATOR.trimEnd();
@@ -102,7 +102,15 @@ function SourcesCard({ data }: Readonly<{ data: Dashboard }>) {
                   </td>
                   <td>{s.consecutiveFailures}</td>
                   <td>{formatDateTime(s.lastSuccessAt)}</td>
-                  <td>{s.lastError && <span className={noteClass(state)}>{s.lastError}</span>}</td>
+                  <td>
+                    {s.lastError && <span className={noteClass(state)}>{s.lastError}</span>}
+                    {/* a source degraded by a fact: why, where its runs' error would be */}
+                    {factNotes(s).map((note) => (
+                      <div key={note} className="masi-note masi-note-warning">
+                        {note}
+                      </div>
+                    ))}
+                  </td>
                 </tr>
               );
             })}

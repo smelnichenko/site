@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import MasiSources from './MasiSources';
 import MasiSourceDetail, { MasiSourceByKey } from './MasiSourceDetail';
 import { renderAt } from './testUtils';
+import { formatDateTime } from './format';
 import type { MasiSource, MasiSourceCounts, Paged } from '../../services/api';
 
 vi.mock('../../services/api', () => ({
@@ -119,6 +120,10 @@ const cvee = {
   lastSuccessAt: '2026-09-18T09:26:45Z',
   lastError: null,
   running: false,
+  staleSince: null,
+  notClosingSince: null,
+  refusedHosts: 0,
+  refusedHostNames: null,
 };
 const bolt: MasiSource = {
   ...cvee,
@@ -483,6 +488,46 @@ describe('MasiSources', () => {
       }),
     );
     expect(show).toHaveValue('ATTENTION');
+  });
+
+  /**
+   * What the sources' alerts said is a degraded source's detail here: masi answers such a source DEGRADED, and its notes
+   * say why - never a green "ok" beside "stale".
+   */
+  it('shows a source a fact degrades as degraded, the fact its note, the refused hosts by name', async () => {
+    const stale: MasiSource = {
+      ...bolt,
+      health: 'DEGRADED',
+      consecutiveFailures: 0,
+      staleSince: '2026-11-19T04:05:00Z',
+      refusedHosts: 2,
+      refusedHostNames: 'a.example.invalid, b.example.invalid',
+    };
+    const closing: MasiSource = {
+      ...wise,
+      health: 'DEGRADED',
+      consecutiveFailures: 0,
+      notClosingSince: '2026-11-18T10:00:00Z',
+      refusedHosts: 1,
+    };
+    vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([stale, closing, cvee]));
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+    const notes = await screen.findAllByTestId('fact-ats:bolt');
+    expect(notes.map((n) => n.textContent)).toEqual([
+      `no run has succeeded for too long, since ${formatDateTime(stale.staleSince)}`,
+      'its last run was refused 2 hosts the allow-list does not name: a.example.invalid, b.example.invalid',
+    ]);
+    expect(notes[0]).toHaveClass('masi-note', 'masi-note-warning');
+    const row = screen
+      .getAllByRole('row')
+      .find((r) => within(r).queryByText('ats:bolt')) as HTMLElement;
+    expect(within(row).getByText('degraded')).toHaveClass('status-badge', 'action');
+    expect(within(row).queryByText('ok')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('fact-ats:wise').map((n) => n.textContent)).toEqual([
+      `no run has counted misses for too long, since ${formatDateTime(closing.notClosingSince)}: its listings cannot close`,
+      'its last run was refused 1 host the allow-list does not name',
+    ]);
+    expect(screen.queryByTestId('fact-cvee')).not.toBeInTheDocument();
   });
 
   it('asks for no Show masi does not know: a state typed into the URL lists every source', async () => {

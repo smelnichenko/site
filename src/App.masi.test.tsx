@@ -37,6 +37,10 @@ const { wise } = vi.hoisted(() => ({
     lastSuccessAt: null,
     lastError: null,
     running: false,
+    staleSince: null,
+    notClosingSince: null,
+    refusedHosts: 0,
+    refusedHostNames: null,
   },
 }));
 vi.mock('./services/api', async (importOriginal) => ({

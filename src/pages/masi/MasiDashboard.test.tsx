@@ -27,6 +27,10 @@ function unwell(id: number, key: string, over: Partial<MasiSource>): MasiSource 
     lastSuccessAt: '2026-09-17T09:00:00Z',
     lastError: null,
     running: false,
+    staleSince: null,
+    notClosingSince: null,
+    refusedHosts: 0,
+    refusedHostNames: null,
     ...over,
   };
 }
@@ -228,6 +232,55 @@ describe('MasiDashboard', () => {
     expect(within(rows[2]).getByText('guard aborted 1 request')).toHaveClass('masi-note-warning');
     // five want a look, three are listed: the way to all of them
     expect(href('See all 5')).toBe('/masi/sources?state=ATTENTION&sort=health,desc');
+  });
+
+  /** A source a fact degrades wants a look as degraded, its note where its runs' error would be. */
+  it('lists a source a fact degrades as degraded, the fact where its error would be', async () => {
+    const card = await sourcesCard({
+      ...tiles,
+      sourceCounts: { ...counts, ATTENTION: 1 },
+      sourcesAttention: [
+        unwell(5, 'cvpro', {
+          name: 'CV Pro',
+          consecutiveFailures: 0,
+          staleSince: '2026-11-20T04:05:00Z',
+        }),
+      ],
+    });
+    const row = within(within(card).getByRole('table')).getAllByRole('row')[1];
+    expect(within(row).getByText('degraded')).toHaveClass('status-badge', 'action');
+    expect(within(row).getByText(/^no run has succeeded for too long, since /)).toHaveClass(
+      'masi-note-warning',
+    );
+  });
+
+  /** Its runs' error and every fact beside it, each its own line; a source with no fact has no such line. */
+  it("shows a run's error and every fact of a source together, and no fact line for a source without one", async () => {
+    const card = await sourcesCard({
+      ...tiles,
+      sourceCounts: { ...counts, ATTENTION: 2 },
+      sourcesAttention: [
+        unwell(5, 'cvpro', {
+          name: 'CV Pro',
+          lastError: 'boom',
+          staleSince: '2026-11-20T04:05:00Z',
+          refusedHosts: 2,
+          refusedHostNames: 'a.example.invalid, b.example.invalid',
+        }),
+        unwell(6, 'ats:veriff', { name: 'Veriff', lastError: '3 postings had no title' }),
+      ],
+    });
+    const rows = within(within(card).getByRole('table')).getAllByRole('row').slice(1);
+    expect(within(rows[0]).getByText('boom')).toBeInTheDocument();
+    expect(
+      within(rows[0]).getByText(/^no run has succeeded for too long, since /),
+    ).toBeInTheDocument();
+    expect(
+      within(rows[0]).getByText(
+        'its last run was refused 2 hosts the allow-list does not name: a.example.invalid, b.example.invalid',
+      ),
+    ).toBeInTheDocument();
+    expect(within(rows[1]).queryByText(/too long|refused/)).not.toBeInTheDocument();
   });
 
   it('offers no "see all" when every source wanting a look is listed, and no link for a count of none', async () => {

@@ -1345,6 +1345,10 @@ describe('api - masi sources, a page at a time', () => {
       lastSuccessAt: null,
       lastError: null,
       running: false,
+      staleSince: null,
+      notClosingSince: null,
+      refusedHosts: 0,
+      refusedHostNames: null,
       ...over,
     };
   }

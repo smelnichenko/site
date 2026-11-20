@@ -1208,6 +1208,37 @@ const AUTO_DISABLED: Record<string, string> = {
   'ats:ibkr': 'returned 404 Not Found: the board is gone (switched off after 10 failures)',
 };
 const RUNNING = new Set(['cvee', 'linkedin']);
+/**
+ * The facts its alerts said, now a degraded source's detail on the page (masi answers such a source DEGRADED): stale
+ * since so many hours ago, closing nothing since so many, the hosts its last run was refused.
+ */
+const FACTS: Record<string, { stale?: number; notClosing?: number; refused?: string[] }> = {
+  cvpro: { stale: 5 },
+  'icims:nortal': { notClosing: 30 },
+  meetfrankpeople: { refused: ['cdn.segment.com', 'www.googletagmanager.com'] },
+};
+
+/** A source's facts as masi answers them: none for one that does not fire. */
+function factsOf(key: string, fires: boolean) {
+  const f = (fires && FACTS[key]) || {};
+  const ago = (hours?: number) =>
+    hours === undefined ? null : new Date(SOURCES_NOW - hours * HOUR).toISOString();
+  return {
+    staleSince: ago(f.stale),
+    notClosingSince: ago(f.notClosing),
+    refusedHosts: f.refused?.length ?? 0,
+    refusedHostNames: f.refused ? f.refused.join(', ') : null,
+  };
+}
+
+/** When a source last succeeded: a well or degraded one within the last hours, a stale one before its stale moment. */
+function lastSuccessOf(id: number, key: string, health: string): string {
+  const stale = FACTS[key]?.stale;
+  if (stale !== undefined) return new Date(SOURCES_NOW - (stale + 3) * HOUR).toISOString();
+  return health === 'OK' || health === 'DEGRADED'
+    ? new Date(SOURCES_NOW - ((id % 5) + 1) * HOUR).toISOString()
+    : new Date(SOURCES_NOW - (30 + id) * HOUR).toISOString();
+}
 const OFF_NAMED = new Set(['manual', 'partner', 'bolt']);
 
 /** The layout test's now, and an hour: the sources' times are around it. */
@@ -1258,6 +1289,7 @@ function registrySource(
   }
   if (OFF_NAMED.has(key) || (id > 204 && health === 'OK')) enabled = false;
   const fires = enabled && health !== 'FAILING';
+  const facts = factsOf(key, fires);
   return {
     id,
     key,
@@ -1270,15 +1302,14 @@ function registrySource(
     enabled,
     configJson: key === 'github' ? GITHUB_CONFIG : configOf(id, key, name),
     termsNote: null,
-    health,
+    // a well source a fact flags is degraded, as masi answers it
+    health: health === 'OK' && key in FACTS && fires ? 'DEGRADED' : health,
     consecutiveFailures,
     lastRunAt: new Date(SOURCES_NOW - ((id % 5) + 1) * HOUR).toISOString(),
-    lastSuccessAt:
-      health === 'OK' || health === 'DEGRADED'
-        ? new Date(SOURCES_NOW - ((id % 5) + 1) * HOUR).toISOString()
-        : new Date(SOURCES_NOW - (30 + id) * HOUR).toISOString(),
+    lastSuccessAt: lastSuccessOf(id, key, health),
     lastError,
     running: RUNNING.has(key),
+    ...facts,
   };
 }
 
