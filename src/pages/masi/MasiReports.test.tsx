@@ -14,6 +14,25 @@ vi.mock('../../services/api', () => ({
 }));
 const api = await import('../../services/api');
 
+// recharts measures a container jsdom never lays out ("The width(-1) and height(-1) of chart should be greater than 0"):
+// each chart stands in as the series it draws
+vi.mock('recharts', () => {
+  const Box = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
+  const Series = ({ name }: { name: string }) => <span>series {name}</span>;
+  return {
+    ResponsiveContainer: Box,
+    LineChart: Box,
+    BarChart: Box,
+    Line: Series,
+    Bar: Series,
+    XAxis: () => null,
+    YAxis: () => null,
+    CartesianGrid: () => null,
+    Tooltip: () => null,
+    Legend: () => <span>legend</span>,
+  };
+});
+
 /** The fixture week day by day: two new jobs on its Wednesday, one closed on its Friday, one application. */
 const week = ['23', '24', '25', '26', '27', '28', '29'].map((d) => ({
   day: `2026-03-${d}`,

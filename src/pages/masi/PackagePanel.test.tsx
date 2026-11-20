@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PackagePanel from './PackagePanel';
 import { prepared } from './testUtils';
@@ -123,13 +123,22 @@ describe('PackagePanel', () => {
     expect(screen.queryByText(/claims/i)).not.toBeInTheDocument();
   });
 
-  it('an APPLIED package offers the response and nothing that would undo the application', () => {
+  it('an APPLIED package offers the response and nothing that would undo the application', async () => {
+    const api = await import('../../services/api');
+    const record = vi.mocked(api.fetchMasiPackageSend);
+    const before = record.mock.calls.length; // the mock is shared by the file's tests
     render(
       <PackagePanel
         pkg={{ ...prepared, status: 'APPLIED', appliedAt: '2026-09-18T10:00:00Z' }}
         onChanged={() => undefined}
       />,
     );
+    // its send record asked (an APPLIED package says whether masi mailed it), and the answer drawn inside act before
+    // the page is read - not after the test, outside act
+    expect(record.mock.calls.slice(before)).toEqual([[prepared.id, expect.any(AbortSignal)]]);
+    await act(async () => {
+      await record.mock.results[before].value;
+    });
     expect(screen.getByRole('button', { name: 'Save response' })).toBeInTheDocument();
     expect(screen.getByLabelText('Employer response')).toBeInTheDocument();
     for (const name of ['Skip', 'Regenerate', 'Mark reviewed', 'Mark applied']) {

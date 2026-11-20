@@ -249,6 +249,10 @@ describe('PictureHistory', () => {
   });
 
   it('names the record, by where it was found, only when the person has several', async () => {
+    // each record its own pictures, as masi's picture ids are (the default gives every record the same two)
+    vi.mocked(api.fetchMasiContactPictures).mockImplementation((id) =>
+      Promise.resolve([picture(id, 'GRAVATAR', '2026-09-01T09:00:00Z', '2026-09-22T09:00:00Z')]),
+    );
     vi.mocked(api.fetchMasiPictureTries).mockResolvedValue({
       triesLeft: 6,
       contacts: [
@@ -264,6 +268,10 @@ describe('PictureHistory', () => {
   });
 
   it('a record no source can be asked about does not count as a second one', async () => {
+    // each record its own pictures, as masi's picture ids are (the default gives every record the same two)
+    vi.mocked(api.fetchMasiContactPictures).mockImplementation((id) =>
+      Promise.resolve([picture(id, 'GRAVATAR', '2026-09-01T09:00:00Z', '2026-09-22T09:00:00Z')]),
+    );
     vi.mocked(api.fetchMasiPictureTries).mockResolvedValue({
       triesLeft: 3,
       contacts: [
