@@ -20,6 +20,10 @@ vi.mock('../../services/api', () => ({
 
 const api = await import('../../services/api');
 
+// The fake clock run inside act: a poll it fires is answered, and React applies the answer, before the test reads the
+// page. Outside act every answer was an update "not wrapped in act(...)" - on CI's Node 22, 262 warnings a run.
+const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
 const v1: CvVersionMeta = {
   version: 1,
   note: 'first',
@@ -292,7 +296,7 @@ describe('MasiCv', () => {
         );
         expect(api.startCvTranslation).toHaveBeenCalledWith(1, 'et');
         expect(await screen.findByText('Translating into Estonian…')).toBeInTheDocument();
-        await vi.advanceTimersByTimeAsync(5_000);
+        await advance(5_000);
         expect(
           await screen.findByText('v2 made in Estonian: read it, then approve it below.'),
         ).toBeInTheDocument();
@@ -337,7 +341,7 @@ describe('MasiCv', () => {
         const asked = vi.mocked(api.fetchCvTranslationStatus).mock.calls.length;
         for (let i = 0; i < 6; i++) {
           await userEvent.type(editor, 'x');
-          await vi.advanceTimersByTimeAsync(1_000);
+          await advance(1_000);
         }
         expect(vi.mocked(api.fetchCvTranslationStatus).mock.calls.length).toBeGreaterThan(asked);
         expect(editor).toHaveValue('language: en\n# my unsaved editxxxxxx');
@@ -466,22 +470,24 @@ describe('MasiCv', () => {
         expect(status).toHaveFocus(); // the news is announced where focus is
         expect(screen.getByRole('button', { name: 'Translate into Estonian' })).toBeDisabled(); // no second start
         const polls = () => vi.mocked(api.fetchCvTranslationStatus).mock.calls.length - 1; // minus the load
-        await vi.advanceTimersByTimeAsync(4_900);
+        await advance(4_900);
         expect(polls()).toBe(0); // not sooner than 5 s
-        await vi.advanceTimersByTimeAsync(100);
-        await waitFor(() => expect(polls()).toBe(1));
+        await advance(100);
+        // nor later: asked at once, not waited for - a wait lets the real clock move the fake one on, and an ask every
+        // 5.1 s passed
+        expect(polls()).toBe(1);
         await waitFor(() => expect(status).toHaveTextContent(/^Translating into Estonian…$/));
         for (let i = 2; i < 60; i++) {
-          await vi.advanceTimersByTimeAsync(5_000);
+          await advance(5_000);
           await waitFor(() => expect(polls()).toBe(i)); // every answer schedules the next ask
           expect(status).toHaveTextContent(/^Translating into Estonian…$/);
         }
-        await vi.advanceTimersByTimeAsync(5_000);
+        await advance(5_000);
         await waitFor(() => expect(polls()).toBe(60));
         expect(status).toHaveTextContent(
           'Still translating into Estonian; reload the page to look again.',
         );
-        await vi.advanceTimersByTimeAsync(60_000);
+        await advance(60_000);
         expect(polls()).toBe(60); // it stopped asking
         expect(api.fetchCvVersions).toHaveBeenCalledTimes(1); // RUNNING answers change nothing in the list
       } finally {
@@ -504,7 +510,7 @@ describe('MasiCv', () => {
           await screen.findByRole('button', { name: 'Translate into Estonian' }),
         );
         for (let i = 1; i <= 60; i++) {
-          await vi.advanceTimersByTimeAsync(5_000);
+          await advance(5_000);
           await waitFor(() =>
             expect(vi.mocked(api.fetchCvTranslationStatus).mock.calls).toHaveLength(i + 1),
           );
@@ -514,7 +520,7 @@ describe('MasiCv', () => {
         );
         await userEvent.click(screen.getByRole('button', { name: 'Translate into Estonian' }));
         const before = vi.mocked(api.fetchCvTranslationStatus).mock.calls.length;
-        await vi.advanceTimersByTimeAsync(5_000);
+        await advance(5_000);
         await waitFor(() =>
           expect(vi.mocked(api.fetchCvTranslationStatus).mock.calls).toHaveLength(before + 1),
         );
@@ -546,7 +552,7 @@ describe('MasiCv', () => {
           within(screen.getByTestId('translation-3')).getByRole('button', { name: 'Approve' }),
         );
         await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/^v3 approved$/));
-        await vi.advanceTimersByTimeAsync(5_000);
+        await advance(5_000);
         await waitFor(() =>
           expect(screen.getByRole('status')).toHaveTextContent(
             /^v5 made in Estonian: read it, then approve it below\.$/,
@@ -653,7 +659,7 @@ describe('MasiCv', () => {
         const editor = await screen.findByLabelText('Evidence bank (YAML)');
         await userEvent.click(screen.getByRole('button', { name: 'Translate into Estonian' }));
         await userEvent.type(editor, '# mine');
-        await vi.advanceTimersByTimeAsync(5_000);
+        await advance(5_000);
         expect(await screen.findByTestId('translation-2')).toBeInTheDocument();
         await waitFor(() => expect(api.fetchCvVersions).toHaveBeenCalledTimes(2));
         expect(editor).toHaveValue('language: en\n# mine');

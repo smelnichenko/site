@@ -93,12 +93,11 @@ describe('FiguresCard', () => {
   it('shows no card when the board has no figures for the company', async () => {
     vi.mocked(api.fetchMasiCompanyFigures).mockResolvedValue({ quarters: [] });
     const { container } = render(<FiguresCard company={company('10391131')} />);
-    await vi.waitFor(() =>
-      expect(api.fetchMasiCompanyFigures).toHaveBeenCalledWith(7, expect.any(AbortSignal)),
-    );
-    // the answer is in and drawn: before it, the card is empty whatever the answer
+    expect(api.fetchMasiCompanyFigures).toHaveBeenCalledExactlyOnceWith(7, expect.any(AbortSignal));
+    // the answer is in and drawn, inside act (drawn outside it, it is an update "not wrapped in act"): before it, the
+    // card is empty whatever the answer
     await act(async () => {
-      await Promise.resolve();
+      await vi.mocked(api.fetchMasiCompanyFigures).mock.results[0].value;
     });
     expect(container).toBeEmptyDOMElement();
   });
