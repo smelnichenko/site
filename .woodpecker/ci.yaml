@@ -97,7 +97,9 @@ steps:
       - npm run test:layout
     backend_options:
       kubernetes:
-        securityContext: { runAsNonRoot: true, runAsUser: 1001, runAsGroup: 1001 }  # pwuser, the image's own
+        # ubuntu (1000), the workspace's owner: the clone and npm ci ran as 1000, and pwuser (1001) could not write
+        # node_modules/.vite-temp (pipeline 307). The browsers in /ms-playwright are world-readable.
+        securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000 }
         resources:
           requests: { memory: 1Gi }
           limits: { memory: 3Gi }
