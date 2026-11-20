@@ -473,7 +473,9 @@ describe('MasiCv', () => {
         await advance(4_900);
         expect(polls()).toBe(0); // not sooner than 5 s
         await advance(100);
-        await waitFor(() => expect(polls()).toBe(1));
+        // nor later: asked at once, not waited for - a wait lets the real clock move the fake one on, and an ask every
+        // 5.1 s passed
+        expect(polls()).toBe(1);
         await waitFor(() => expect(status).toHaveTextContent(/^Translating into Estonian…$/));
         for (let i = 2; i < 60; i++) {
           await advance(5_000);
