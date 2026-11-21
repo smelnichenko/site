@@ -1577,11 +1577,21 @@ for (const width of [360, 1366]) {
         (box) => box.closest('label') && box.getClientRects().length > 0,
       );
       // where text is drawn, not its boxes: a label's words (after its box), a whole element's text
+      // the glyphs of the label's words, from its first text to its last - inside a span or not: a range over an
+      // element measures the element's box (its line's height), not the words
       const wordsOf = (box: Element) => {
         const label = box.closest('label') as HTMLLabelElement;
+        const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+        const texts: Text[] = [];
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if ((n.textContent ?? '').trim()) {
+            texts.push(n as Text);
+          }
+        }
+        const last = texts[texts.length - 1];
         const r = document.createRange();
-        r.setStartAfter(box);
-        r.setEnd(label, label.childNodes.length);
+        r.setStart(texts[0], 0);
+        r.setEnd(last, last.length);
         return r.getBoundingClientRect();
       };
       const textOf = (el: Element) => {
@@ -1665,9 +1675,17 @@ for (const width of [360, 1366]) {
         ) as HTMLInputElement;
         const label = box.closest('label') as HTMLLabelElement;
         const row = label.parentElement as HTMLElement;
+        // the glyphs of the label's words (a range over an element measures its box, not the words)
+        const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+        const texts: Text[] = [];
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if ((n.textContent ?? '').trim()) {
+            texts.push(n as Text);
+          }
+        }
         const words = document.createRange();
-        words.setStartAfter(box);
-        words.setEnd(label, label.childNodes.length);
+        words.setStart(texts[0], 0);
+        words.setEnd(texts[texts.length - 1], texts[texts.length - 1].length);
         const w = words.getBoundingClientRect();
         const hintEl = [...document.querySelectorAll('main div')].find((d) =>
           (d.textContent ?? '').startsWith('Switched off, a lane stops'),

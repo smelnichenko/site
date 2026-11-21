@@ -608,7 +608,7 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
                   )
                 }
               />
-              Assistant (replies from your Gmail, applies on LinkedIn)
+              <span>Assistant (replies from your Gmail, applies on LinkedIn)</span>
             </label>
             {assistantError ? (
               <span className={noteClass('ERROR')}>{assistantError}</span>
