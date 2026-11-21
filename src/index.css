@@ -2609,17 +2609,41 @@ a.muted,
   align-items: center;
   min-height: 44px;
 }
-/* the assistant's switch and what it says of itself, apart, on one line where they fit */
-.assistant-switch {
+/* a switch and what it says of itself, on one line where they fit, level at the words (the label's spare height above
+   them). Wrapped (a phone), what it says follows right under the label's words and starts where they do - a hanging
+   indent, the label pulled back over it - and the rows stand apart: it reads as its own switch's, not the next one's */
+.masi-switch-row {
+  --masi-switch-box: 20px;
+  --masi-switch-gap: 8px;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 12px;
-  align-items: center;
-  margin-bottom: 12px;
+  gap: 0 12px;
+  align-items: flex-end;
+  padding-left: calc(var(--masi-switch-box) + var(--masi-switch-gap));
+  margin-bottom: 8px;
 }
-/* the AI lanes' hint under their switches: a line of text, spaced as a switch row (not one: no flex of its own) */
+/* a switch's label is its finger target: 44 px tall at the least, its box 20 px (the browser's 13 px box alone was
+   all a finger could hit). Its spare height above its words, not under them: under, it parted the words from what
+   the switch says of itself and pushed that against the next switch */
+.masi-switch-row > label {
+  display: inline-grid;
+  grid-template-columns: var(--masi-switch-box) auto;
+  column-gap: var(--masi-switch-gap);
+  align-content: end;
+  align-items: center;
+  min-height: 44px;
+  margin-left: calc(-1 * (var(--masi-switch-box) + var(--masi-switch-gap)));
+}
+.masi-switch-row > label > input[type='checkbox'] {
+  width: var(--masi-switch-box);
+  height: var(--masi-switch-box);
+  margin: 0;
+}
+/* the AI lanes' hint, the switches' last line: set apart from the boxes - a gap over it, a smaller type - a note on
+   them all, not one more switch; the gap under them all, before the list */
 .lane-hint {
-  margin-bottom: 12px;
+  margin: 12px 0;
+  font-size: 0.85rem;
 }
 /* a page change focuses the list's top so a keyboard starts at the new rows: a box, not a control - no ring round
    the whole list */

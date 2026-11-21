@@ -593,7 +593,7 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
         {message && <div className="muted">{message}</div>}
         {!sources && !error && <div className="loading">Loading sources...</div>}
         {sources && !alone && (
-          <div className="assistant-switch">
+          <div className="masi-switch-row">
             <label>
               <input
                 type="checkbox"
@@ -607,7 +607,7 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
                     'assistant saved',
                   )
                 }
-              />{' '}
+              />
               Assistant (replies from your Gmail, applies on LinkedIn)
             </label>
             {assistantError ? (
