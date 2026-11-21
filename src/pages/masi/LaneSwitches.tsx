@@ -11,12 +11,12 @@ import { errorMessage, laneStatus, noteClass } from './format';
 const LANES: ReadonlyArray<{ name: MasiLaneName; label: string; short: string }> = [
   {
     name: 'analysis',
-    label: 'Analysis lane (reads new postings with the cheap model, to rank them)',
+    label: 'Analysis lane (ranks new postings)',
     short: 'Analysis lane',
   },
   {
     name: 'matching',
-    label: 'Matching lane (matches analysed postings against your CV with the AI)',
+    label: 'Matching lane (matches postings to your CV)',
     short: 'Matching lane',
   },
 ];

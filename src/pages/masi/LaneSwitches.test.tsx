@@ -21,8 +21,8 @@ function lanes(over: Partial<MasiLanes> = {}): MasiLanes {
 }
 
 // exact names: the status beside a box is its description, never part of its name
-const ANALYSIS = 'Analysis lane (reads new postings with the cheap model, to rank them)';
-const MATCHING = 'Matching lane (matches analysed postings against your CV with the AI)';
+const ANALYSIS = 'Analysis lane (ranks new postings)';
+const MATCHING = 'Matching lane (matches postings to your CV)';
 const analysisBox = () => screen.getByRole('checkbox', { name: ANALYSIS });
 const matchingBox = () => screen.getByRole('checkbox', { name: MATCHING });
 const status = (name: string) => screen.getByTestId(`lane-status-${name}`);
