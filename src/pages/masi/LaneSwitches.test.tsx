@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { StrictMode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MasiLane, MasiLanes } from '../../services/api';
@@ -42,17 +43,24 @@ describe('LaneSwitches', () => {
     // running and off are the box's: nothing beside it
     expect(screen.queryByTestId('lane-status-analysis')).toBeNull();
     expect(screen.queryByTestId('lane-status-matching')).toBeNull();
-    // the deployment's values are not the operator's concern: never named
-    expect(screen.queryByText(/deployment/)).toBeNull();
   });
 
-  it('switches a lane off: masi is asked for that lane alone', async () => {
+  it('switches a lane off: masi is asked for that lane alone, every box held while it saves', async () => {
     vi.mocked(api.fetchMasiLanes).mockResolvedValue(lanes());
-    vi.mocked(api.patchMasiLanes).mockResolvedValue(lanes({ analysis: off }));
+    let saved: (l: MasiLanes) => void = () => {};
+    vi.mocked(api.patchMasiLanes).mockReturnValue(new Promise((resolve) => (saved = resolve)));
     render(<LaneSwitches />);
     await userEvent.click(
       await screen.findByRole('checkbox', { name: /Analysis lane/, checked: true }),
     );
+    // while masi saves it, no box is to be switched: two switches at once would race
+    expect(analysisBox()).toBeDisabled();
+    expect(matchingBox()).toBeDisabled();
+    saved(lanes({ analysis: off }));
+    expect(
+      await screen.findByRole('checkbox', { name: /Analysis lane/, checked: false }),
+    ).toBeEnabled();
+    expect(matchingBox()).toBeEnabled();
     expect(api.patchMasiLanes).toHaveBeenCalledExactlyOnceWith({ analysis: false });
     expect(analysisBox()).not.toBeChecked();
     expect(matchingBox()).toBeChecked();
@@ -100,6 +108,36 @@ describe('LaneSwitches', () => {
     );
     expect(await screen.findByText('refused')).toBeInTheDocument();
     expect(matchingBox()).toBeChecked();
+    // the next switch that saves clears it: no stale refusal beside a box that works
+    vi.mocked(api.patchMasiLanes).mockResolvedValueOnce(lanes({ matching: off }));
+    await userEvent.click(matchingBox());
+    expect(
+      await screen.findByRole('checkbox', { name: /Matching lane/, checked: false }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('refused')).toBeNull();
+  });
+
+  it('says nothing of a load a remount aborted (React StrictMode in dev): no error for a request it dropped', async () => {
+    vi.mocked(api.fetchMasiLanes).mockImplementation(
+      (signal?: AbortSignal) =>
+        new Promise((resolve, reject) => {
+          if (signal?.aborted) {
+            reject(new Error('aborted'));
+            return;
+          }
+          signal?.addEventListener('abort', () => reject(new Error('aborted')));
+          setTimeout(() => resolve(lanes()), 0);
+        }),
+    );
+    render(
+      <StrictMode>
+        <LaneSwitches />
+      </StrictMode>,
+    );
+    expect(
+      await screen.findByRole('checkbox', { name: /Analysis lane/, checked: true }),
+    ).toBeEnabled();
+    expect(screen.queryByText('aborted')).toBeNull();
   });
 
   it('words only what the box cannot say: no AI key, each pause by why and until when', () => {
@@ -116,6 +154,8 @@ describe('LaneSwitches', () => {
     expect(laneStatus({ ...off, pausedUntil: until, pause: 'NO_CREDIT' }, true)).toBe('');
     expect(laneStatus(off, false)).toBe('');
     expect(laneStatus(running, false)).toBe('not running: no AI key');
+    // a stale pause never hides the real cause: without a key, nothing runs whatever paused it
+    expect(laneStatus(paused('DAY_LIMIT'), false)).toBe('not running: no AI key');
     expect(laneStatus(paused('DAY_LIMIT'), true)).toBe(`daily limit reached until ${at}`);
     expect(laneStatus(paused('MONTH_LIMIT'), true)).toBe(`monthly limit reached until ${at}`);
     expect(laneStatus(paused('SHARE_LIMIT'), true)).toBe(

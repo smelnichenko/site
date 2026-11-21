@@ -58,6 +58,7 @@ export default function LaneSwitches() {
     <div className="lane-switches">
       {LANES.map(({ name, label }) => {
         const lane = lanes?.[name];
+        const status = lanes ? laneStatus(lanes[name], lanes.aiReady) : '';
         return (
           <div className="assistant-switch" key={name}>
             <label>
@@ -70,9 +71,9 @@ export default function LaneSwitches() {
               />{' '}
               {label}
             </label>
-            {laneStatus(lane, lanes?.aiReady ?? true) && (
+            {status && (
               <span className="muted" data-testid={`lane-status-${name}`}>
-                {laneStatus(lane, lanes?.aiReady ?? true)}
+                {status}
               </span>
             )}
           </div>
