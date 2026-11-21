@@ -109,9 +109,8 @@ export default function LaneSwitches() {
       <div className="lane-hint muted">
         Switched off, a lane stops before its next call; switched on, it starts within five minutes.
       </div>
-      <span className="sr-only" role="status">
-        {said}
-      </span>
+      {/* an <output>: the status role and its polite live region by the element itself */}
+      <output className="sr-only">{said}</output>
       {error && (
         <div className="assistant-switch">
           <span className={noteClass('ERROR')} role="alert">
