@@ -30,7 +30,8 @@ export const LANES_REFRESH_MS = 30_000;
  */
 export default function LaneSwitches() {
   const [lanes, setLanes] = useState<MasiLanes | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  /** A failure: a switch's own (shown in its row), or the lanes' read (no row's: shown under them all). */
+  const [error, setError] = useState<{ lane: MasiLaneName | null; text: string } | null>(null);
   /** What a screen reader is told after the operator's own switch: why the lane does not run, if it does not. */
   const [said, setSaid] = useState('');
   // a switch in flight: a second one is ignored, never the boxes disabled - a disabled box drops the keyboard's focus
@@ -45,7 +46,7 @@ export default function LaneSwitches() {
       } catch (e: unknown) {
         // a later read that fails keeps what the page shows; a dropped one (a remount) says nothing
         if (first && !controller.signal.aborted) {
-          setError(errorMessage(e, 'Failed to load the AI lanes'));
+          setError({ lane: null, text: errorMessage(e, 'Failed to load the AI lanes') });
         }
       }
     };
@@ -57,7 +58,7 @@ export default function LaneSwitches() {
     };
   }, []);
 
-  async function flip(name: MasiLaneName, short: string, on: boolean) {
+  async function flip(name: MasiLaneName, on: boolean) {
     if (busy.current) {
       return;
     }
@@ -68,7 +69,7 @@ export default function LaneSwitches() {
       setLanes(next);
       setSaid(laneStatus(next[name], next.aiReady));
     } catch (e: unknown) {
-      setError(`${short}: ${errorMessage(e, 'the switch failed')}`);
+      setError({ lane: name, text: errorMessage(e, 'the switch failed') });
     } finally {
       busy.current = false;
     }
@@ -80,8 +81,10 @@ export default function LaneSwitches() {
         const lane = lanes?.[name];
         const status = lanes ? laneStatus(lanes[name], lanes.aiReady) : '';
         const statusId = `${ids}-${name}-status`;
+        const failed = error?.lane === name ? error.text : null;
+        const errorId = `${ids}-${name}-error`;
         return (
-          <div className="assistant-switch" key={name}>
+          <div className="masi-switch-row" key={name}>
             <label>
               <input
                 type="checkbox"
@@ -93,11 +96,21 @@ export default function LaneSwitches() {
                 }}
                 disabled={!lane}
                 checked={lane?.on ?? false}
-                aria-describedby={status ? statusId : undefined}
-                onChange={(e) => void flip(name, short, e.target.checked)}
-              />{' '}
+                aria-describedby={
+                  [failed && errorId, status && statusId].filter(Boolean).join(' ') || undefined
+                }
+                onChange={(e) => void flip(name, e.target.checked)}
+              />
               {label}
             </label>
+            {/* the switch's failure in its own row, before what the lane says of itself: the row names the lane, a
+                screen reader is told it */}
+            {failed && (
+              <span className={noteClass('ERROR')} role="alert" id={errorId}>
+                {/* the space outside the hidden name: inside, a screen reader ran the two together */}
+                <span className="sr-only">{short}:</span> {failed}
+              </span>
+            )}
             {status && (
               <span className="muted" id={statusId} data-testid={`lane-status-${name}`}>
                 {status}
@@ -106,18 +119,19 @@ export default function LaneSwitches() {
           </div>
         );
       })}
+      {/* the lanes not read: no one switch's failure - under them all, above the hint, from their left edge */}
+      {error?.lane === null && (
+        <div>
+          <span className={noteClass('ERROR')} role="alert">
+            {error.text}
+          </span>
+        </div>
+      )}
       <div className="lane-hint muted">
         Switched off, a lane stops before its next call; switched on, it starts within five minutes.
       </div>
       {/* an <output>: the status role and its polite live region by the element itself */}
       <output className="sr-only">{said}</output>
-      {error && (
-        <div className="assistant-switch">
-          <span className={noteClass('ERROR')} role="alert">
-            {error}
-          </span>
-        </div>
-      )}
     </div>
   );
 }

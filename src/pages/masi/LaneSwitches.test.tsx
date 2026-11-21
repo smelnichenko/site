@@ -100,16 +100,29 @@ describe('LaneSwitches', () => {
     vi.mocked(api.fetchMasiLanes).mockRejectedValue(new Error('masi is down'));
     const { unmount } = render(<LaneSwitches />);
     expect(await screen.findByRole('alert')).toHaveTextContent('masi is down');
+    // the lanes not read: no one switch's failure - no box described by it
+    expect(analysisBox()).not.toHaveAccessibleDescription(/masi is down/);
+    expect(matchingBox()).not.toHaveAccessibleDescription(/masi is down/);
     expect(analysisBox()).toBeDisabled();
     // a state never read is shown neither on nor off
     expect((analysisBox() as HTMLInputElement).indeterminate).toBe(true);
     unmount();
-    vi.mocked(api.fetchMasiLanes).mockResolvedValue(lanes());
+    // the matching lane switched on, out of credit: something said beside it for the failure to stand before
+    vi.mocked(api.fetchMasiLanes).mockResolvedValue(
+      lanes({
+        matching: { ...running, pausedUntil: '2026-11-22T00:00:00Z', pause: 'NO_CREDIT' },
+      }),
+    );
     vi.mocked(api.patchMasiLanes).mockRejectedValue(new Error('refused'));
     render(<LaneSwitches />);
     await userEvent.click(await screen.findByRole('checkbox', { name: MATCHING, checked: true }));
-    // the failure names its lane, as an alert
+    // the failure is its own lane's - named for a screen reader, as an alert - and describes its box before what the
+    // lane says of itself (where it stands in the row: the layout harness)
     expect(await screen.findByRole('alert')).toHaveTextContent('Matching lane: refused');
+    expect(matchingBox()).toHaveAccessibleDescription(
+      /^Matching lane: refused no credit on the account/,
+    );
+    expect(analysisBox()).not.toHaveAccessibleDescription(/refused/);
     expect(matchingBox()).toBeChecked();
     // the next switch that saves clears it: no stale refusal beside a box that works
     vi.mocked(api.patchMasiLanes).mockResolvedValueOnce(lanes({ matching: off }));

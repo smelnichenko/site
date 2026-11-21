@@ -835,8 +835,10 @@ describe('MasiSources', () => {
       });
       const view = renderAt('/masi/sources', '/masi/sources', <MasiSources />);
       await screen.findByText('cv.ee');
-      // once at once: a run that started while the page was closed is part way already
-      expect(api.fetchMasiSourceRuns).toHaveBeenCalledTimes(1);
+      // once at once: a run that started while the page was closed is part way already. Waited for: the poll starts in
+      // an effect run after the commit that shows the row, and asserted at once it was sometimes not yet run (a full
+      // suite, once in five: "called 0 times"); the interval is faked, so only the poll at once can be the one call
+      await waitFor(() => expect(api.fetchMasiSourceRuns).toHaveBeenCalledTimes(1));
       await act(() => vi.advanceTimersByTimeAsync(14_999));
       expect(api.fetchMasiSourceRuns).toHaveBeenCalledTimes(1);
       await act(() => vi.advanceTimersByTimeAsync(1));

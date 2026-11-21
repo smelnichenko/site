@@ -1560,7 +1560,7 @@ const SWITCHES = {
     nameSearch: true,
     face: false,
   },
-  analysis: { auto: true, perTick: 4, matchAuto: true },
+  analysis: { perTick: 4 },
   tuning: { auto: false, minMatch: 60 },
   mail: { enabled: true, weeklyAuto: false },
   allowedHosts: ['cv.ee', 'cvkeskus.ee', 'api.github.com', 'boards.greenhouse.io', 'api.lever.co'],

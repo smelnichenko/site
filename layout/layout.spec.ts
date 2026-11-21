@@ -1560,6 +1560,228 @@ for (const width of [390, 1366]) {
 }
 
 /**
+ * The Sources page's switches (the Assistant and the two AI lanes) are finger targets: each one's label, the box and its
+ * words, 44 px tall; the box itself 20 px - the browser's bare 13 px box was all a finger could hit. What a switch says
+ * of itself, wrapped under it on a phone, starts under the label's words, not under the box, and sits nearer them than
+ * the next line - its row's, not the next's; beside the label on a desktop, level with its words.
+ */
+for (const width of [360, 1366]) {
+  test(`the Sources page's switches are finger targets, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/sources', '.masi-sources-table');
+    // the lanes read: their boxes enabled
+    await expect(page.getByRole('checkbox', { name: /^Matching lane/ })).toBeEnabled();
+    const m = await page.evaluate(() => {
+      // by role, not by the class under test: every checkbox the page draws inside a label
+      const boxes = [...document.querySelectorAll('main input[type="checkbox"]')].filter(
+        (box) => box.closest('label') && box.getClientRects().length > 0,
+      );
+      // where text is drawn, not its boxes: a label's words (after its box), a whole element's text
+      // the glyphs of the label's words, from its first text to its last - inside a span or not: a range over an
+      // element measures the element's box (its line's height), not the words
+      const wordsOf = (box: Element) => {
+        const label = box.closest('label') as HTMLLabelElement;
+        const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+        const texts: Text[] = [];
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if ((n.textContent ?? '').trim()) {
+            texts.push(n as Text);
+          }
+        }
+        const last = texts[texts.length - 1];
+        const r = document.createRange();
+        r.setStart(texts[0], 0);
+        r.setEnd(last, last.length);
+        return r.getBoundingClientRect();
+      };
+      const textOf = (el: Element) => {
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        return r.getBoundingClientRect();
+      };
+      const hint = [...document.querySelectorAll('main div')].find((d) =>
+        (d.textContent ?? '').startsWith('Switched off, a lane stops'),
+      ) as HTMLElement;
+      return boxes.map((box, i) => {
+        const label = box.closest('label') as HTMLLabelElement;
+        const l = label.getBoundingClientRect();
+        const b = box.getBoundingClientRect();
+        // what the switch says of itself: the row's next part
+        const saidEl = label.nextElementSibling;
+        const said = saidEl?.getBoundingClientRect();
+        const saidText = saidEl ? textOf(saidEl) : null;
+        const words = wordsOf(box);
+        // the next line drawn under it: the next switch's words, after the last the hint
+        const nextTop = i + 1 < boxes.length ? wordsOf(boxes[i + 1]).top : textOf(hint).top;
+        return {
+          name: (label.textContent ?? '').trim(),
+          labelHeight: Math.round(l.height),
+          box: [Math.round(b.width), Math.round(b.height)],
+          // on a line of its own under the label: how far its start is from the label's words'
+          wrapped: !!said && said.top >= l.bottom - 1,
+          offset: said ? Math.round(said.left - words.left) : null,
+          ownGap: saidText ? saidText.top - words.bottom : null,
+          nextGap: saidText ? nextTop - saidText.bottom : null,
+          level: saidText ? Math.abs(saidText.bottom - words.bottom) : null,
+          boxAtRowStart: Math.round(
+            b.left - (label.parentElement as HTMLElement).getBoundingClientRect().left,
+          ),
+        };
+      });
+    });
+    expect(
+      m.map((s) => s.name.split(' (')[0]),
+      'the Assistant and the two lanes drawn',
+    ).toEqual(['Assistant', 'Analysis lane', 'Matching lane']);
+    for (const s of m) {
+      expect(s.labelHeight, `${s.name}: its label 44 px tall`).toBeGreaterThanOrEqual(44);
+      expect(s.box, `${s.name}: its box 20 px either way`).toEqual([20, 20]);
+      expect(s.boxAtRowStart, `${s.name}: its box at the row's start`).toBe(0);
+      if (s.wrapped) {
+        expect(s.offset, `${s.name}: what it says starts under its words`).toBe(0);
+        expect(
+          s.ownGap,
+          `${s.name}: what it says nearer its words than the next line`,
+        ).toBeLessThan(s.nextGap ?? 0);
+      } else {
+        expect(s.level, `${s.name}: what it says level with its words`).toBeLessThanOrEqual(1);
+      }
+    }
+    // the fixture's notes and pauses are long: on a phone every one wraps under its switch, a desktop holds each beside
+    expect(
+      m.filter((s) => s.wrapped).length,
+      width < 600 ? 'every note wrapped under its switch' : 'none wrapped',
+    ).toBe(width < 600 ? 3 : 0);
+  });
+}
+
+/**
+ * The AI lanes' hint stands apart from their switches - a gap over it, a smaller type - a note on them all, not one more
+ * switch. A switch that fails says so in its own row, before what the lane says of itself: on a desktop on the label's
+ * line, right of its words; on a phone under them, starting where they start, above the lane's status.
+ */
+for (const width of [360, 1366]) {
+  test(`the lanes' hint apart from the switches, a failed switch said in its row before its status, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/sources', '.masi-sources-table');
+    const matching = page.getByRole('checkbox', { name: /^Matching lane/ });
+    await expect(matching).toBeEnabled();
+    const measure = () =>
+      page.evaluate(() => {
+        const box = [...document.querySelectorAll('main input[type="checkbox"]')].find((b) =>
+          (b.closest('label')?.textContent ?? '').includes('Matching lane'),
+        ) as HTMLInputElement;
+        const label = box.closest('label') as HTMLLabelElement;
+        const row = label.parentElement as HTMLElement;
+        // the glyphs of the label's words (a range over an element measures its box, not the words)
+        const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+        const texts: Text[] = [];
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if ((n.textContent ?? '').trim()) {
+            texts.push(n as Text);
+          }
+        }
+        const words = document.createRange();
+        words.setStart(texts[0], 0);
+        words.setEnd(texts[texts.length - 1], texts[texts.length - 1].length);
+        const w = words.getBoundingClientRect();
+        const hintEl = [...document.querySelectorAll('main div')].find((d) =>
+          (d.textContent ?? '').startsWith('Switched off, a lane stops'),
+        ) as HTMLElement;
+        const alert = document.querySelector('main [role="alert"]');
+        const status = row.querySelector('[data-testid="lane-status-matching"]');
+        const font = (el: Element) => parseFloat(getComputedStyle(el).fontSize);
+        const quietOrFailed = {
+          gapOver: hintEl.getBoundingClientRect().top - row.getBoundingClientRect().bottom,
+          smaller: font(hintEl) < font(label),
+        };
+        if (!alert || !status) {
+          return { ...quietOrFailed, alert: null };
+        }
+        const a = alert.getBoundingClientRect();
+        const st = status.getBoundingClientRect();
+        return {
+          ...quietOrFailed,
+          alert: {
+            inRow: row.contains(alert),
+            beforeStatus: !!(
+              alert.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING
+            ),
+            // on the label's line: overlapping its words' height, right of them, left of the status
+            onLabelLine: a.top < w.bottom && a.bottom > w.top,
+            rightOfWords: a.left - w.right,
+            leftOfStatus: st.left - a.right,
+            // under the words: where they start, over the status
+            underWordsAt: Math.round(a.left - w.left),
+            overStatus: st.top - a.bottom,
+          },
+        };
+      });
+    await expect(page.getByText('Switched off, a lane stops', { exact: false })).toBeVisible();
+    const quiet = await measure();
+    expect(quiet.gapOver, 'a gap over the hint').toBeGreaterThanOrEqual(8);
+    expect(quiet.smaller, 'the hint in a smaller type than a switch').toBe(true);
+    expect(quiet.alert, 'no failure yet').toBeFalsy();
+    // the harness answers no switch: the PATCH fails, as masi refusing it would
+    await matching.click();
+    await expect(page.getByRole('alert')).toContainText('no fixture');
+    const failed = await measure();
+    expect(failed.alert?.inRow, "the failure in the Matching lane's row").toBe(true);
+    expect(failed.alert?.beforeStatus, 'before what the lane says of itself').toBe(true);
+    if (width < 600) {
+      expect(failed.alert?.underWordsAt, "under the label's words, where they start").toBe(0);
+      expect(failed.alert?.overStatus, 'over the status').toBeGreaterThanOrEqual(0);
+    } else {
+      expect(failed.alert?.onLabelLine, "on the label's line").toBe(true);
+      expect(failed.alert?.rightOfWords, 'right of its words').toBeGreaterThan(0);
+      expect(failed.alert?.leftOfStatus, 'left of the status').toBeGreaterThan(0);
+    }
+    expect(failed.gapOver, 'the hint still apart').toBeGreaterThanOrEqual(8);
+  });
+}
+
+/**
+ * The lanes not read is no one switch's failure: said under them all, from their left edge, above the hint - in no
+ * switch's row.
+ */
+for (const width of [360, 1366]) {
+  test(`the lanes not read: said under the switches, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/masi/sources', '.masi-sources-table', (url) =>
+      url.pathname === '/api/masi/lanes'
+        ? { status: 503, body: { message: 'masi is down' } }
+        : undefined,
+    );
+    await expect(page.getByRole('alert')).toBeVisible();
+    const m = await page.evaluate(() => {
+      const boxes = [...document.querySelectorAll('main input[type="checkbox"]')].filter((b) =>
+        /lane/.test(b.closest('label')?.textContent ?? ''),
+      );
+      const last = (boxes.at(-1)?.closest('label') as HTMLElement).parentElement as HTMLElement;
+      const alert = document.querySelector('main [role="alert"]') as HTMLElement;
+      const hintEl = [...document.querySelectorAll('main div')].find((d) =>
+        (d.textContent ?? '').startsWith('Switched off, a lane stops'),
+      ) as HTMLElement;
+      const a = alert.getBoundingClientRect();
+      return {
+        inARow: boxes.some((b) =>
+          (b.closest('label')?.parentElement as HTMLElement).contains(alert),
+        ),
+        underRows: a.top - last.getBoundingClientRect().bottom,
+        overHint: hintEl.getBoundingClientRect().top - a.bottom,
+        left: Math.round(a.left - boxes[0].getBoundingClientRect().left),
+      };
+    });
+    expect(m.inARow, "in no switch's row").toBe(false);
+    expect(m.underRows, 'under the switches').toBeGreaterThanOrEqual(-1);
+    expect(m.overHint, 'over the hint, apart').toBeGreaterThanOrEqual(8);
+    expect(m.left, "from the switches' left edge").toBe(0);
+  });
+}
+
+/**
  * The harness answers as masi does: a sort it does not know is a 400 with masi's words, which the page shows - never
  * the list in another order, which would hide a page asking for a column masi has not got.
  */
@@ -2056,8 +2278,8 @@ for (const width of [390, 1366]) {
 test('the Sources page draws its switch and its buttons as masi does', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 900 });
   await open(page, '/masi/sources', '.masi-sources-table');
-  const label = await boxOf(page, '.assistant-switch > label');
-  const note = await boxOf(page, '.assistant-switch > .muted');
+  const label = await boxOf(page, '.masi-switch-row > label');
+  const note = await boxOf(page, '.masi-switch-row > .muted');
   expect(note.left - label.right, 'a space between "LinkedIn)" and "off"').toBeGreaterThanOrEqual(
     8,
   );

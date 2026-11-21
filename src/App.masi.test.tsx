@@ -114,6 +114,14 @@ function renderApp(route: string) {
 }
 
 /** The PR9 invariant: the masi pages exist for JOBS holders only, and the nav shows them only to those. */
+/**
+ * A guarded page refused: the redirect landed on the dashboard (METRICS), which waits on its configs - this file's fetch
+ * never answers them. Waited for before a guarded page's absence is asserted: the pages are lazy, so a page let in would
+ * mount after the navigation is drawn, and an assertion at the navigation passed with the guard gone (its chunk not yet
+ * loaded); the loading fallback is a spinner with no words, never this.
+ */
+const landedOnTheDashboard = () => screen.findByText('Loading...');
+
 describe('masi routes and nav', () => {
   it('renders /masi/jobs and the Jobs link for a JOBS holder', async () => {
     vi.mocked(oidcClient.trySilentAuth).mockResolvedValueOnce({
@@ -212,7 +220,7 @@ describe('masi routes and nav', () => {
       permissions: ['METRICS'],
     });
     renderApp('/masi/bookings');
-    await screen.findByRole('navigation');
+    await landedOnTheDashboard();
     expect(screen.queryByText('No bookings match.')).not.toBeInTheDocument();
   });
 
@@ -223,7 +231,7 @@ describe('masi routes and nav', () => {
       permissions: ['METRICS'],
     });
     renderApp('/masi/listings');
-    await screen.findByRole('navigation');
+    await landedOnTheDashboard();
     expect(screen.queryByText('No listings match.')).not.toBeInTheDocument();
   });
 
@@ -255,8 +263,7 @@ describe('masi routes and nav', () => {
         permissions: ['METRICS'],
       });
       renderApp(route);
-      // the navigation drawn: a page let in mounts with it, and asks masi as it mounts
-      await screen.findAllByRole('navigation');
+      await landedOnTheDashboard();
       expect(api.fetchMasiSource).not.toHaveBeenCalled();
       expect(api.fetchMasiSourcePage).not.toHaveBeenCalled();
       expect(screen.queryByText('Wise (Greenhouse)')).not.toBeInTheDocument();
@@ -270,7 +277,7 @@ describe('masi routes and nav', () => {
       permissions: ['METRICS'],
     });
     renderApp('/masi/jobs');
-    await screen.findByRole('navigation');
+    await landedOnTheDashboard();
     expect(screen.queryByText('No jobs match.')).not.toBeInTheDocument();
     expect(screen.queryAllByRole('link', { name: 'Jobs' })).toHaveLength(0);
   });
