@@ -19,6 +19,8 @@ vi.mock('../../services/api', () => ({
     Promise.resolve({ enabled: false, gmailReady: false, linkedinReady: false }),
   ),
   patchMasiAssistant: vi.fn(),
+  fetchMasiLanes: vi.fn(() => new Promise(() => {})),
+  patchMasiLanes: vi.fn(),
   fetchMasiPictureStatus: vi.fn(() => new Promise(() => {})),
   collectMasiPictures: vi.fn(),
   fetchMasiSwitches: vi.fn(() => Promise.resolve({})),
@@ -192,6 +194,11 @@ describe('MasiSources', () => {
     });
     renderAt('/masi/sources', '/masi/sources', <MasiSources />);
     expect(await screen.findByText('0 of 1 enabled · 1 match')).toBeInTheDocument();
+    // beside the assistant's box only what the box cannot say: its Gmail and LinkedIn, never "on" or "off"
+    expect(
+      await screen.findByText('gmail no credentials · linkedin no cookie'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('off')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Enable' }));
     await waitFor(() => expect(api.patchMasiSource).toHaveBeenCalledWith(1, { enabled: true }));
     // an action reads the page and the counts again, with the same filter
@@ -672,16 +679,54 @@ describe('MasiSources', () => {
     expect(await screen.findByText('ats:wise: disabled')).toBeInTheDocument();
   });
 
+  it('carries the AI lanes switches: a lane switched off on the page is asked of masi', async () => {
+    const lane = { on: true, deployed: true, set: null, pausedUntil: null, pause: null };
+    vi.mocked(api.fetchMasiLanes).mockResolvedValueOnce({
+      analysis: lane,
+      matching: lane,
+      aiReady: true,
+    });
+    vi.mocked(api.patchMasiLanes).mockResolvedValueOnce({
+      analysis: { ...lane, on: false, set: false },
+      matching: lane,
+      aiReady: true,
+    });
+    vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([cvee]));
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+    expect(
+      await screen.findByRole('checkbox', { name: /Matching lane/, checked: true }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      await screen.findByRole('checkbox', { name: /Analysis lane/, checked: true }),
+    );
+    await waitFor(() => expect(api.patchMasiLanes).toHaveBeenCalledWith({ analysis: false }));
+    expect(
+      await screen.findByRole('checkbox', { name: /Analysis lane/, checked: false }),
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing beside the assistant box before its state is read - never off for a state it does not know', async () => {
+    vi.mocked(api.fetchMasiAssistant).mockReturnValueOnce(new Promise(() => {}));
+    vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([cvee]));
+    renderAt('/masi/sources', '/masi/sources', <MasiSources />);
+    await screen.findByText('cv.ee');
+    expect(screen.getByRole('checkbox', { name: /Assistant/ })).toBeDisabled();
+    expect(screen.queryByText('off')).toBeNull();
+    expect(screen.queryByText(/^gmail /)).toBeNull();
+  });
+
   it("keeps the assistant's failure beside its switch, through the list's loads and a filter change", async () => {
     vi.mocked(api.fetchMasiAssistant).mockRejectedValueOnce(new Error('assistant is unreachable'));
     vi.mocked(api.fetchMasiSourceList).mockResolvedValue(listed([cvee]));
     renderAt('/masi/sources', '/masi/sources', <MasiSources />);
     expect(await screen.findByText('assistant is unreachable')).toHaveClass('masi-note-error');
     await screen.findByText('cv.ee');
-    // no state read: the switch says nothing, rather than "off"
+    // no state read: the switch says nothing, rather than "off" - nor a readiness it never read
     const toggle = screen.getByRole('checkbox', { name: /Assistant/ });
     expect(toggle).toBeDisabled();
     expect(toggle).not.toBeChecked();
+    expect(screen.queryByText('off')).toBeNull();
+    expect(screen.queryByText(/^gmail /)).toBeNull();
     // the list is not the assistant: its load is not an alert, and a new filter does not clear the assistant's
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Show' }), 'OFF');

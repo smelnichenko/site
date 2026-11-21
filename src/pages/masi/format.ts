@@ -164,3 +164,33 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/** A pause's words, its time to come after them: a limit is reached until it renews, a refusal is asked again. */
+const PAUSE_WORDS: Record<string, string> = {
+  DAY_LIMIT: 'daily limit reached until',
+  MONTH_LIMIT: 'monthly limit reached until',
+  SHARE_LIMIT: 'its share of the daily limit reached until',
+  NO_CREDIT: 'no credit on the account, trying again at',
+  KEY_REFUSED: 'the API key was refused, trying again at',
+  NOT_PERMITTED: 'the API refused access, trying again at',
+};
+
+/**
+ * Beside an AI lane's box, why a switched-on lane does not run - no AI key, or a pause by why and until when. Nothing
+ * when it is off or runs: the box says that.
+ */
+export function laneStatus(
+  lane: { on: boolean; pausedUntil: string | null; pause: string | null } | undefined,
+  aiReady: boolean,
+): string {
+  if (!lane?.on) {
+    return '';
+  }
+  if (!aiReady) {
+    return 'not running: no AI key';
+  }
+  if (lane.pausedUntil) {
+    return `${PAUSE_WORDS[lane.pause ?? ''] ?? 'paused until'} ${formatDateTime(lane.pausedUntil)}`;
+  }
+  return '';
+}

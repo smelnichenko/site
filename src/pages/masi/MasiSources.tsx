@@ -31,6 +31,7 @@ import LoadingButton from '../../components/LoadingButton';
 import { badgeClass, errorMessage, formatDateTime, noteClass, pageParam } from './format';
 import MasiTable from '../../components/MasiTable';
 import PictureStatus from './PictureStatus';
+import LaneSwitches from './LaneSwitches';
 import { factNotes, showOf, SHOW_WORDS, SHOWS } from './sourceStates';
 
 /** A page of sources: the operator's choice (2026-11-18), as masi's own default. */
@@ -75,17 +76,14 @@ function withCap(configJson: string | null, cap: string): string {
   return JSON.stringify(config);
 }
 
-/** The assistant's state beside its switch: off, or on and whether its Gmail and LinkedIn are ready; nothing until read. */
+/** Beside the assistant's box, what the box cannot say: whether its Gmail and LinkedIn are ready; nothing until read. */
 function assistantNote(assistant: MasiAssistant | null): string {
   if (!assistant) {
     return '';
   }
-  if (!assistant.enabled) {
-    return 'off';
-  }
   const gmail = assistant.gmailReady ? 'ready' : 'no credentials';
   const linkedin = assistant.linkedinReady ? 'ready' : 'no cookie';
-  return `on · gmail ${gmail} · linkedin ${linkedin}`;
+  return `gmail ${gmail} · linkedin ${linkedin}`;
 }
 
 /** The runs of every given source, or null for a page that has been left: a poll is not worth an error either way. */
@@ -619,6 +617,7 @@ export default function MasiSources({ sourceId }: Readonly<{ sourceId?: number }
             )}
           </div>
         )}
+        {sources && !alone && <LaneSwitches />}
         {sources && !alone && (
           // the list first - it is the page's work; the collection's own panels after it. Focused (not tabbable) when
           // a page changes, so a keyboard and a screen reader start at the new rows

@@ -2669,6 +2669,48 @@ export function patchMasiAssistant(enabled: boolean): Promise<MasiAssistant> {
   return masiSend('/assistant', 'PATCH', { enabled }, 'switch the assistant');
 }
 
+/**
+ * An AI lane's switch: whether it is switched on, the deployment's value, the web UI's switch over it (null: none set),
+ * and its pause in force - until when and why (both null: not paused): a switched-on lane paused runs after.
+ */
+export interface MasiLane {
+  on: boolean;
+  deployed: boolean;
+  set: boolean | null;
+  pausedUntil: string | null;
+  pause: MasiPauseKind | null;
+}
+
+/** Why a lane is paused: a limit reached (the day's, the month's, its share of the day), or the account refused. */
+export type MasiPauseKind =
+  | 'DAY_LIMIT'
+  | 'MONTH_LIMIT'
+  | 'SHARE_LIMIT'
+  | 'NO_CREDIT'
+  | 'KEY_REFUSED'
+  | 'NOT_PERMITTED'
+  | 'OTHER';
+
+export type MasiLaneName = 'analysis' | 'matching';
+
+/** The lanes, and whether masi can call the AI at all (no key, or AI off: no lane runs). */
+export interface MasiLanes {
+  analysis: MasiLane;
+  matching: MasiLane;
+  aiReady: boolean;
+}
+
+export function fetchMasiLanes(signal?: AbortSignal): Promise<MasiLanes> {
+  return masiSend('/lanes', 'GET', undefined, 'load the AI lanes', signal);
+}
+
+/** A lane on (true) or off (false), or back to the deployment's value (null). */
+export function patchMasiLanes(
+  lanes: Partial<Record<MasiLaneName, boolean | null>>,
+): Promise<MasiLanes> {
+  return masiSend('/lanes', 'PATCH', lanes, 'switch the AI lanes');
+}
+
 export function patchMasiSource(
   id: number,
   patch: { cron?: string; enabled?: boolean; configJson?: string },

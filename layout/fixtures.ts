@@ -1690,6 +1690,30 @@ export function answer(url: URL): Answer | undefined {
       /^\/assistant$/,
       () => ({ status: 200, body: { enabled: false, gmailReady: false, linkedinReady: false } }),
     ],
+    // the AI lanes beside it: both switched on and paused, the longest wordings beside their boxes
+    [
+      /^\/lanes$/,
+      () => ({
+        status: 200,
+        body: {
+          analysis: {
+            on: true,
+            deployed: true,
+            set: null,
+            pausedUntil: '2026-11-22T00:00:00Z',
+            pause: 'SHARE_LIMIT',
+          },
+          matching: {
+            on: true,
+            deployed: true,
+            set: null,
+            pausedUntil: '2026-11-21T16:05:00Z',
+            pause: 'NO_CREDIT',
+          },
+          aiReady: true,
+        },
+      }),
+    ],
     [
       /^\/contacts\/pictures\/status$/,
       () => ({

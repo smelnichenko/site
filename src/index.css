@@ -2617,6 +2617,10 @@ a.muted,
   align-items: center;
   margin-bottom: 12px;
 }
+/* the AI lanes' hint under their switches: a line of text, spaced as a switch row (not one: no flex of its own) */
+.lane-hint {
+  margin-bottom: 12px;
+}
 /* a page change focuses the list's top so a keyboard starts at the new rows: a box, not a control - no ring round
    the whole list */
 .masi-source-list:focus {
