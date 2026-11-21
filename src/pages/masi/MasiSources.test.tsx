@@ -19,6 +19,8 @@ vi.mock('../../services/api', () => ({
     Promise.resolve({ enabled: false, gmailReady: false, linkedinReady: false }),
   ),
   patchMasiAssistant: vi.fn(),
+  fetchMasiLanes: vi.fn(() => new Promise(() => {})),
+  patchMasiLanes: vi.fn(),
   fetchMasiPictureStatus: vi.fn(() => new Promise(() => {})),
   collectMasiPictures: vi.fn(),
   fetchMasiSwitches: vi.fn(() => Promise.resolve({})),
@@ -192,6 +194,11 @@ describe('MasiSources', () => {
     });
     renderAt('/masi/sources', '/masi/sources', <MasiSources />);
     expect(await screen.findByText('0 of 1 enabled · 1 match')).toBeInTheDocument();
+    // beside the assistant's box only what the box cannot say: its Gmail and LinkedIn, never "on" or "off"
+    expect(
+      await screen.findByText('gmail no credentials · linkedin no cookie'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('off')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Enable' }));
     await waitFor(() => expect(api.patchMasiSource).toHaveBeenCalledWith(1, { enabled: true }));
     // an action reads the page and the counts again, with the same filter
