@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -413,7 +413,10 @@ describe('PictureHistory', () => {
     show([]);
     expect(await screen.findByText('No picture kept.')).toBeInTheDocument();
     expect(api.fetchMasiContactPictures).not.toHaveBeenCalled();
-    expect(api.fetchMasiPictureTries).toHaveBeenCalledWith(5, expect.anything());
+    // the tries are read by an effect of their own: waited for, not taken as flushed with the one that drew the words
+    await waitFor(() =>
+      expect(api.fetchMasiPictureTries).toHaveBeenCalledWith(5, expect.anything()),
+    );
   });
 
   it('reads each try: used of the maximum, left, last asked, result, next ask', async () => {
