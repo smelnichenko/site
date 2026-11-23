@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest';
 import { configure } from '@testing-library/react';
 
 // findBy and waitFor give up after Testing Library's 1 s: on the loaded CI node that the tests' own timeout was raised
