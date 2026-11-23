@@ -42,7 +42,11 @@ export default defineConfig({
         // vite 8 bundles with rolldown, which takes manualChunks as a function only (the object form: "manualChunks is
         // not a function"); the same two chunks, each package's own dependencies with it as the object form grouped them
         manualChunks(id: string) {
-          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+          if (
+            /[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(
+              id,
+            )
+          ) {
             return 'vendor-react';
           }
           if (/[\\/]node_modules[\\/](recharts|d3-[a-z-]+|victory-vendor)[\\/]/.test(id)) {
