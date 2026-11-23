@@ -85,14 +85,16 @@ steps:
 
   # The masi pages' layout in headless Chromium with the real stylesheet (layout/): what vitest cannot see, as jsdom
   # does no layout and no unit test loads index.css. The image's browsers are the ones @playwright/test expects:
-  # the first command fails when the two drift apart, so a bump of one is a bump of both.
+  # the first command fails when the two drift apart, so a bump of one is a bump of both. The image's version read from
+  # this file's own image line (Renovate's playwright group moves the line; a version written into the check stayed
+  # behind it - 1.58.2 against v1.65.1, site#85)
   - name: layout
-    image: mcr.microsoft.com/playwright:v1.58.2-noble
+    image: mcr.microsoft.com/playwright:v1.65.1-noble
     depends_on: [install]
     environment:
       CI: 'true'
     commands:
-      - 'v=$(node -p "require(\"@playwright/test/package.json\").version"); [ "$v" = "1.58.2" ] || { echo "@playwright/test is $v, the image is 1.58.2: bump them together"; exit 1; }'
+      - 'i=$(sed -n "s|^ *image: mcr.microsoft.com/playwright:v\([0-9.]*\)-.*|\1|p" .woodpecker/ci.yaml); v=$(node -p "require(\"@playwright/test/package.json\").version"); [ -n "$i" ] && [ "$v" = "$i" ] || { echo "@playwright/test is $v, the image is ${i:-unread}: bump them together"; exit 1; }'
       - npm run test:layout
     backend_options:
       kubernetes:
