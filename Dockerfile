@@ -22,7 +22,7 @@ ENV VITE_BUILD_TIME=${BUILD_TIME}
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM nginx:alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
 
 # Install envsubst (part of gettext)
 RUN apk add --no-cache gettext
