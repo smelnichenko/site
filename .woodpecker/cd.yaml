@@ -17,7 +17,7 @@ clone:
 
 steps:
   - name: test
-    image: node:22-bookworm-slim
+    image: node:26-bookworm-slim
     volumes:
       - ci-cache:/cache # persistent dependency cache: PVC in infra clusters/production/woodpecker/manifests
     environment:
@@ -42,7 +42,7 @@ steps:
               env: NPM_CONFIG_REGISTRY
 
   - name: sonar
-    image: node:22-bookworm-slim
+    image: node:26-bookworm-slim
     depends_on: [test]
     commands:
       - '[ -n "$SONAR_TOKEN" ] && [ -n "$SONAR_HOST_URL" ] || { echo "SONAR_TOKEN or SONAR_HOST_URL is missing: the main analysis cannot run"; exit 1; }'
@@ -66,7 +66,7 @@ steps:
 
   # ============== BUILD + PUSH IMAGE (Kaniko) ==============
   - name: build-dist
-    image: node:22-bookworm-slim
+    image: node:26-bookworm-slim
     volumes:
       - ci-cache:/cache # persistent dependency cache: PVC in infra clusters/production/woodpecker/manifests
     environment:
